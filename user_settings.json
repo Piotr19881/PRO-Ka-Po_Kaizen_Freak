@@ -1,0 +1,13 @@
+{
+    "language": "en",
+    "auto_start": false,
+    "run_in_background": true,
+    "enable_notifications": true,
+    "enable_sound": true,
+    "shortcut_quick_add": "Ctrl+N",
+    "shortcut_show_main": "Ctrl+Shift+K",
+    "color_scheme_1": "dark",
+    "color_scheme_2": "light",
+    "current_layout": 1,
+    "remember_me": true
+}

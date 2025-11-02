@@ -1,0 +1,31 @@
+{
+  "name": "test1",
+  "colors": {
+    "bg_main": "#FFFFFF",
+    "bg_secondary": "#F5F5F5",
+    "text_primary": "#2C3E50",
+    "text_secondary": "#7F8C8D",
+    "accent_primary": "#FF9800",
+    "accent_hover": "#F57C00",
+    "accent_pressed": "#E65100",
+    "border_light": "#DDD",
+    "border_dark": "#888",
+    "nav_bg": "#F5F5F5",
+    "nav_text": "#2C3E50",
+    "nav_hover_bg": "#E8E8E8",
+    "nav_checked_bg": "#FF9800",
+    "nav_checked_text": "#FFFFFF",
+    "btn_add_bg": "#4CAF50",
+    "btn_add_hover": "#45A049",
+    "btn_edit_bg": "#2196F3",
+    "btn_edit_hover": "#1976D2",
+    "btn_delete_bg": "#F44336",
+    "btn_delete_hover": "#D32F2F",
+    "table_header_bg": "#F5F5F5",
+    "table_header_text": "#2C3E50",
+    "table_row_bg": "#FFFFFF",
+    "table_row_alt": "#F9F9F9",
+    "table_selection": "#E3F2FD"
+  },
+  "created_at": "2025-11-01T22:06:59.493700"
+}
