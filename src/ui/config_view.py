@@ -17,6 +17,7 @@ from ..utils.i18n_manager import t, get_i18n
 from ..core.config import config, save_settings, load_settings
 from .style_creator_dialog import StyleCreatorDialog
 from ..utils.theme_manager import get_theme_manager
+from .ai_settings import AISettingsTab
 
 
 class GeneralSettingsTab(QWidget):
@@ -742,6 +743,8 @@ class SettingsView(QWidget):
         
         # Karty
         self.tab_general = GeneralSettingsTab()
+        self.tab_ai = AISettingsTab()
+        
         self.tabs.addTab(self.tab_general, "Ogólne")
         
         # Placeholder dla pozostałych kart
@@ -749,7 +752,7 @@ class SettingsView(QWidget):
         self.tabs.addTab(self._create_placeholder_tab("Kanban"), "Kanban")
         self.tabs.addTab(self._create_placeholder_tab("Własne"), "Własne")
         self.tabs.addTab(self._create_placeholder_tab("Transkryptor"), "Transkryptor")
-        self.tabs.addTab(self._create_placeholder_tab("AI"), "AI")
+        self.tabs.addTab(self.tab_ai, "AI")
         self.tabs.addTab(self._create_placeholder_tab("O aplikacji"), "O aplikacji")
         
         layout.addWidget(self.tabs)
@@ -782,7 +785,8 @@ class SettingsView(QWidget):
         self.tabs.setTabText(5, t('settings.ai'))
         self.tabs.setTabText(6, t('settings.about'))
         
-        # Odśwież kartę ogólną
+        # Odśwież karty
         self.tab_general.update_translations()
+        self.tab_ai.update_translations()
         
         logger.info("Settings view translations updated")

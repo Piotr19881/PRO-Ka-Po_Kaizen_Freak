@@ -1,5 +1,5 @@
 {
-    "language": "pl",
+    "language": "en",
     "auto_start": false,
     "run_in_background": true,
     "enable_notifications": true,
@@ -8,12 +8,12 @@
     "shortcut_show_main": "Ctrl+Shift+K",
     "color_scheme_1": "dark",
     "color_scheme_2": "dark",
-    "current_layout": 1,
+    "current_layout": 2,
     "remember_me": true,
     "theme": "light",
     "custom_sounds": {
         "naval-alarm": "C:/Users/probu/Downloads/naval-alarm.wav"
     },
-    "sound_notification": "⭐ naval-alarm",
+    "sound_notification": "Beep (domyślny)",
     "sound_alarm": "Exclamation"
 }

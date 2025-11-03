@@ -1,0 +1,4 @@
+# AI Module Dependencies - Lightweight HTTP-based implementation
+# Only requires requests library for REST API communication
+
+requests>=2.31.0

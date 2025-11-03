@@ -36,3 +36,36 @@ LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
 
 # Log file path
 LOG_FILE_PATH = LOCAL_DB_DIR / 'app.log'
+
+# ==================== AI SETTINGS ====================
+
+# AI Provider API Keys (stored securely, preferably in environment variables)
+AI_API_KEYS = {
+    'gemini': os.getenv('GEMINI_API_KEY', ''),
+    'openai': os.getenv('OPENAI_API_KEY', ''),
+    'grok': os.getenv('GROK_API_KEY', ''),
+    'claude': os.getenv('CLAUDE_API_KEY', ''),
+    'deepseek': os.getenv('DEEPSEEK_API_KEY', '')
+}
+
+# Default AI Provider ('gemini', 'openai', 'grok', 'claude', 'deepseek')
+AI_DEFAULT_PROVIDER = os.getenv('AI_DEFAULT_PROVIDER', 'gemini')
+
+# Default AI Model (provider-specific)
+AI_DEFAULT_MODEL = os.getenv('AI_DEFAULT_MODEL', '')  # Empty = provider default
+
+# AI Response Cache Directory
+AI_CACHE_DIR = LOCAL_DB_DIR / 'ai_cache'
+AI_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+# AI Settings File (stores user preferences)
+AI_SETTINGS_FILE = LOCAL_DB_DIR / 'ai_settings.json'
+
+# AI Temperature (0.0 - 1.0, controls randomness)
+AI_TEMPERATURE = float(os.getenv('AI_TEMPERATURE', '0.7'))
+
+# AI Max Tokens (max response length, None = provider default)
+AI_MAX_TOKENS = int(os.getenv('AI_MAX_TOKENS', '2048')) if os.getenv('AI_MAX_TOKENS') else None
+
+# AI Request Timeout (seconds)
+AI_TIMEOUT = int(os.getenv('AI_TIMEOUT', '30'))
