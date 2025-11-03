@@ -463,6 +463,11 @@ class AuthWindow(QDialog):
         if self.remember_me.isChecked():
             self._save_remember_me()
         
+        # Dodaj tokeny do user_data przed emitowaniem sygnału
+        if self.user_data and self.access_token and self.refresh_token:
+            self.user_data['access_token'] = self.access_token
+            self.user_data['refresh_token'] = self.refresh_token
+        
         self.login_successful.emit(self.user_data)
         self.accept()
     

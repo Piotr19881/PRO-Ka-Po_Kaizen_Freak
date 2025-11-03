@@ -12,6 +12,8 @@ import uvicorn
 from .config import settings
 from .database import get_db, test_connection, init_db
 from .auth_router import router as auth_router
+from .alarms_router import router as alarms_router
+from .pomodoro_router import router as pomodoro_router
 
 # Inicjalizacja FastAPI
 app = FastAPI(
@@ -31,8 +33,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Dodaj router autoryzacji
+# Dodaj routery
 app.include_router(auth_router)
+app.include_router(alarms_router)
+app.include_router(pomodoro_router)
 
 
 # =============================================================================
@@ -94,6 +98,18 @@ async def startup_event():
     # Test połączenia z bazą
     if test_connection():
         print("✓ Database connection successful")
+        
+        # Utworzenie schematu s05_pomodoro jeśli nie istnieje
+        try:
+            from sqlalchemy import text
+            from .database import engine
+            with engine.connect() as conn:
+                conn.execute(text("CREATE SCHEMA IF NOT EXISTS s05_pomodoro"))
+                conn.commit()
+            print("✓ Schema s05_pomodoro ready")
+        except Exception as e:
+            print(f"⚠ Schema creation warning: {e}")
+        
         # Inicjalizacja tabel (jeśli nie istnieją)
         init_db()
         print("✓ Database tables initialized")

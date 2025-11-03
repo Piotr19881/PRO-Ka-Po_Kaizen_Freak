@@ -229,6 +229,45 @@ class ThemeManager:
             background-color: #f5f5f5;
             border-top: 1px solid #e0e0e0;
         }
+        
+        /* Alarm and Timer Items */
+        QWidget#alarmItem[active="true"] {
+            background-color: #E8F5E9;
+            border-radius: 4px;
+            border: 1px solid #81C784;
+        }
+        
+        QWidget#alarmItem[active="false"] {
+            background-color: #FAFAFA;
+            border-radius: 4px;
+            border: 1px solid #BDBDBD;
+        }
+        
+        QWidget#timerItem[active="true"] {
+            background-color: #FFF9C4;
+            border-radius: 4px;
+            border: 1px solid #FDD835;
+        }
+        
+        QWidget#timerItem[active="false"] {
+            background-color: #FAFAFA;
+            border-radius: 4px;
+            border: 1px solid #BDBDBD;
+        }
+        
+        QPushButton#deleteButton {
+            background-color: #EF5350;
+            color: white;
+            font-weight: bold;
+        }
+        
+        QPushButton#deleteButton:hover {
+            background-color: #E53935;
+        }
+        
+        QPushButton#deleteButton:pressed {
+            background-color: #C62828;
+        }
         """
     
     def _get_dark_theme(self) -> str:
@@ -315,6 +354,45 @@ class ThemeManager:
         QStatusBar {
             background-color: #1e1e1e;
             border-top: 1px solid #444444;
+        }
+        
+        /* Alarm and Timer Items */
+        QWidget#alarmItem[active="true"] {
+            background-color: #2E7D32;
+            border-radius: 4px;
+            border: 1px solid #4CAF50;
+        }
+        
+        QWidget#alarmItem[active="false"] {
+            background-color: #3c3c3c;
+            border-radius: 4px;
+            border: 1px solid #5c5c5c;
+        }
+        
+        QWidget#timerItem[active="true"] {
+            background-color: #F57F17;
+            border-radius: 4px;
+            border: 1px solid #FBC02D;
+        }
+        
+        QWidget#timerItem[active="false"] {
+            background-color: #3c3c3c;
+            border-radius: 4px;
+            border: 1px solid #5c5c5c;
+        }
+        
+        QPushButton#deleteButton {
+            background-color: #D32F2F;
+            color: white;
+            font-weight: bold;
+        }
+        
+        QPushButton#deleteButton:hover {
+            background-color: #C62828;
+        }
+        
+        QPushButton#deleteButton:pressed {
+            background-color: #B71C1C;
         }
         """
     

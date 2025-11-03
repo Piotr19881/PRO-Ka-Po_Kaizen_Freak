@@ -43,6 +43,42 @@ def setup_logging() -> None:
     logger.info(f"Starting {config.APP_NAME} v{config.APP_VERSION}")
 
 
+def save_tokens(access_token: str, refresh_token: str, user_data: dict | None = None) -> None:
+    """
+    Zapisz tokeny do pliku tokens.json.
+    
+    Args:
+        access_token: Nowy access token
+        refresh_token: Nowy refresh token
+        user_data: Opcjonalne dane użytkownika (jeśli None, zachowa istniejące)
+    """
+    import json
+    
+    tokens_file = config.DATA_DIR / "tokens.json"
+    
+    # Jeśli user_data nie podano, spróbuj zachować istniejące
+    if user_data is None and tokens_file.exists():
+        try:
+            with open(tokens_file, 'r') as f:
+                existing_data = json.load(f)
+                user_data = existing_data.get('user_data', {})
+        except:
+            user_data = {}
+    
+    # Zapisz nowe tokeny
+    token_data = {
+        'access_token': access_token,
+        'refresh_token': refresh_token,
+        'user_data': user_data or {}
+    }
+    
+    tokens_file.parent.mkdir(parents=True, exist_ok=True)
+    with open(tokens_file, 'w') as f:
+        json.dump(token_data, f, indent=2)
+    
+    logger.info("Tokens saved to file")
+
+
 def main() -> int:
     """Main application entry point"""
     try:
@@ -97,6 +133,9 @@ def main() -> int:
                     if token_data.get('access_token'):
                         user_logged_in = True
                         user_data = token_data.get('user_data', {})
+                        # Dodaj access_token i refresh_token do user_data aby umożliwić synchronizację
+                        user_data['access_token'] = token_data.get('access_token')
+                        user_data['refresh_token'] = token_data.get('refresh_token')
                         logger.info(f"User already logged in: {user_data.get('email', 'Unknown')}")
             except Exception as e:
                 logger.warning(f"Failed to load tokens: {e}")
@@ -107,7 +146,7 @@ def main() -> int:
             auth_window = AuthWindow()
             
             # Create main window but don't show it yet
-            main_window = MainWindow()
+            main_window = MainWindow(on_token_refreshed=save_tokens)
             
             def on_login_success(user_data):
                 logger.info(f"User logged in: {user_data.get('email', 'Unknown')}")
@@ -120,7 +159,7 @@ def main() -> int:
         else:
             # User already logged in, show main window directly
             logger.info("User already authenticated, showing main window")
-            main_window = MainWindow()
+            main_window = MainWindow(on_token_refreshed=save_tokens)
             if user_data:
                 main_window.set_user_data(user_data)
             main_window.show()

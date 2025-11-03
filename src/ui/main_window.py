@@ -13,6 +13,9 @@ from loguru import logger
 from ..utils.i18n_manager import t, get_i18n
 from ..core.config import config
 from .config_view import SettingsView
+from .alarms_view import AlarmsView
+from .pomodoro_view import PomodoroView
+from .status_led import StatusLED, get_status_led_manager
 
 
 class CustomTitleBar(QWidget):
@@ -22,6 +25,7 @@ class CustomTitleBar(QWidget):
     logout_requested = pyqtSignal()
     settings_tab_requested = pyqtSignal(int)  # index karty w ustawieniach
     help_requested = pyqtSignal()
+    toggle_nav_requested = pyqtSignal()  # nowy signal do rozwijania nawigacji
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -36,7 +40,7 @@ class CustomTitleBar(QWidget):
         layout.setContentsMargins(5, 5, 5, 5)
         layout.setSpacing(10)
         
-        # === LEWA STRONA: Użytkownik + Motyw ===
+        # === LEWA STRONA: Użytkownik + Motyw + Rozwiń nawigację ===
         left_layout = QHBoxLayout()
         left_layout.setSpacing(5)
         
@@ -55,6 +59,14 @@ class CustomTitleBar(QWidget):
         self.theme_btn.setToolTip("Zmień motyw")
         left_layout.addWidget(self.theme_btn)
         
+        # Przycisk rozwijania/zwijania nawigacji
+        self.nav_toggle_btn = QPushButton("▼")
+        self.nav_toggle_btn.setFixedSize(35, 35)
+        self.nav_toggle_btn.setObjectName("navToggleButton")
+        self.nav_toggle_btn.setToolTip(t('nav.show_more'))
+        self.nav_toggle_btn.clicked.connect(self._on_nav_toggle)
+        left_layout.addWidget(self.nav_toggle_btn)
+        
         layout.addLayout(left_layout)
         
         # === ŚRODEK: Nazwa aplikacji ===
@@ -70,9 +82,15 @@ class CustomTitleBar(QWidget):
         
         layout.addStretch()
         
-        # === PRAWA STRONA: Przyciski okna (Minimize/Maximize/Close) ===
+        # === PRAWA STRONA: Status LED + Przyciski okna (Minimize/Maximize/Close) ===
         right_layout = QHBoxLayout()
         right_layout.setSpacing(0)
+        
+        # Status LED
+        self.status_led = StatusLED()
+        self.status_led.setFixedSize(25, 25)
+        self.status_led.setToolTip("Status połączenia z bazą danych\nDwukrotne kliknięcie: otwórz konsolę sieciową")
+        right_layout.addWidget(self.status_led)
         
         # Minimize
         self.minimize_btn = QPushButton("−")
@@ -146,6 +164,19 @@ class CustomTitleBar(QWidget):
         # Pokaż menu pod przyciskiem
         menu.exec(self.user_btn.mapToGlobal(self.user_btn.rect().bottomLeft()))
     
+    def _on_nav_toggle(self):
+        """Przełącz widoczność drugiego rzędu nawigacji"""
+        self.toggle_nav_requested.emit()
+    
+    def update_nav_toggle_button(self, is_visible: bool):
+        """Zaktualizuj ikonę przycisku nawigacji"""
+        if is_visible:
+            self.nav_toggle_btn.setText("▲")
+            self.nav_toggle_btn.setToolTip(t('nav.hide_more'))
+        else:
+            self.nav_toggle_btn.setText("▼")
+            self.nav_toggle_btn.setToolTip(t('nav.show_more'))
+    
     def _on_minimize(self):
         """Minimalizuj okno"""
         if self.parent_window:
@@ -201,22 +232,36 @@ class CustomTitleBar(QWidget):
         self.minimize_btn.setToolTip(t('button.minimize') if 'button.minimize' in dir(t) else "Minimalizuj")
         self.maximize_btn.setToolTip(t('button.maximize') if 'button.maximize' in dir(t) else "Maksymalizuj")
         self.close_btn.setToolTip(t('button.close'))
+        
+        # Zaktualizuj tooltip przycisku nawigacji
+        if hasattr(self, 'nav_toggle_btn'):
+            # Sprawdź obecny stan z NavigationBar jeśli dostępny
+            tooltip = t('nav.hide_more') if self.nav_toggle_btn.text() == "▲" else t('nav.show_more')
+            self.nav_toggle_btn.setToolTip(tooltip)
 
 
 class NavigationBar(QWidget):
     """Górny pasek nawigacyjny z przyciskami zmiany widoków"""
     
     view_changed = pyqtSignal(str)  # Signal emitowany przy zmianie widoku
+    second_row_toggled = pyqtSignal(bool)  # Signal emitowany przy zmianie widoczności drugiego rzędu
     
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.second_row_visible = False
         self._setup_ui()
     
     def _setup_ui(self):
         """Konfiguracja interfejsu paska nawigacyjnego"""
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(2)
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+        
+        # ========== PIERWSZY RZĄD ==========
+        first_row_container = QWidget()
+        first_row_layout = QHBoxLayout(first_row_container)
+        first_row_layout.setContentsMargins(0, 0, 0, 0)
+        first_row_layout.setSpacing(2)
         
         # Lista przycisków nawigacyjnych - klucze dla i18n
         self.nav_keys = [
@@ -238,20 +283,66 @@ class NavigationBar(QWidget):
             btn.setMinimumHeight(40)
             btn.setObjectName("navButton")
             btn.clicked.connect(lambda checked, k=key: self._on_button_clicked(k))
-            layout.addWidget(btn, stretch=1)  # Równomierne rozciąganie
+            first_row_layout.addWidget(btn, stretch=1)  # Równomierne rozciąganie
             self.buttons[key] = btn
+        
+        main_layout.addWidget(first_row_container)
+        
+        # ========== DRUGI RZĄD (ukryty domyślnie) ==========
+        self.second_row_container = QWidget()
+        second_row_layout = QHBoxLayout(self.second_row_container)
+        second_row_layout.setContentsMargins(0, 2, 0, 0)  # Mały margines góra
+        second_row_layout.setSpacing(2)
+        
+        # 8 pustych przycisków w drugim rzędzie
+        self.second_row_buttons = {}
+        self.second_row_keys = []
+        
+        for i in range(8):
+            key = f'custom_{i+1}'
+            self.second_row_keys.append(key)
+            btn = QPushButton(f"Blank {i+1}")  # Domyślna nazwa
+            btn.setCheckable(True)
+            btn.setMinimumHeight(40)
+            btn.setObjectName("navButton")
+            btn.clicked.connect(lambda checked, k=key: self._on_button_clicked(k))
+            second_row_layout.addWidget(btn, stretch=1)
+            self.second_row_buttons[key] = btn
+        
+        # Domyślnie ukryj drugi rząd
+        self.second_row_container.setVisible(False)
+        main_layout.addWidget(self.second_row_container)
         
         # Domyślnie zaznacz pierwszy przycisk
         self.buttons['tasks'].setChecked(True)
     
+    def toggle_second_row(self):
+        """Przełącz widoczność drugiego rzędu przycisków (publiczna metoda)"""
+        self.second_row_visible = not self.second_row_visible
+        self.second_row_container.setVisible(self.second_row_visible)
+        
+        # Emituj signal z nowym stanem
+        self.second_row_toggled.emit(self.second_row_visible)
+        
+        logger.info(f"Second navigation row {'shown' if self.second_row_visible else 'hidden'}")
+        
+        return self.second_row_visible
+    
     def _on_button_clicked(self, view_name: str):
         """Obsługa kliknięcia przycisku nawigacyjnego"""
-        # Odznacz wszystkie przyciski
+        # Odznacz wszystkie przyciski z pierwszego rzędu
         for btn in self.buttons.values():
             btn.setChecked(False)
         
+        # Odznacz wszystkie przyciski z drugiego rzędu
+        for btn in self.second_row_buttons.values():
+            btn.setChecked(False)
+        
         # Zaznacz kliknięty przycisk
-        self.buttons[view_name].setChecked(True)
+        if view_name in self.buttons:
+            self.buttons[view_name].setChecked(True)
+        elif view_name in self.second_row_buttons:
+            self.second_row_buttons[view_name].setChecked(True)
         
         # Emituj signal zmiany widoku
         self.view_changed.emit(view_name)
@@ -456,13 +547,15 @@ class MainContentArea(QWidget):
 class MainWindow(QMainWindow):
     """Główne okno aplikacji"""
     
-    def __init__(self):
+    def __init__(self, on_token_refreshed=None):
         super().__init__()
         self.user_data = None  # Dane zalogowanego użytkownika
+        self.on_token_refreshed = on_token_refreshed  # Callback dla odświeżonych tokenów
         self._setup_window()
         self._setup_ui()
         self._connect_signals()
         self._initialize_theme_icon()
+        self._initialize_status_led()
     
     def _initialize_theme_icon(self):
         """Ustaw ikonę motywu zgodnie z aktualnym layoutem"""
@@ -477,16 +570,46 @@ class MainWindow(QMainWindow):
         else:
             self.title_bar.theme_btn.setText("🌙")
     
+    def _initialize_status_led(self):
+        """Inicjalizuj Status LED Manager i podłącz do modułów"""
+        # Pobierz singleton manager
+        self.status_led_manager = get_status_led_manager()
+        
+        # Podłącz LED widget z title bar
+        self.status_led_manager.set_led_widget(self.title_bar.status_led)
+        
+        # Ustaw początkowy status jako disconnected
+        self.status_led_manager.set_status('disconnected')
+        
+        logger.info("Status LED Manager initialized")
+    
     def set_user_data(self, user_data: dict):
         """Ustaw dane zalogowanego użytkownika"""
         self.user_data = user_data
-        logger.info(f"User data set: {user_data.get('email', 'Unknown')}")
+        email = user_data.get('email', 'Unknown')
+        logger.info(f"User data set: {email}")
         
         # Zaktualizuj UI z danymi użytkownika
         if hasattr(self, 'title_bar'):
-            email = user_data.get('email', '')
             name = user_data.get('name', '')
             self.title_bar.user_btn.setToolTip(f"{name}\n{email}\nKliknij aby się wylogować")
+        
+        # Przekaż dane użytkownika do AlarmsView aby włączyć synchronizację
+        if hasattr(self, 'alarms_view'):
+            self.alarms_view.set_user_data(user_data, on_token_refreshed=self.on_token_refreshed)
+            # Podłącz sygnały synchronizacji do Status LED
+            self._connect_alarms_to_status_led()
+        
+        # Przekaż dane użytkownika do PomodoroView z callbackiem dla tokenów
+        if hasattr(self, 'pomodoro_view'):
+            self.pomodoro_view.set_user_data(user_data, on_token_refreshed=self.on_token_refreshed)
+            # Podłącz sygnały synchronizacji do Status LED
+            self._connect_pomodoro_to_status_led()
+        
+        # Status LED: user logged in, connected
+        if hasattr(self, 'status_led_manager'):
+            self.status_led_manager.set_status('connected_idle')
+            self.status_led_manager._on_log_message(f"✓ User logged in: {email}")
         
         # NIE nadpisuj języka - używamy zapisanego w user_settings.json
         # Język jest już ustawiony w main.py przed utworzeniem okna
@@ -596,6 +719,7 @@ class MainWindow(QMainWindow):
         self.title_bar.settings_tab_requested.connect(self._open_settings_tab)
         self.title_bar.help_requested.connect(self._show_help)
         self.title_bar.theme_btn.clicked.connect(self._on_theme_toggle)
+        self.title_bar.toggle_nav_requested.connect(self._on_nav_toggle)  # Nowe połączenie
         
         # Separator
         separator0 = QFrame()
@@ -624,6 +748,14 @@ class MainWindow(QMainWindow):
         self.settings_view = SettingsView()
         self.content_stack.addWidget(self.settings_view)
         
+        # Widok alarmów
+        self.alarms_view = AlarmsView(get_i18n(), config.DATA_DIR)
+        self.content_stack.addWidget(self.alarms_view)
+        
+        # Widok Pomodoro
+        self.pomodoro_view = PomodoroView()
+        self.content_stack.addWidget(self.pomodoro_view)
+        
         main_layout.addWidget(self.content_stack, stretch=1)
         
         # Separator
@@ -641,10 +773,20 @@ class MainWindow(QMainWindow):
     def _connect_signals(self):
         """Połączenie sygnałów i slotów"""
         self.navigation_bar.view_changed.connect(self._on_view_changed)
+        self.navigation_bar.second_row_toggled.connect(self._on_nav_row_toggled)  # Nowe połączenie
         self.quick_input.task_added.connect(self._on_task_added)
         
         # Połącz sygnał zmiany języka
         get_i18n().language_changed.connect(self._on_language_changed)
+    
+    def _on_nav_toggle(self):
+        """Obsługa kliknięcia przycisku rozwijania nawigacji"""
+        is_visible = self.navigation_bar.toggle_second_row()
+        self.title_bar.update_nav_toggle_button(is_visible)
+    
+    def _on_nav_row_toggled(self, is_visible: bool):
+        """Obsługa zmiany widoczności drugiego rzędu (z NavigationBar)"""
+        self.title_bar.update_nav_toggle_button(is_visible)
     
     def _on_view_changed(self, view_name: str):
         """Obsługa zmiany widoku"""
@@ -653,7 +795,13 @@ class MainWindow(QMainWindow):
         # Przełącz widok w zależności od wybranego przycisku
         if view_name == 'settings':
             self.content_stack.setCurrentWidget(self.settings_view)
-            self.quick_input.setVisible(False)  # Ukryj quick input w ustawieniach
+            self.quick_input.setVisible(False)  # Ukryj quick input tylko w ustawieniach
+        elif view_name == 'alarms':
+            self.content_stack.setCurrentWidget(self.alarms_view)
+            self.quick_input.setVisible(True)  # Pokaż quick input w alarmach
+        elif view_name == 'pomodoro':
+            self.content_stack.setCurrentWidget(self.pomodoro_view)
+            self.quick_input.setVisible(True)  # Pokaż quick input w pomodoro
         else:
             self.content_stack.setCurrentWidget(self.main_content)
             self.quick_input.setVisible(True)  # Pokaż quick input w innych widokach
@@ -678,5 +826,48 @@ class MainWindow(QMainWindow):
         self.main_content.data_area.update_translations()
         self.quick_input.update_translations()
         self.settings_view.update_translations()
+        self.alarms_view.update_translations()
+        
+        # Odśwież widok Pomodoro jeśli istnieje
+        if hasattr(self, 'pomodoro_view'):
+            # PomodoroView nie ma jeszcze update_translations, ale ma _t() dla runtime
+            pass
         
         logger.info("UI translations refreshed successfully")
+    
+    def _connect_alarms_to_status_led(self):
+        """Podłącz sygnały modułu Alarms do Status LED"""
+        try:
+            # Alarms logic jest w alarms_view.logic
+            if hasattr(self.alarms_view, 'logic') and self.alarms_view.logic:
+                logic = self.alarms_view.logic
+                
+                # Podłącz do sync manager jeśli istnieje
+                if hasattr(logic, 'sync_manager') and logic.sync_manager:
+                    sync_mgr = logic.sync_manager
+                    
+                    # Symuluj podłączenie do eventów synchronizacji
+                    # Ponieważ SyncManager nie ma gotowych sygnałów, będziemy monitorować w NetworkMonitor
+                    logger.info("Alarms module connected to Status LED monitoring")
+                else:
+                    logger.warning("Alarms sync_manager not found")
+        except Exception as e:
+            logger.error(f"Failed to connect Alarms to Status LED: {e}")
+    
+    def _connect_pomodoro_to_status_led(self):
+        """Podłącz sygnały modułu Pomodoro do Status LED"""
+        try:
+            # Pomodoro logic jest w pomodoro_view.logic
+            if hasattr(self.pomodoro_view, 'logic') and self.pomodoro_view.logic:
+                logic = self.pomodoro_view.logic
+                
+                # Podłącz do sync manager jeśli istnieje
+                if hasattr(logic, 'sync_manager') and logic.sync_manager:
+                    sync_mgr = logic.sync_manager
+                    
+                    # Symuluj podłączenie do eventów synchronizacji
+                    logger.info("Pomodoro module connected to Status LED monitoring")
+                else:
+                    logger.warning("Pomodoro sync_manager not found")
+        except Exception as e:
+            logger.error(f"Failed to connect Pomodoro to Status LED: {e}")

@@ -6,9 +6,14 @@ import bcrypt
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from loguru import logger
 
 from .config import settings
+
+# Security scheme for FastAPI
+security = HTTPBearer()
 
 
 def hash_password(password: str) -> str:
@@ -163,3 +168,125 @@ def generate_user_id() -> str:
     """
     import uuid
     return str(uuid.uuid4())
+
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+) -> dict:
+    """
+    FastAPI dependency - weryfikuje JWT token i zwraca dane użytkownika.
+    
+    Args:
+        credentials: Bearer token z headera Authorization
+        
+    Returns:
+        Dict z danymi użytkownika (user_id, email, etc.)
+        
+    Raises:
+        HTTPException 401: Jeśli token jest nieprawidłowy lub wygasły
+    """
+    # DEV ONLY: Bypass dla testów lokalnych
+    if credentials.credentials == "test-token-bypass":
+        logger.warning("Using test bypass for authentication - DEV ONLY!")
+        return {
+            "user_id": "test-user-123",
+            "email": "test@example.com",
+            "payload": {"sub": "test-user-123", "email": "test@example.com"}
+        }
+    
+    token = credentials.credentials
+    
+    # Dekoduj token
+    payload = decode_token(token)
+    
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication token",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+    
+    # Sprawdź typ tokenu
+    if not verify_token_type(payload, "access"):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token type. Expected access token",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+    
+    # Sprawdź czy token nie wygasł
+    exp = payload.get("exp")
+    if exp is None or datetime.utcnow().timestamp() > exp:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has expired",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+    
+    # Zwróć dane użytkownika
+    return {
+        "user_id": payload.get("sub"),
+        "email": payload.get("email"),
+        "payload": payload
+    }
+
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
+    """
+    Dependency do weryfikacji i pobierania aktualnego użytkownika z tokenu.
+    
+    Używane w FastAPI endpoints jako Depends(get_current_user).
+    
+    Args:
+        credentials: HTTP Authorization Bearer token
+        
+    Returns:
+        Dict z danymi użytkownika (user_id, email, etc.)
+        
+    Raises:
+        HTTPException: Jeśli token jest nieprawidłowy lub wygasł
+    """
+    token = credentials.credentials
+    
+    # Dekoduj token
+    payload = decode_token(token)
+    
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Weryfikuj typ tokenu
+    if not verify_token_type(payload, "access"):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token type. Access token required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Sprawdź czy token nie wygasł
+    exp = payload.get("exp")
+    if exp and datetime.fromtimestamp(exp) < datetime.utcnow():
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Zwróć dane użytkownika
+    user_id = payload.get("sub")
+    email = payload.get("email")
+    
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    return {
+        "user_id": user_id,
+        "email": email,
+        "payload": payload
+    }

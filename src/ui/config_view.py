@@ -5,11 +5,13 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTabWidget,
     QLabel, QComboBox, QPushButton, QCheckBox,
     QLineEdit, QGroupBox, QScrollArea, QFrame,
-    QMessageBox, QDialog
+    QMessageBox, QDialog, QFileDialog
 )
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal, QUrl
 from PyQt6.QtGui import QFont, QKeySequence
+from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from loguru import logger
+import os
 
 from ..utils.i18n_manager import t, get_i18n
 from ..core.config import config, save_settings, load_settings
@@ -25,6 +27,16 @@ class GeneralSettingsTab(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.theme_manager = get_theme_manager()
+        
+        # Inicjalizacja odtwarzacza audio
+        self.media_player = QMediaPlayer()
+        self.audio_output = QAudioOutput()
+        self.media_player.setAudioOutput(self.audio_output)
+        self.audio_output.setVolume(0.5)  # 50% głośności
+        
+        # Lista własnych dźwięków
+        self.custom_sounds = {}  # {nazwa: ścieżka}
+        
         self._setup_ui()
         self._load_settings()
         self._connect_signals()
@@ -116,6 +128,56 @@ class GeneralSettingsTab(QWidget):
         
         self.system_group.setLayout(system_layout)
         scroll_layout.addWidget(self.system_group)
+        
+        # === SEKCJA: Dźwięki ===
+        self.sounds_group = QGroupBox(t('settings.sounds'))
+        sounds_layout = QVBoxLayout()
+        
+        # Dźwięk 1 (np. powiadomienie o zadaniu)
+        sound1_row = QHBoxLayout()
+        self.sound1_label = QLabel(t('settings.sound_notification'))
+        self.sound1_label.setMinimumWidth(200)
+        self.combo_sound1 = QComboBox()
+        self.combo_sound1.setMinimumWidth(200)
+        self.btn_sound1_browse = QPushButton("📁")
+        self.btn_sound1_browse.setFixedWidth(40)
+        self.btn_sound1_browse.setToolTip(t('settings.browse_sound'))
+        self.btn_sound1_browse.clicked.connect(lambda: self._browse_sound(1))
+        self.btn_sound1_play = QPushButton("▶")
+        self.btn_sound1_play.setFixedWidth(40)
+        self.btn_sound1_play.setToolTip(t('settings.play_sound'))
+        self.btn_sound1_play.clicked.connect(lambda: self._play_sound(1))
+        sound1_row.addWidget(self.sound1_label)
+        sound1_row.addWidget(self.combo_sound1, stretch=1)
+        sound1_row.addWidget(self.btn_sound1_browse)
+        sound1_row.addWidget(self.btn_sound1_play)
+        sounds_layout.addLayout(sound1_row)
+        
+        # Dźwięk 2 (np. alarm/przypomnienie)
+        sound2_row = QHBoxLayout()
+        self.sound2_label = QLabel(t('settings.sound_alarm'))
+        self.sound2_label.setMinimumWidth(200)
+        self.combo_sound2 = QComboBox()
+        self.combo_sound2.setMinimumWidth(200)
+        self.btn_sound2_browse = QPushButton("📁")
+        self.btn_sound2_browse.setFixedWidth(40)
+        self.btn_sound2_browse.setToolTip(t('settings.browse_sound'))
+        self.btn_sound2_browse.clicked.connect(lambda: self._browse_sound(2))
+        self.btn_sound2_play = QPushButton("▶")
+        self.btn_sound2_play.setFixedWidth(40)
+        self.btn_sound2_play.setToolTip(t('settings.play_sound'))
+        self.btn_sound2_play.clicked.connect(lambda: self._play_sound(2))
+        sound2_row.addWidget(self.sound2_label)
+        sound2_row.addWidget(self.combo_sound2, stretch=1)
+        sound2_row.addWidget(self.btn_sound2_browse)
+        sound2_row.addWidget(self.btn_sound2_play)
+        sounds_layout.addLayout(sound2_row)
+        
+        # Wypełnij combo boxy dźwiękami systemowymi
+        self._populate_sound_combos()
+        
+        self.sounds_group.setLayout(sounds_layout)
+        scroll_layout.addWidget(self.sounds_group)
         
         # === SEKCJA: Skróty klawiszowe ===
         self.shortcuts_group = QGroupBox(t('settings.shortcuts'))
@@ -259,6 +321,20 @@ class GeneralSettingsTab(QWidget):
         self.check_notifications.setChecked(settings.get('enable_notifications', True))
         self.check_sound.setChecked(settings.get('enable_sound', True))
         
+        # Załaduj wybrane dźwięki
+        sound1 = settings.get('sound_notification', 'Beep (domyślny)')
+        sound2 = settings.get('sound_alarm', 'Exclamation')
+        
+        # Ustaw dźwięk 1
+        index1 = self.combo_sound1.findText(sound1)
+        if index1 >= 0:
+            self.combo_sound1.setCurrentIndex(index1)
+        
+        # Ustaw dźwięk 2
+        index2 = self.combo_sound2.findText(sound2)
+        if index2 >= 0:
+            self.combo_sound2.setCurrentIndex(index2)
+        
         self.input_shortcut_quick_add.setText(settings.get('shortcut_quick_add', 'Ctrl+N'))
         self.input_shortcut_show_main.setText(settings.get('shortcut_show_main', 'Ctrl+Shift+K'))
         
@@ -274,6 +350,12 @@ class GeneralSettingsTab(QWidget):
         
         # Zapisz zmiany po wyborze języka
         self.combo_language.currentIndexChanged.connect(self._on_settings_changed)
+        
+        # Ustawienia systemowe - natychmiastowa aplikacja
+        self.check_autostart.stateChanged.connect(self._on_autostart_changed)
+        self.check_background.stateChanged.connect(self._on_background_changed)
+        self.check_notifications.stateChanged.connect(self._on_notifications_changed)
+        self.check_sound.stateChanged.connect(self._on_sound_changed)
     
     def _on_layout1_changed(self, scheme_name: str):
         """Obsługa zmiany schematu dla układu 1"""
@@ -294,6 +376,250 @@ class GeneralSettingsTab(QWidget):
             # Jeśli aktualnie jest układ 2, zastosuj zmianę
             if self.theme_manager.get_current_layout() == 2:
                 self.theme_manager.apply_theme(scheme_name)
+    
+    def _on_autostart_changed(self, state):
+        """Obsługa zmiany autostartu aplikacji"""
+        is_enabled = (state == 2)  # Qt.CheckState.Checked = 2
+        logger.info(f"Autostart changed to: {is_enabled}")
+        
+        if is_enabled:
+            self._enable_autostart()
+        else:
+            self._disable_autostart()
+        
+        # Zapisz ustawienie
+        settings = load_settings()
+        settings['auto_start'] = is_enabled
+        save_settings(settings)
+    
+    def _on_background_changed(self, state):
+        """Obsługa zmiany uruchamiania w tle"""
+        is_enabled = (state == 2)
+        logger.info(f"Run in background changed to: {is_enabled}")
+        
+        # Zapisz ustawienie
+        settings = load_settings()
+        settings['run_in_background'] = is_enabled
+        save_settings(settings)
+        
+        # Informacja dla użytkownika
+        if is_enabled:
+            logger.info("Application will minimize to system tray when closed")
+        else:
+            logger.info("Application will exit completely when closed")
+    
+    def _on_notifications_changed(self, state):
+        """Obsługa zmiany powiadomień"""
+        is_enabled = (state == 2)
+        logger.info(f"Notifications changed to: {is_enabled}")
+        
+        # Zapisz ustawienie
+        settings = load_settings()
+        settings['enable_notifications'] = is_enabled
+        save_settings(settings)
+        
+        # Emituj signal o zmianie
+        self.settings_changed.emit({'enable_notifications': is_enabled})
+    
+    def _on_sound_changed(self, state):
+        """Obsługa zmiany dźwięków"""
+        is_enabled = (state == 2)
+        logger.info(f"Sound notifications changed to: {is_enabled}")
+        
+        # Zapisz ustawienie
+        settings = load_settings()
+        settings['enable_sound'] = is_enabled
+        save_settings(settings)
+        
+        # Emituj signal o zmianie
+        self.settings_changed.emit({'enable_sound': is_enabled})
+    
+    def _populate_sound_combos(self):
+        """Wypełnij combo boxy dźwiękami systemowymi i własnymi"""
+        # Dźwięki systemowe (Windows)
+        system_sounds = [
+            ("Beep (domyślny)", "beep"),
+            ("Ding", "ding"),
+            ("Chord", "chord"),
+            ("Pop", "pop"),
+            ("Notify", "notify"),
+            ("Asterisk", "asterisk"),
+            ("Exclamation", "exclamation"),
+            ("Question", "question"),
+            ("Critical Stop", "critical"),
+        ]
+        
+        # Dodaj dźwięki systemowe do obu combo
+        for name, _ in system_sounds:
+            self.combo_sound1.addItem(name)
+            self.combo_sound2.addItem(name)
+        
+        # Załaduj własne dźwięki z ustawień
+        settings = load_settings()
+        custom_sounds = settings.get('custom_sounds', {})
+        
+        for name, path in custom_sounds.items():
+            if os.path.exists(path):
+                self.combo_sound1.addItem(f"⭐ {name}")
+                self.combo_sound2.addItem(f"⭐ {name}")
+                self.custom_sounds[name] = path
+    
+    def _browse_sound(self, sound_number: int):
+        """Przeglądaj i dodaj własny plik dźwiękowy"""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            t('settings.select_sound_file'),
+            "",
+            "Audio Files (*.wav *.mp3 *.ogg);;All Files (*.*)"
+        )
+        
+        if file_path:
+            # Pobierz nazwę pliku bez rozszerzenia
+            file_name = os.path.splitext(os.path.basename(file_path))[0]
+            
+            # Dodaj do własnych dźwięków
+            self.custom_sounds[file_name] = file_path
+            
+            # Dodaj do combo z gwiazdką
+            combo = self.combo_sound1 if sound_number == 1 else self.combo_sound2
+            item_text = f"⭐ {file_name}"
+            
+            # Sprawdź czy już nie istnieje
+            if combo.findText(item_text) == -1:
+                combo.addItem(item_text)
+            
+            # Ustaw jako aktualny
+            combo.setCurrentText(item_text)
+            
+            # Zapisz do ustawień
+            settings = load_settings()
+            if 'custom_sounds' not in settings:
+                settings['custom_sounds'] = {}
+            settings['custom_sounds'][file_name] = file_path
+            save_settings(settings)
+            
+            logger.info(f"Custom sound added: {file_name} -> {file_path}")
+    
+    def _play_sound(self, sound_number: int):
+        """Odtwórz wybrany dźwięk"""
+        combo = self.combo_sound1 if sound_number == 1 else self.combo_sound2
+        sound_name = combo.currentText()
+        
+        if not sound_name:
+            return
+        
+        # Usuń prefix ⭐ jeśli istnieje
+        sound_name_clean = sound_name.replace("⭐ ", "")
+        
+        # Sprawdź czy to własny dźwięk
+        if sound_name_clean in self.custom_sounds:
+            sound_path = self.custom_sounds[sound_name_clean]
+            self._play_audio_file(sound_path)
+        else:
+            # Dźwięk systemowy
+            self._play_system_sound(sound_name_clean)
+    
+    def _play_audio_file(self, file_path: str):
+        """Odtwórz plik audio"""
+        if os.path.exists(file_path):
+            self.media_player.setSource(QUrl.fromLocalFile(file_path))
+            self.media_player.play()
+            logger.info(f"Playing audio file: {file_path}")
+        else:
+            logger.warning(f"Audio file not found: {file_path}")
+            QMessageBox.warning(
+                self,
+                t('error'),
+                t('settings.sound_file_not_found')
+            )
+    
+    def _play_system_sound(self, sound_name: str):
+        """Odtwórz dźwięk systemowy"""
+        import winsound
+        
+        # Mapowanie nazw na dźwięki Windows
+        sound_map = {
+            "beep": winsound.MB_OK,
+            "ding": winsound.MB_OK,
+            "chord": winsound.MB_OK,
+            "pop": winsound.MB_OK,
+            "notify": winsound.MB_ICONASTERISK,
+            "asterisk": winsound.MB_ICONASTERISK,
+            "exclamation": winsound.MB_ICONEXCLAMATION,
+            "question": winsound.MB_ICONQUESTION,
+            "critical": winsound.MB_ICONHAND,
+        }
+        
+        # Pobierz typ dźwięku (domyślnie MB_OK)
+        sound_key = sound_name.lower().split('(')[0].strip()
+        sound_type = sound_map.get(sound_key, winsound.MB_OK)
+        
+        try:
+            winsound.MessageBeep(sound_type)
+            logger.info(f"Playing system sound: {sound_name}")
+        except Exception as e:
+            logger.error(f"Failed to play system sound: {e}")
+    
+    def _enable_autostart(self):
+        """Włącz autostart aplikacji w systemie"""
+        import sys
+        
+        try:
+            if sys.platform == 'win32':
+                # Windows - dodaj do rejestru
+                import winreg
+                key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
+                app_name = "PRO-Ka-Po_Kaizen_Freak"
+                app_path = os.path.abspath(sys.argv[0])
+                
+                # Otwórz klucz rejestru
+                key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_SET_VALUE)
+                winreg.SetValueEx(key, app_name, 0, winreg.REG_SZ, f'"{app_path}"')
+                winreg.CloseKey(key)
+                
+                logger.info(f"Autostart enabled: {app_path}")
+                
+            elif sys.platform == 'darwin':
+                # macOS - utwórz plik .plist
+                logger.warning("Autostart on macOS not yet implemented")
+                
+            elif sys.platform.startswith('linux'):
+                # Linux - utwórz plik .desktop w autostart
+                logger.warning("Autostart on Linux not yet implemented")
+                
+        except Exception as e:
+            logger.error(f"Failed to enable autostart: {e}")
+    
+    def _disable_autostart(self):
+        """Wyłącz autostart aplikacji w systemie"""
+        import sys
+        
+        try:
+            if sys.platform == 'win32':
+                # Windows - usuń z rejestru
+                import winreg
+                key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
+                app_name = "PRO-Ka-Po_Kaizen_Freak"
+                
+                try:
+                    key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_SET_VALUE)
+                    winreg.DeleteValue(key, app_name)
+                    winreg.CloseKey(key)
+                    logger.info("Autostart disabled")
+                except FileNotFoundError:
+                    # Klucz nie istnieje - już jest wyłączony
+                    pass
+                    
+            elif sys.platform == 'darwin':
+                # macOS - usuń plik .plist
+                logger.warning("Autostart on macOS not yet implemented")
+                
+            elif sys.platform.startswith('linux'):
+                # Linux - usuń plik .desktop
+                logger.warning("Autostart on Linux not yet implemented")
+                
+        except Exception as e:
+            logger.error(f"Failed to disable autostart: {e}")
     
     def _on_settings_changed(self):
         """Obsługa zmiany ustawień"""
@@ -326,6 +652,8 @@ class GeneralSettingsTab(QWidget):
             'run_in_background': self.check_background.isChecked(),
             'enable_notifications': self.check_notifications.isChecked(),
             'enable_sound': self.check_sound.isChecked(),
+            'sound_notification': self.combo_sound1.currentText(),
+            'sound_alarm': self.combo_sound2.currentText(),
             'shortcut_quick_add': self.input_shortcut_quick_add.text(),
             'shortcut_show_main': self.input_shortcut_show_main.text(),
             'color_scheme_1': self.combo_layout1.currentText(),
@@ -358,6 +686,7 @@ class GeneralSettingsTab(QWidget):
         self.colors_group.setTitle(t('settings.colors'))
         self.language_group.setTitle(t('settings.language'))
         self.system_group.setTitle(t('settings.system'))
+        self.sounds_group.setTitle(t('settings.sounds'))
         self.shortcuts_group.setTitle(t('settings.shortcuts'))
         
         # Etykiety kolorystyki
@@ -373,6 +702,14 @@ class GeneralSettingsTab(QWidget):
         self.check_background.setText(t('settings.run_in_background'))
         self.check_notifications.setText(t('settings.enable_notifications'))
         self.check_sound.setText(t('settings.enable_sound'))
+        
+        # Dźwięki
+        self.sound1_label.setText(t('settings.sound_notification'))
+        self.sound2_label.setText(t('settings.sound_alarm'))
+        self.btn_sound1_browse.setToolTip(t('settings.browse_sound'))
+        self.btn_sound2_browse.setToolTip(t('settings.browse_sound'))
+        self.btn_sound1_play.setToolTip(t('settings.play_sound'))
+        self.btn_sound2_play.setToolTip(t('settings.play_sound'))
         
         # Skróty klawiszowe
         self.quick_add_label.setText(t('settings.shortcut_quick_add'))

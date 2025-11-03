@@ -39,12 +39,19 @@ def get_db() -> Generator[Session, None, None]:
 def init_db():
     """
     Inicjalizacja bazy danych - tworzenie tabel
-    UWAGA: Używaj tylko jeśli baza jest pusta!
-    W przypadku istniejącej bazy, modele muszą pasować do struktury.
+    Importuje modele i tworzy tabele jeśli nie istnieją
     """
-    # Zakomentowane aby nie tworzyć konfliktów z istniejącą bazą
-    # Base.metadata.create_all(bind=engine)
-    print("INFO: init_db() skipped - using existing database structure")
+    try:
+        # Import wszystkich modeli aby SQLAlchemy je znało
+        from . import alarms_models  # Schema s04_alarms_timers
+        from . import pomodoro_models  # Schema s05_pomodoro
+        
+        # Tworzenie tabel dla wszystkich zarejestrowanych modeli
+        Base.metadata.create_all(bind=engine)
+        print("INFO: Database tables created/verified")
+    except Exception as e:
+        print(f"WARNING: init_db() error: {e}")
+        print("INFO: Continuing with existing database structure")
 
 
 def test_connection() -> bool:

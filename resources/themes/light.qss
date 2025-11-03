@@ -63,6 +63,25 @@ QPushButton#navButton:checked {
     border-bottom: 3px solid #F57C00;
 }
 
+/* Navigation Toggle Button (expand/collapse second row) */
+QPushButton#navToggleButton {
+    background-color: #BDBDBD;
+    color: #212121;
+    border: none;
+    border-radius: 0;
+    padding: 10px;
+    font-weight: bold;
+    font-size: 14pt;
+}
+
+QPushButton#navToggleButton:hover {
+    background-color: #9E9E9E;
+}
+
+QPushButton#navToggleButton:pressed {
+    background-color: #757575;
+}
+
 /* Theme Toggle Button */
 QPushButton#themeToggleButton {
     background-color: #FFF9C4;
