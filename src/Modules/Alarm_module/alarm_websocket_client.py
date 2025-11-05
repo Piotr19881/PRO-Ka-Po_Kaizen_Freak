@@ -118,20 +118,50 @@ class WebSocketClient(QThread):
     
     async def _connect_loop(self):
         """Główna pętla z auto-reconnect"""
+        consecutive_auth_failures = 0  # 🔧 DODAJ: Licznik kolejnych błędów autoryzacji
+        max_auth_failures = 3  # 🔧 DODAJ: Maksymalna liczba prób z wygasłym tokenem
+        
         while self._running:
             try:
                 await self._connect_and_listen()
-            except Exception as e:
+                consecutive_auth_failures = 0  # Reset po udanym połączeniu
+                
+            except websockets.exceptions.ConnectionClosedError as e:
+                # 🔧 SPRAWDŹ czy to błąd autoryzacji (403 Forbidden)
+                if e.code == 403:
+                    consecutive_auth_failures += 1
+                    logger.error(f"WebSocket authorization failed (403) - attempt {consecutive_auth_failures}/{max_auth_failures}")
+                    
+                    if consecutive_auth_failures >= max_auth_failures:
+                        logger.warning("🔴 Too many authorization failures - stopping WebSocket reconnect")
+                        logger.warning("💡 Token may have expired - please refresh authentication")
+                        self.error.emit("Authorization failed: Token may have expired")
+                        break  # Zatrzymaj pętlę reconnect
+                else:
+                    consecutive_auth_failures = 0  # Reset dla innych błędów
+                    
                 logger.error(f"WebSocket connection failed: {e}")
                 self.error.emit(f"Connection failed: {e}")
                 self.disconnected.emit()
                 
-                if not self.auto_reconnect:
-                    break
+            except Exception as e:
+                consecutive_auth_failures = 0  # Reset dla innych błędów
+                logger.error(f"WebSocket connection failed: {e}")
+                self.error.emit(f"Connection failed: {e}")
+                self.disconnected.emit()
                 
-                # Czekaj przed reconnect
-                logger.info(f"Reconnecting in {self.reconnect_delay}s...")
-                await asyncio.sleep(self.reconnect_delay)
+            if not self.auto_reconnect:
+                break
+            
+            # 🔧 Zwiększ opóźnienie dla błędów autoryzacji
+            delay = self.reconnect_delay
+            if consecutive_auth_failures > 0:
+                delay = min(30, self.reconnect_delay * consecutive_auth_failures)  # Maksymalnie 30s
+                logger.info(f"Authorization failure - waiting {delay}s before retry...")
+            else:
+                logger.info(f"Reconnecting in {delay}s...")
+                
+            await asyncio.sleep(delay)
     
     async def _connect_and_listen(self):
         """Połącz się i nasłuchuj na wiadomości"""

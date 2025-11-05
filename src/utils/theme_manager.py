@@ -458,6 +458,7 @@ class ThemeManager:
         """Zwraca numer aktualnego układu (1 lub 2)"""
         return self.current_layout
     
+    
     def apply_layout(self, layout_number: int):
         """
         Aplikuje konkretny układ
@@ -469,6 +470,56 @@ class ThemeManager:
         scheme = self.get_layout_scheme(layout_number)
         self.apply_theme(scheme)
         logger.info(f"Applied layout {layout_number} with scheme: {scheme}")
+    
+    def get_current_colors(self) -> dict:
+        """
+        Pobiera kolory aktualnego schematu kolorystycznego.
+        
+        Returns:
+            Słownik z kolorami schematu lub domyślne kolory jeśli schemat nie ma JSON
+        """
+        # Pobierz aktualny schemat
+        scheme_name = self.get_layout_scheme(self.current_layout)
+        clean_name = scheme_name.replace("⭐ ", "")
+        
+        # Sprawdź czy to niestandardowy motyw z plikiem JSON
+        custom_json_file = self.custom_themes_dir / f"{clean_name}.json"
+        if custom_json_file.exists():
+            try:
+                with open(custom_json_file, 'r', encoding='utf-8') as f:
+                    theme_data = json.load(f)
+                    if 'colors' in theme_data:
+                        logger.debug(f"Loaded colors from custom theme: {clean_name}")
+                        return theme_data['colors']
+            except Exception as e:
+                logger.error(f"Error loading colors from {clean_name}.json: {e}")
+        
+        # Jeśli nie ma JSON lub wystąpił błąd, zwróć domyślne kolory
+        # na podstawie czy to motyw jasny czy ciemny (po nazwie)
+        if 'dark' in clean_name.lower() or self.current_layout == 2:
+            return {
+                "bg_main": "#1E1E1E",
+                "bg_secondary": "#2D2D2D",
+                "text_primary": "#FFFFFF",
+                "text_secondary": "#B0B0B0",
+                "accent_primary": "#64B5F6",
+                "accent_hover": "#42A5F5",
+                "accent_pressed": "#2196F3",
+                "border_light": "#404040",
+                "border_dark": "#202020",
+            }
+        else:
+            return {
+                "bg_main": "#FFFFFF",
+                "bg_secondary": "#F5F5F5",
+                "text_primary": "#1A1A1A",
+                "text_secondary": "#666666",
+                "accent_primary": "#2196F3",
+                "accent_hover": "#1976D2",
+                "accent_pressed": "#0D47A1",
+                "border_light": "#CCCCCC",
+                "border_dark": "#999999",
+            }
 
 
 # Global singleton instance
@@ -481,3 +532,4 @@ def get_theme_manager() -> ThemeManager:
     if _theme_manager_instance is None:
         _theme_manager_instance = ThemeManager()
     return _theme_manager_instance
+

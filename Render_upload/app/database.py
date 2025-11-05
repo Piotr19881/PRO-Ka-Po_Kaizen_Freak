@@ -45,6 +45,7 @@ def init_db():
         # Import wszystkich modeli aby SQLAlchemy je znało
         from . import alarms_models  # Schema s04_alarms_timers
         from . import pomodoro_models  # Schema s05_pomodoro
+        from . import notes_models  # Schema s06_notes
         
         # Tworzenie tabel dla wszystkich zarejestrowanych modeli
         Base.metadata.create_all(bind=engine)

@@ -1,13 +1,14 @@
 """
 Main Window - Główne okno aplikacji
 """
+from pathlib import Path
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QStackedWidget, QFrame,
-    QLineEdit, QCheckBox, QComboBox, QTableWidget, QMenu
+    QLineEdit, QTableWidget, QMenu
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QPoint
-from PyQt6.QtGui import QFont, QMouseEvent, QAction
+from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QTimer
+from PyQt6.QtGui import QFont, QMouseEvent, QAction, QKeySequence, QShortcut
 from loguru import logger
 
 from ..utils.i18n_manager import t, get_i18n
@@ -15,7 +16,13 @@ from ..core.config import config
 from .config_view import SettingsView
 from .alarms_view import AlarmsView
 from .pomodoro_view import PomodoroView
+from .note_view import NoteView
 from .status_led import StatusLED, get_status_led_manager
+from .task_view import TaskView
+from .task_config_dialog import TaskConfigDialog
+from .kanban_view import KanBanView
+from .task_bar import TaskBar
+from .quick_task_bar import QuickTaskDialog
 
 
 class CustomTitleBar(QWidget):
@@ -440,81 +447,6 @@ class DataDisplayArea(QWidget):
         ])
 
 
-class QuickInputSection(QWidget):
-    """Sekcja szybkiego wprowadzania zadań"""
-    
-    task_added = pyqtSignal(str)  # Signal emitowany przy dodaniu zadania
-    
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self._setup_ui()
-    
-    def _setup_ui(self):
-        """Konfiguracja sekcji szybkiego wprowadzania"""
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(5, 5, 5, 5)
-        main_layout.setSpacing(5)
-        
-        # Wiersz 1: Pole tekstowe + przyciski
-        row1_layout = QHBoxLayout()
-        
-        # Pole tekstowe (szeroka kolumna)
-        self.task_input = QLineEdit()
-        self.task_input.setPlaceholderText(t('quick_input.placeholder'))
-        self.task_input.setMinimumHeight(35)
-        row1_layout.addWidget(self.task_input, stretch=10)
-        
-        # Przycisk dodawania (wąska kolumna)
-        self.btn_add = QPushButton("+")
-        self.btn_add.setFixedSize(35, 35)
-        self.btn_add.setObjectName("quickAddButton")
-        self.btn_add.clicked.connect(self._on_add_clicked)
-        row1_layout.addWidget(self.btn_add)
-        
-        # Przycisk notatki (wąska kolumna)
-        self.btn_note = QPushButton("📝")
-        self.btn_note.setFixedSize(35, 35)
-        self.btn_note.setObjectName("quickNoteButton")
-        row1_layout.addWidget(self.btn_note)
-        
-        main_layout.addLayout(row1_layout)
-        
-        # Wiersz 2: Listy rozwijane + checkbox
-        row2_layout = QHBoxLayout()
-        
-        # 5 list rozwijanych (blank na razie)
-        self.combo_boxes = []
-        combo_labels = ['Osoba', 'Narzędzia', 'Sprzęt/Obiekty', 'Czas', 'Oferta']
-        
-        for i, label in enumerate(combo_labels):
-            combo = QComboBox()
-            combo.addItem(label)
-            combo.setMinimumHeight(30)
-            row2_layout.addWidget(combo, stretch=1)
-            self.combo_boxes.append(combo)
-        
-        # Duży checkbox (ostatnia kolumna)
-        self.checkbox_kanban = QCheckBox()
-        self.checkbox_kanban.setMinimumSize(30, 30)
-        self.checkbox_kanban.setObjectName("bigCheckbox")
-        self.checkbox_kanban.setToolTip("Dodaj do Kanban")
-        row2_layout.addWidget(self.checkbox_kanban)
-        
-        main_layout.addLayout(row2_layout)
-    
-    def _on_add_clicked(self):
-        """Obsługa kliknięcia przycisku dodawania"""
-        task_text = self.task_input.text().strip()
-        if task_text:
-            self.task_added.emit(task_text)
-            self.task_input.clear()
-            logger.info(f"Quick task added: {task_text}")
-    
-    def update_translations(self):
-        """Odśwież tłumaczenia"""
-        self.task_input.setPlaceholderText(t('quick_input.placeholder'))
-        self.checkbox_kanban.setToolTip(t('quick_input.add_to_kanban'))
-
 
 class MainContentArea(QWidget):
     """Główna zawartość - pasek zarządzania + obszar danych"""
@@ -551,6 +483,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.user_data = None  # Dane zalogowanego użytkownika
         self.on_token_refreshed = on_token_refreshed  # Callback dla odświeżonych tokenów
+        self._quick_add_shortcut: QShortcut | None = None
         self._setup_window()
         self._setup_ui()
         self._connect_signals()
@@ -606,6 +539,10 @@ class MainWindow(QMainWindow):
             # Podłącz sygnały synchronizacji do Status LED
             self._connect_pomodoro_to_status_led()
         
+        # Przekaż dane użytkownika do NoteView aby włączyć synchronizację
+        if hasattr(self, 'notes_view'):
+            self.notes_view.set_user_data(user_data, on_token_refreshed=self.on_token_refreshed)
+        
         # Status LED: user logged in, connected
         if hasattr(self, 'status_led_manager'):
             self.status_led_manager.set_status('connected_idle')
@@ -657,8 +594,58 @@ class MainWindow(QMainWindow):
             self.title_bar.theme_btn.setText("🌙")
             logger.info("Switched to layout 2 (dark mode)")
         
+        # 🎨 ODŚWIEŻ MOTYWY WSZYSTKICH WIDOKÓW
+        # Upewnij się, że wszystkie widoki aktualizują swoje style
+        self._refresh_all_views_theme()
+        
         # Zapisz aktualny layout
         save_settings({'current_layout': new_layout})
+    
+    def _refresh_all_views_theme(self):
+        """Odśwież motywy wszystkich widoków po zmianie motywu"""
+        try:
+            logger.info(f"🎨 [MAIN] _refresh_all_views_theme() called")
+            
+            # 🎨 Notes View
+            if hasattr(self, 'notes_view') and self.notes_view:
+                logger.info(f"🎨 [MAIN] Found notes_view: {self.notes_view}")
+                if hasattr(self.notes_view, 'apply_theme'):
+                    logger.info(f"🎨 [MAIN] Calling notes_view.apply_theme()")
+                    try:
+                        self.notes_view.apply_theme()
+                        logger.info(f"🎨 [MAIN] notes_view.apply_theme() completed successfully")
+                    except Exception as e:
+                        logger.error(f"🚨 [MAIN] Exception in notes_view.apply_theme(): {e}")
+                        import traceback
+                        logger.error(f"🚨 [MAIN] Traceback: {traceback.format_exc()}")
+                    logger.debug("Refreshed notes_view theme")
+                else:
+                    logger.warning(f"🚨 [MAIN] notes_view has no apply_theme method!")
+            else:
+                logger.warning(f"🚨 [MAIN] notes_view not found! hasattr={hasattr(self, 'notes_view')}")
+            
+            # 🎨 Pomodoro View
+            if hasattr(self, 'pomodoro_view') and self.pomodoro_view:
+                if hasattr(self.pomodoro_view, 'apply_theme'):
+                    self.pomodoro_view.apply_theme()
+                    logger.debug("Refreshed pomodoro_view theme")
+            
+            # 🎨 Alarms View
+            if hasattr(self, 'alarms_view') and self.alarms_view:
+                if hasattr(self.alarms_view, 'apply_theme'):
+                    self.alarms_view.apply_theme()
+                    logger.debug("Refreshed alarms_view theme")
+                    
+            # 🎨 Settings View
+            if hasattr(self, 'settings_view') and self.settings_view:
+                if hasattr(self.settings_view, 'apply_theme'):
+                    self.settings_view.apply_theme()
+                    logger.debug("Refreshed settings_view theme")
+            if getattr(self, 'quick_task_dialog', None):
+                self.quick_task_dialog.apply_theme()
+                    
+        except Exception as e:
+            logger.error(f"Error refreshing view themes: {e}")
     
     def _open_settings_tab(self, tab_index: int):
         """Otwórz widok ustawień na konkretnej karcie"""
@@ -756,6 +743,65 @@ class MainWindow(QMainWindow):
         self.pomodoro_view = PomodoroView()
         self.content_stack.addWidget(self.pomodoro_view)
         
+        # Widok Notatek
+        self.notes_view = NoteView()
+        self.content_stack.addWidget(self.notes_view)
+        
+        # Widok Zadań (nasz nowy TaskView)
+        try:
+            # Import TaskLogic i TaskLocalDatabase
+            from ..Modules.task_module.task_logic import TaskLogic
+            from ..Modules.task_module.task_local_database import TaskLocalDatabase
+            
+            # Utwórz ścieżkę do bazy danych zadań
+            db_dir = Path(__file__).parent.parent / 'database'
+            db_dir.mkdir(exist_ok=True)
+            task_db_path = db_dir / 'tasks.db'
+            
+            # Utwórz instancje
+            self.task_local_db = TaskLocalDatabase(db_path=task_db_path, user_id=1)  # TODO: dynamiczny user_id
+            self.task_logic = TaskLogic(db=self.task_local_db)
+            self.task_view = TaskView(task_logic=self.task_logic, local_db=self.task_local_db)
+            
+            # Przekaż alarm_manager do TaskView
+            if hasattr(self, 'alarms_view') and hasattr(self.alarms_view, 'alarm_manager'):
+                logger.info(f"[MainWindow] Passing alarm_manager to TaskView: {self.alarms_view.alarm_manager}")
+                self.task_view.set_alarm_manager(self.alarms_view.alarm_manager)
+            else:
+                logger.warning("[MainWindow] Could not pass alarm_manager to TaskView - alarms_view not ready")
+            
+            # pozwól TaskView zgłaszać prośbę o konfigurację
+            self.task_view.on_configure = lambda: self._open_task_config_dialog()
+            self.content_stack.addWidget(self.task_view)
+            
+            # Widok KanBan - używa tej samej logiki i bazy co TaskView
+            self.kanban_view = KanBanView()
+            self.kanban_view.set_task_logic(self.task_logic)
+            # Zapewnij obsługę notatek i podzadań zgodną z TaskView
+            self.kanban_view.open_task_note = lambda task_id: self._handle_note_button_click(task_id)
+            self.kanban_view.add_subtask = lambda parent_id: self._handle_add_subtask(parent_id)
+            self.content_stack.addWidget(self.kanban_view)
+            
+            # Połącz sygnały między widokami
+            # Gdy zadanie zostanie przeniesione w KanBan, odśwież widok zadań
+            self.kanban_view.task_moved.connect(lambda: self.task_view.refresh_tasks())
+            
+            # Podmień metodę open_task_note aby obsługiwała integrację z notatkami
+            self.task_view.open_task_note = lambda task_id: self._handle_note_button_click(task_id)
+            
+            # Podmień metodę _add_subtask_dialog aby obsługiwała dodawanie subtasków
+            self.task_view._add_subtask_dialog = lambda parent_id: self._handle_add_subtask(parent_id)
+            
+            logger.info(f"TaskView initialized with database at {task_db_path}")
+        except Exception as e:
+            logger.error(f"Failed to initialize TaskView: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            self.task_view = None
+            self.kanban_view = None
+            self.task_local_db = None
+            self.task_logic = None
+        
         main_layout.addWidget(self.content_stack, stretch=1)
         
         # Separator
@@ -765,19 +811,87 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(separator2)
         
         # 3. Sekcja dolna - Szybkie wprowadzanie
-        self.quick_input = QuickInputSection()
+        task_logic_ref = getattr(self, 'task_logic', None)
+        local_db_ref = getattr(self, 'task_local_db', None)
+        self.quick_input = TaskBar(task_logic=task_logic_ref, local_db=local_db_ref)
         main_layout.addWidget(self.quick_input)
+
+        try:
+            self.quick_task_dialog = QuickTaskDialog(
+                task_logic=task_logic_ref,
+                local_db=local_db_ref,
+                parent=self,
+            )
+            self.quick_task_dialog.task_bar.task_added.connect(self._on_task_added)
+            self.quick_task_dialog.task_bar.note_requested.connect(self._on_quick_note_requested)
+        except Exception as exc:  # pragma: no cover - defensive logging
+            self.quick_task_dialog = None
+            logger.error(f"Failed to initialize QuickTaskDialog: {exc}")
+
+        self._install_quick_add_shortcut(config.SHORTCUT_QUICK_ADD)
         
         logger.info("Main window UI setup completed")
+
+        QTimer.singleShot(0, self._select_default_view)
     
     def _connect_signals(self):
         """Połączenie sygnałów i slotów"""
         self.navigation_bar.view_changed.connect(self._on_view_changed)
         self.navigation_bar.second_row_toggled.connect(self._on_nav_row_toggled)  # Nowe połączenie
         self.quick_input.task_added.connect(self._on_task_added)
+        self.quick_input.note_requested.connect(self._on_quick_note_requested)
+        if hasattr(self.settings_view, 'tab_general'):
+            self.settings_view.tab_general.settings_changed.connect(self._on_settings_updated)
         
         # Połącz sygnał zmiany języka
         get_i18n().language_changed.connect(self._on_language_changed)
+
+    def _install_quick_add_shortcut(self, shortcut_text: str) -> None:
+        sequence_text = (shortcut_text or "").strip()
+        if not sequence_text:
+            return
+
+        sequence = QKeySequence(sequence_text)
+        if sequence == QKeySequence():
+            logger.warning(f"[MainWindow] Ignoring invalid quick add shortcut: '{shortcut_text}'")
+            return
+
+        if self._quick_add_shortcut is None:
+            self._quick_add_shortcut = QShortcut(sequence, self)
+            self._quick_add_shortcut.setContext(Qt.ShortcutContext.ApplicationShortcut)
+            self._quick_add_shortcut.activated.connect(self._show_quick_add_dialog)
+        else:
+            self._quick_add_shortcut.setKey(sequence)
+        logger.info(f"[MainWindow] Quick add shortcut set to: {sequence.toString()}")
+
+    def _show_quick_add_dialog(self) -> None:
+        if not getattr(self, 'quick_task_dialog', None):
+            logger.warning("[MainWindow] QuickTaskDialog is not available")
+            return
+
+        self.quick_task_dialog.clear_inputs()
+        self.quick_task_dialog.reload_configuration()
+        self.quick_task_dialog.apply_theme()
+        self.quick_task_dialog.update_translations()
+        self.quick_task_dialog.show()
+        self.quick_task_dialog.raise_()
+        self.quick_task_dialog.activateWindow()
+
+    def _on_settings_updated(self, changes: dict) -> None:
+        if not isinstance(changes, dict):
+            return
+        shortcut = changes.get('shortcut_quick_add')
+        if shortcut is not None:
+            self._install_quick_add_shortcut(shortcut)
+
+    def _select_default_view(self) -> None:
+        """Ustaw domyślny widok na listę zadań po starcie aplikacji."""
+        try:
+            if hasattr(self, "navigation_bar") and "tasks" in getattr(self.navigation_bar, "buttons", {}):
+                self.navigation_bar.buttons["tasks"].setChecked(True)
+            self._on_view_changed("tasks")
+        except Exception as exc:  # pragma: no cover - log only
+            logger.error(f"[MainWindow] Failed to select default view: {exc}")
     
     def _on_nav_toggle(self):
         """Obsługa kliknięcia przycisku rozwijania nawigacji"""
@@ -802,15 +916,107 @@ class MainWindow(QMainWindow):
         elif view_name == 'pomodoro':
             self.content_stack.setCurrentWidget(self.pomodoro_view)
             self.quick_input.setVisible(True)  # Pokaż quick input w pomodoro
+        elif view_name == 'notes':
+            self.content_stack.setCurrentWidget(self.notes_view)
+            self.quick_input.setVisible(True)  # Pokaż quick input w notatkach
+        elif view_name == 'tasks':
+            if hasattr(self, 'task_view') and self.task_view:
+                self.content_stack.setCurrentWidget(self.task_view)
+                self.quick_input.setVisible(True)
+            else:
+                logger.warning("TaskView not initialized")
+                self.content_stack.setCurrentWidget(self.main_content)
+                self.quick_input.setVisible(True)
+        elif view_name == 'kanban':
+            if hasattr(self, 'kanban_view') and self.kanban_view:
+                self.content_stack.setCurrentWidget(self.kanban_view)
+                self.quick_input.setVisible(True)
+                # Odśwież tablicę KanBan przy każdym wejściu
+                self.kanban_view.refresh_board()
+            else:
+                logger.warning("KanBanView not initialized")
+                self.content_stack.setCurrentWidget(self.main_content)
+                self.quick_input.setVisible(True)
         else:
             self.content_stack.setCurrentWidget(self.main_content)
             self.quick_input.setVisible(True)  # Pokaż quick input w innych widokach
             # TODO: W przyszłości tutaj będziemy ładować odpowiednie moduły
     
-    def _on_task_added(self, task_text: str):
-        """Obsługa dodania nowego zadania"""
-        logger.info(f"Task added: {task_text}")
-        # TODO: Implementacja dodawania zadania do bazy
+    def _on_task_added(self, payload: dict):
+        """Obsługuje dodanie zadania z paska szybkiego wprowadzania."""
+        if not isinstance(payload, dict):
+            logger.warning(f"[MainWindow] Ignoring malformed quick task payload: {payload}")
+            return
+
+        title = str(payload.get('title', '')).strip()
+        if not title:
+            return
+
+        if not getattr(self, 'task_logic', None) or not getattr(self.task_logic, 'db', None):
+            logger.warning("[MainWindow] Cannot add task – task logic or database not ready")
+            return
+
+        source = self.sender()
+        source_task_bar = source if isinstance(source, TaskBar) else None
+        checkbox_selected = source_task_bar.is_kanban_selected() if source_task_bar else False
+        quick_dialog_bar = getattr(getattr(self, 'quick_task_dialog', None), 'task_bar', None)
+
+        add_to_kanban = bool(payload.get('add_to_kanban'))
+        task_data = dict(payload)
+        task_data.pop('add_to_kanban', None)
+
+        new_task = self.task_logic.add_task(task_data)
+        if not new_task:
+            logger.error(f"[MainWindow] Failed to add quick task: {title}")
+            return
+
+        task_id = new_task.get('id')
+        task_view = getattr(self, 'task_view', None)
+        if task_view:
+            task_view.refresh_tasks()
+            should_send_to_kanban = add_to_kanban or checkbox_selected
+            if should_send_to_kanban and task_id:
+                try:
+                    task_view._on_add_to_kanban(task_id)
+                except Exception as exc:
+                    logger.error(f"[MainWindow] Failed to send task {task_id} to KanBan: {exc}")
+
+        if source_task_bar:
+            source_task_bar.clear_inputs()
+        else:
+            self.quick_input.clear_inputs()
+
+        if quick_dialog_bar and source_task_bar is quick_dialog_bar:
+            self.quick_task_dialog.hide()
+        logger.info(f"[MainWindow] Quick task added with id {task_id}")
+
+    def _on_quick_note_requested(self, note_title: str):
+        """Tworzy nową notatkę i przełącza widok, gdy użytkownik wybierze przycisk notatki."""
+        source = self.sender()
+        source_task_bar = source if isinstance(source, TaskBar) else None
+        quick_dialog_bar = getattr(getattr(self, 'quick_task_dialog', None), 'task_bar', None)
+        if not getattr(self, 'notes_view', None):
+            logger.warning("[MainWindow] Notes view not initialized; cannot create quick note")
+            return
+
+        title = note_title.strip() or t('notes.quick_note_default', 'Szybka notatka')
+        content = "<p></p>"
+        try:
+            note_id = self.notes_view.db.create_note(title=title, content=content, color="#2196F3")
+        except Exception as exc:
+            logger.error(f"[MainWindow] Failed to create quick note: {exc}")
+            return
+
+        if source_task_bar:
+            source_task_bar.clear_inputs()
+        else:
+            self.quick_input.clear_inputs()
+        if quick_dialog_bar and source_task_bar is quick_dialog_bar:
+            self.quick_task_dialog.hide()
+        self._on_view_changed("notes")
+        self.notes_view.refresh_tree()
+        QTimer.singleShot(150, lambda: self.notes_view.select_note_in_tree(note_id))
+        logger.info(f"[MainWindow] Quick note created with id {note_id}")
     
     def _on_language_changed(self, language_code: str):
         """Obsługa zmiany języka - odśwież wszystkie tłumaczenia"""
@@ -827,6 +1033,8 @@ class MainWindow(QMainWindow):
         self.quick_input.update_translations()
         self.settings_view.update_translations()
         self.alarms_view.update_translations()
+        if getattr(self, 'quick_task_dialog', None):
+            self.quick_task_dialog.update_translations()
         
         # Odśwież widok Pomodoro jeśli istnieje
         if hasattr(self, 'pomodoro_view'):
@@ -871,3 +1079,205 @@ class MainWindow(QMainWindow):
                     logger.warning("Pomodoro sync_manager not found")
         except Exception as e:
             logger.error(f"Failed to connect Pomodoro to Status LED: {e}")
+    
+    def _open_task_config_dialog(self):
+        """Otwórz dialog konfiguracji zadania"""
+        try:
+            import traceback
+            
+            # Przekaż local_db do dialogu
+            local_db = getattr(self, 'task_local_db', None)
+            dialog = TaskConfigDialog(self, local_db=local_db)
+            result = dialog.exec()
+            
+            # Po zamknięciu dialogu (niezależnie od Save/Cancel), odśwież widok zadań
+            # gdyż konfiguracja kolumn mogła się zmienić
+            if hasattr(self, 'task_view') and self.task_view:
+                try:
+                    self.task_view.refresh_columns()
+                    logger.info("Task view columns refreshed after config dialog")
+                except Exception as e:
+                    logger.error(f"Failed to refresh task view columns: {e}")
+
+            if hasattr(self, 'quick_input') and self.quick_input:
+                try:
+                    self.quick_input.reload_configuration()
+                    logger.info("Quick input bar reloaded after config dialog")
+                except Exception as exc:
+                    logger.error(f"Failed to reload quick input bar: {exc}")
+            if getattr(self, 'quick_task_dialog', None):
+                try:
+                    self.quick_task_dialog.reload_configuration()
+                    logger.info("Quick add dialog reloaded after config dialog")
+                except Exception as exc:
+                    logger.error(f"Failed to reload quick-add dialog: {exc}")
+            
+            if result:
+                # Użytkownik kliknął Save
+                config_data = dialog.get_config()
+                logger.info(f"Task config saved: {len(config_data.get('columns', []))} columns, "
+                           f"{len(config_data.get('tags', []))} tags, "
+                           f"{len(config_data.get('custom_lists', []))} lists")
+                
+                # Dodaj zadanie przez logic (jeśli konfiguracja zawiera dane zadania)
+                if hasattr(self, 'task_logic') and self.task_logic and 'title' in config_data:
+                    import datetime
+                    task = {
+                        'title': config_data.get('title', ''),
+                        'status': config_data.get('status', 'Nowe'),
+                        'tags': config_data.get('tags', ''),
+                        'created_at': datetime.date.today().isoformat()
+                    }
+                    self.task_logic.add_task(task)
+                    
+                    # Odśwież tabelę w task_view (dane, nie kolumny - już odświeżone wyżej)
+                    if hasattr(self, 'task_view') and self.task_view:
+                        self.task_view.populate_table()
+        except Exception as e:
+            import traceback
+            logger.error(f"Failed to open task config dialog: {e}")
+            logger.error(traceback.format_exc())
+
+    def _handle_note_button_click(self, task_id: int):
+        """Obsługuje kliknięcie przycisku notatki - główna logika integracji zadań z notatkami
+        
+        Args:
+            task_id: ID zadania dla którego obsługujemy notatkę
+        """
+        try:
+            if not self.task_logic or not self.task_logic.db:
+                logger.error("[MainWindow] No database connection available for notes")
+                return
+            
+            if not hasattr(self, 'notes_view') or not self.notes_view:
+                logger.error("[MainWindow] Notes view not initialized")
+                return
+            
+            # Pobierz dane zadania
+            tasks = self.task_logic.db.get_tasks()
+            task = next((t for t in tasks if t.get('id') == task_id), None)
+            
+            if not task:
+                logger.error(f"[MainWindow] Task {task_id} not found")
+                return
+            
+            task_title = task.get('title', f'Zadanie {task_id}')
+            note_id = task.get('note_id')
+            
+            if note_id:
+                # SCENARIUSZ 1: Notatka już istnieje - otwórz ją
+                logger.info(f"[MainWindow] Opening existing note {note_id} for task {task_id}")
+                self._on_view_changed("notes")
+                
+                # Wybierz notatkę w drzewie po przełączeniu widoku
+                QTimer.singleShot(100, lambda: self.notes_view.select_note_in_tree(str(note_id)))
+            else:
+                # SCENARIUSZ 2: Utwórz nową notatkę
+                logger.info(f"[MainWindow] Creating new note for task {task_id}: {task_title}")
+                from datetime import datetime
+                
+                # Utwórz notatkę w bazie danych notatek
+                note_title = f"Notatka - {task_title}"
+                note_content = (
+                    f"<p><strong>Notatka do zadania:</strong> {task_title}</p>"
+                    f"<p><em>Data utworzenia: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</em></p>"
+                    f"<p><br></p>"
+                )
+                
+                # Użyj bazy danych z notes_view
+                new_note_id = self.notes_view.db.create_note(
+                    title=note_title,
+                    content=note_content,
+                    color="#2196F3"  # Niebieski kolor dla notatek z zadań
+                )
+                
+                if new_note_id:
+                    # Połącz zadanie z notatką
+                    self.task_logic.db.update_task(task_id, note_id=new_note_id)
+                    logger.info(f"[MainWindow] Created note {new_note_id} and linked to task {task_id}")
+                    
+                    # Przełącz na widok notatek
+                    self._on_view_changed("notes")
+                    
+                    # Odśwież drzewo notatek i wybierz nową notatkę
+                    def open_new_note():
+                        self.notes_view.refresh_tree()
+                        self.notes_view.select_note_in_tree(str(new_note_id))
+                    
+                    QTimer.singleShot(100, open_new_note)
+                    
+                    # Odśwież widok zadań aby zaktualizować kolor przycisku (niebieski → zielony)
+                    if hasattr(self, 'task_view') and self.task_view:
+                        QTimer.singleShot(200, self.task_view.populate_table)
+                else:
+                    logger.error("[MainWindow] Failed to create note in database")
+                
+        except Exception as e:
+            logger.error(f"[MainWindow] Error handling note button click: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def _handle_add_subtask(self, parent_id: int):
+        """Obsługuje dodawanie subtaska do zadania
+        
+        Args:
+            parent_id: ID zadania nadrzędnego
+        """
+        from PyQt6.QtWidgets import QInputDialog
+        
+        try:
+            if not self.task_logic or not self.task_logic.db:
+                logger.error("[MainWindow] No database connection available for subtasks")
+                return
+            
+            # Pobierz dane zadania nadrzędnego
+            tasks = self.task_logic.db.get_tasks()
+            parent_task = next((t for t in tasks if t.get('id') == parent_id), None)
+            
+            if not parent_task:
+                logger.error(f"[MainWindow] Parent task {parent_id} not found")
+                return
+            
+            parent_title = parent_task.get('title', f'Zadanie {parent_id}')
+            
+            # Dialog wprowadzania tytułu subtaska
+            subtask_title, ok = QInputDialog.getText(
+                self,
+                "Dodaj subtask",
+                f"Wprowadź tytuł subtaska dla zadania:\n{parent_title}",
+                text=""
+            )
+            
+            if ok and subtask_title.strip():
+                # Utwórz subtask w bazie danych
+                logger.info(f"[MainWindow] Creating subtask '{subtask_title}' for parent task {parent_id}")
+                
+                subtask_id = self.task_logic.db.add_task(
+                    title=subtask_title.strip(),
+                    parent_id=parent_id
+                )
+                
+                if subtask_id:
+                    logger.info(f"[MainWindow] Subtask {subtask_id} created successfully")
+                    
+                    # Odśwież widok zadań
+                    if hasattr(self, 'task_view') and self.task_view:
+                        self.task_view.populate_table()
+                        
+                        # Automatycznie rozwiń subtaski dla tego zadania
+                        # Znajdź wiersz zadania nadrzędnego w tabeli
+                        for row in range(self.task_view.table.rowCount()):
+                            # Pobierz ID zadania z pierwszej kolumny (zakładając że tam jest)
+                            # lub użyj innego sposobu identyfikacji wiersza
+                            pass  # TODO: Lepszy mechanizm identyfikacji wiersza
+                        
+                        # Na razie po prostu odśwież tabelę
+                        # Przycisk subtasków zmieni kolor na zielony
+                else:
+                    logger.error("[MainWindow] Failed to create subtask in database")
+            
+        except Exception as e:
+            logger.error(f"[MainWindow] Error handling add subtask: {e}")
+            import traceback
+            traceback.print_exc()
+

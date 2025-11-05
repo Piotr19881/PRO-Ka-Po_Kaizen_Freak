@@ -108,6 +108,8 @@ class AlarmManager:
             # Wrapper callback dla token refresh
             def on_token_refreshed_wrapper(new_access_token: str, new_refresh_token: str):
                 """Callback wywoływany po odświeżeniu tokena - aktualizuje WebSocket"""
+                logger.info(f"🔄 Token refresh callback called - ws_client exists: {self.ws_client is not None}")
+                
                 # Zaktualizuj token w tym obiekcie
                 self.auth_token = new_access_token
                 self.refresh_token = new_refresh_token
@@ -115,7 +117,9 @@ class AlarmManager:
                 # Zaktualizuj token w WebSocket client (jeśli już istnieje)
                 if self.ws_client:
                     self.ws_client.update_token(new_access_token)
-                    logger.info("✓ WebSocket token updated after refresh - will use new token on next reconnect")
+                    logger.info("✅ WebSocket token updated after refresh - will use new token on next reconnect")
+                else:
+                    logger.warning("⚠️ WebSocket client not available during token refresh")
                 
                 # Wywołaj oryginalny callback (np. do zapisu w main.py)
                 if self.on_token_refreshed:

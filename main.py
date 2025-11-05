@@ -45,7 +45,7 @@ def setup_logging() -> None:
 
 def save_tokens(access_token: str, refresh_token: str, user_data: dict | None = None) -> None:
     """
-    Zapisz tokeny do pliku tokens.json.
+    Zapisz tokeny do pliku tokens.json i zaktualizuj WebSocket connections.
     
     Args:
         access_token: Nowy access token
@@ -76,7 +76,41 @@ def save_tokens(access_token: str, refresh_token: str, user_data: dict | None = 
     with open(tokens_file, 'w') as f:
         json.dump(token_data, f, indent=2)
     
-    logger.info("Tokens saved to file")
+    logger.info("✅ Tokens saved to file")
+    
+    # 🔧 DODAJ: Powiadom wszystkie aktywne WebSocket connections o nowym tokenie
+    try:
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance()
+        if app and isinstance(app, QApplication):
+            # Znajdź główne okno aplikacji i zaktualizuj WebSocket connections
+            main_windows = [w for w in app.topLevelWidgets() if w.__class__.__name__ == 'MainWindow']
+            
+            for main_window in main_windows:
+                # MainWindow -> alarms_view -> alarms_logic -> ws_client
+                alarms_view = getattr(main_window, 'alarms_view', None)
+                if alarms_view:
+                    alarms_logic = getattr(alarms_view, 'alarms_logic', None)
+                    if alarms_logic:
+                        ws_client = getattr(alarms_logic, 'ws_client', None)
+                        if ws_client:
+                            ws_client.update_token(access_token)
+                            logger.info("🔗 Updated Alarms WebSocket token")
+                        
+                # MainWindow -> pomodoro_view -> logic -> ws_client (jeśli istnieje)
+                pomodoro_view = getattr(main_window, 'pomodoro_view', None)
+                if pomodoro_view:
+                    pomodoro_logic = getattr(pomodoro_view, 'logic', None)
+                    if pomodoro_logic:
+                        ws_client = getattr(pomodoro_logic, 'ws_client', None)
+                        if ws_client:
+                            ws_client.update_token(access_token)
+                            logger.info("🔗 Updated Pomodoro WebSocket token")
+                        
+    except Exception as e:
+        logger.warning(f"⚠️ Failed to update WebSocket tokens: {e}")
+        
+    logger.success("🔄 Token refresh completed - all WebSocket connections updated")
 
 
 def main() -> int:

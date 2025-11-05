@@ -14,6 +14,7 @@ from .database import get_db, test_connection, init_db
 from .auth_router import router as auth_router
 from .alarms_router import router as alarms_router
 from .pomodoro_router import router as pomodoro_router
+from .notes_router import router as notes_router
 
 # Inicjalizacja FastAPI
 app = FastAPI(
@@ -37,6 +38,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(alarms_router)
 app.include_router(pomodoro_router)
+app.include_router(notes_router)
 
 
 # =============================================================================

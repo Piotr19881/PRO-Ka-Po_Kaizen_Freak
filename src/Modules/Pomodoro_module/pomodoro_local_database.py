@@ -614,6 +614,35 @@ class PomodoroLocalDatabase:
             logger.error(f"[POMODORO] Failed to get sessions by topic: {e}")
             return []
     
+    def get_recent_sessions(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """Pobiera ostatnie sesje dla użytkownika"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                
+                cursor.execute("""
+                    SELECT sl.*, st.name as topic_name 
+                    FROM session_logs sl
+                    LEFT JOIN session_topics st ON sl.topic_id = st.id
+                    WHERE sl.user_id = ? 
+                      AND sl.deleted_at IS NULL
+                    ORDER BY sl.started_at DESC
+                    LIMIT ?
+                """, (self.user_id, limit))
+                
+                sessions = []
+                for row in cursor.fetchall():
+                    data = dict(row)
+                    data['tags'] = self._parse_tags(data.get('tags'))
+                    sessions.append(data)
+                
+                return sessions
+                
+        except Exception as e:
+            logger.error(f"[POMODORO] Failed to get recent sessions: {e}")
+            return []
+    
     # ==================== SYNCHRONIZACJA ====================
     
     def get_unsynced_items(self) -> List[Dict[str, Any]]:

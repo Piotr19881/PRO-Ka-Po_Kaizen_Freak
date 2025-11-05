@@ -23,9 +23,18 @@ import requests
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 from datetime import datetime
 from pathlib import Path
+
+from src.config import (
+    AI_API_KEYS,
+    AI_CACHE_DIR,
+    AI_DEFAULT_PROVIDER,
+    AI_MAX_TOKENS,
+    AI_SETTINGS_FILE,
+    AI_TEMPERATURE,
+)
 
 # ==================== ENUMS ====================
 
@@ -706,6 +715,63 @@ def get_ai_manager() -> AIManager:
     if _ai_manager_instance is None:
         _ai_manager_instance = AIManager()
     return _ai_manager_instance
+
+
+def load_ai_settings() -> Dict[str, Any]:
+    """Load persisted AI settings from disk."""
+    if AI_SETTINGS_FILE.exists():
+        try:
+            with open(AI_SETTINGS_FILE, 'r', encoding='utf-8') as handle:
+                return json.load(handle)
+        except Exception as exc:  # pragma: no cover - defensive
+            logging.getLogger("AIManager").error(f"Failed to load AI settings: {exc}")
+    return {}
+
+
+def configure_ai_manager_from_settings(
+    force_reload: bool = False,
+) -> Tuple[Optional[AIManager], Dict[str, Any], Optional[str]]:
+    """Configure AI manager using stored settings.
+
+    Returns a tuple of (manager, settings, error_message). If configuration fails,
+    manager will be None and error_message will contain the reason (e.g. 'missing_api_key').
+    """
+
+    settings = load_ai_settings()
+    provider_value = settings.get('provider', AI_DEFAULT_PROVIDER)
+
+    try:
+        provider = AIProvider(provider_value)
+    except ValueError:
+        return None, settings, f"unsupported_provider:{provider_value}"
+
+    api_keys = settings.get('api_keys', {})
+    api_key = api_keys.get(provider_value) or AI_API_KEYS.get(provider_value, '')
+    if not api_key:
+        return None, settings, "missing_api_key"
+
+    selected_model = settings.get('models', {}).get(provider_value)
+    temperature = settings.get('temperature', AI_TEMPERATURE)
+    max_tokens = settings.get('max_tokens', AI_MAX_TOKENS)
+
+    manager = get_ai_manager()
+    current_provider = manager.get_current_provider()
+
+    if force_reload or current_provider != provider:
+        try:
+            manager.set_provider(
+                provider=provider,
+                api_key=api_key,
+                model=selected_model,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+            manager.set_cache_dir(AI_CACHE_DIR)
+        except Exception as exc:
+            logging.getLogger("AIManager").error(f"Failed to configure AI manager: {exc}")
+            return None, settings, str(exc)
+
+    return manager, settings, None
 
 
 # ==================== PROMPT TEMPLATES ====================

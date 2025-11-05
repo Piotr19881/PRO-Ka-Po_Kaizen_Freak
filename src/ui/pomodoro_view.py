@@ -15,7 +15,8 @@ Funkcjonalności:
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QSpinBox, QCheckBox, QProgressBar, QGroupBox, QDialog,
-    QLineEdit, QDialogButtonBox, QFrame, QSizePolicy, QComboBox
+    QLineEdit, QDialogButtonBox, QFrame, QSizePolicy, QComboBox,
+    QTableWidget, QTableWidgetItem, QHeaderView, QScrollArea, QMessageBox
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QTime, QUrl
 from PyQt6.QtGui import QFont
@@ -704,8 +705,25 @@ class PomodoroView(QWidget):
         
     def _on_show_logs_clicked(self):
         """Pokazuje dialog z logami sesji"""
-        # TODO: Implementacja logs dialog
-        print("Showing session logs...")
+        if not self.local_db:
+            print("⚠️ Local database not initialized")
+            return
+            
+        # Pobierz ostatnie sesje z bazy danych
+        sessions = self.local_db.get_recent_sessions(100)
+        
+        if not sessions:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.information(
+                self,
+                "Brak sesji",
+                "Nie znaleziono żadnych sesji Pomodoro.\nRozpocznij pierwszą sesję, aby zobaczyć tutaj historię."
+            )
+            return
+        
+        # Otwórz dialog z logami
+        dialog = SessionLogsDialog(sessions, self)
+        dialog.exec()
         
     def _on_timer_tick(self):
         """Odliczanie timera"""
@@ -1439,3 +1457,122 @@ class SessionTitleDialog(QDialog):
         """Zwraca wprowadzony tytuł"""
         title = self.title_input.text().strip()
         return title if title else "Ogólna"
+
+
+class SessionLogsDialog(QDialog):
+    """Dialog pokazujący logi sesji Pomodoro"""
+    
+    def __init__(self, sessions_data: list, parent=None):
+        super().__init__(parent)
+        self.sessions_data = sessions_data
+        self._setup_ui()
+        
+    def _setup_ui(self):
+        """Konfiguruje interfejs dialogu"""
+        from PyQt6.QtCore import Qt
+        
+        self.setWindowTitle("Historia sesji Pomodoro")
+        self.setMinimumSize(800, 600)
+        self.setModal(True)
+        
+        layout = QVBoxLayout(self)
+        
+        # Informacje podsumowujące
+        summary_group = QGroupBox("Podsumowanie")
+        summary_layout = QVBoxLayout(summary_group)
+        
+        total_sessions = len(self.sessions_data)
+        completed_sessions = len([s for s in self.sessions_data if s.get('status') == 'completed'])
+        total_work_time = sum(s.get('actual_duration', 0) for s in self.sessions_data 
+                             if s.get('session_type') == 'work')
+        
+        summary_layout.addWidget(QLabel(f"📊 Łączna liczba sesji: {total_sessions}"))
+        summary_layout.addWidget(QLabel(f"✅ Sesje ukończone: {completed_sessions}"))
+        summary_layout.addWidget(QLabel(f"⏱️ Łączny czas pracy: {total_work_time // 60}h {total_work_time % 60}m"))
+        
+        layout.addWidget(summary_group)
+        
+        # Tabela z sesjami
+        table_group = QGroupBox("Ostatnie sesje")
+        table_layout = QVBoxLayout(table_group)
+        
+        self.table = QTableWidget()
+        self.table.setColumnCount(6)
+        self.table.setHorizontalHeaderLabels([
+            "Data", "Typ sesji", "Temat", "Czas", "Status", "Uwagi"
+        ])
+        
+        # Konfiguracja tabeli
+        header = self.table.horizontalHeader()
+        if header:
+            header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)  # Data
+            header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)  # Typ
+            header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)           # Temat
+            header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)  # Czas
+            header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)  # Status
+            header.setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)           # Uwagi
+        
+        self._populate_table()
+        
+        table_layout.addWidget(self.table)
+        layout.addWidget(table_group)
+        
+        # Przyciski
+        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        button_box.rejected.connect(self.close)
+        layout.addWidget(button_box)
+    
+    def _populate_table(self):
+        """Wypełnia tabelę danymi sesji"""
+        from PyQt6.QtCore import Qt
+        from datetime import datetime
+        
+        self.table.setRowCount(len(self.sessions_data))
+        
+        for row, session in enumerate(self.sessions_data):
+            # Data
+            started_at = session.get('started_at', '')
+            if started_at:
+                try:
+                    dt = datetime.fromisoformat(started_at.replace('Z', '+00:00'))
+                    date_str = dt.strftime("%Y-%m-%d %H:%M")
+                except:
+                    date_str = started_at
+            else:
+                date_str = "N/A"
+            
+            self.table.setItem(row, 0, QTableWidgetItem(date_str))
+            
+            # Typ sesji
+            session_type = session.get('session_type', 'unknown')
+            type_icons = {
+                'work': '🍅 Praca',
+                'short_break': '☕ Krótka przerwa', 
+                'long_break': '🌟 Długa przerwa'
+            }
+            self.table.setItem(row, 1, QTableWidgetItem(type_icons.get(session_type, session_type)))
+            
+            # Temat
+            topic_name = session.get('topic_name', 'Brak tematu')
+            self.table.setItem(row, 2, QTableWidgetItem(topic_name))
+            
+            # Czas
+            actual_duration = session.get('actual_duration', 0)
+            planned_duration = session.get('planned_duration', 0)
+            time_str = f"{actual_duration // 60}:{actual_duration % 60:02d}"
+            if planned_duration and actual_duration != planned_duration:
+                time_str += f" / {planned_duration // 60}:{planned_duration % 60:02d}"
+            self.table.setItem(row, 3, QTableWidgetItem(time_str))
+            
+            # Status
+            status = session.get('status', 'unknown')
+            status_icons = {
+                'completed': '✅ Ukończona',
+                'interrupted': '⏹️ Przerwana',
+                'skipped': '⏭️ Pominięta'
+            }
+            self.table.setItem(row, 4, QTableWidgetItem(status_icons.get(status, status)))
+            
+            # Uwagi
+            notes = session.get('notes', '') or ''
+            self.table.setItem(row, 5, QTableWidgetItem(notes[:50] + '...' if len(notes) > 50 else notes))
