@@ -4,6 +4,7 @@ Menu kontekstowe dla zadań w TaskView
 from __future__ import annotations
 from typing import Optional, TYPE_CHECKING, List
 import logging
+import re
 
 from PyQt6.QtWidgets import QMenu, QColorDialog, QMessageBox, QDialog
 from PyQt6.QtGui import QAction, QClipboard
@@ -20,6 +21,9 @@ if TYPE_CHECKING:
     from ...ui.task_view import TaskView
 
 logger = logging.getLogger(__name__)
+
+# Regex dla walidacji koloru hex (z opcjonalnym alpha channel)
+HEX_COLOR_PATTERN = re.compile(r'^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$')
 
 
 class TaskContextMenu:
@@ -262,6 +266,17 @@ class TaskContextMenu:
         
         if color.isValid():
             color_hex = color.name()
+            
+            # Walidacja formatu koloru przed zapisem
+            if not HEX_COLOR_PATTERN.match(color_hex):
+                logger.error(f"[TaskContextMenu] Invalid color format: {color_hex}")
+                QMessageBox.warning(
+                    self.task_view,
+                    "Błąd koloru",
+                    f"Nieprawidłowy format koloru: {color_hex}\nOczekiwano formatu #RRGGBB lub #RRGGBBAA"
+                )
+                return
+            
             logger.info(f"[TaskContextMenu] Setting row color for task {self.current_task_id}: {color_hex}")
             
             # Zapisz kolor w bazie danych

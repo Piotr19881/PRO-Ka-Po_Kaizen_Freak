@@ -275,6 +275,11 @@ def import_tasks_and_kanban_from_csv(local_db, source_directory: str) -> Dict[st
 				)
 
 			conn.commit()
+			logger.info(f"[CSV Import] Successfully committed all changes")
+		except Exception as e:
+			conn.rollback()
+			logger.error(f"[CSV Import] Error during import, rolling back all changes: {e}")
+			raise
 		finally:
 			cursor.execute("PRAGMA foreign_keys = ON")
 

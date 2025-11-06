@@ -615,7 +615,9 @@ class KanBanView(QWidget):
         if not self.db:
             return False
 
-        changes_made = False
+        # Zbierz wszystkie zmiany przed wykonaniem
+        pending_moves = []
+        
         for item in items:
             task_id = item.get('task_id')
             if not task_id:
@@ -625,30 +627,37 @@ class KanBanView(QWidget):
             status_flag = bool(item.get('status'))
 
             if status_flag and column_type != 'done':
-                position = self._get_next_position('done')
-                if self.db.move_kanban_item(task_id, 'done', position):
-                    changes_made = True
-                    logger.info(
-                        f"[KanBanView] Auto-moved task {task_id} to 'done' due to completion status"
-                    )
-                    self.task_moved.emit(task_id, column_type, 'done')
-                else:
-                    logger.warning(
-                        f"[KanBanView] Failed to auto-move task {task_id} to 'done' column"
-                    )
+                pending_moves.append({
+                    'task_id': task_id,
+                    'from_column': column_type,
+                    'to_column': 'done',
+                    'reason': 'completion'
+                })
             elif not status_flag and column_type == 'done':
                 target_column = self._select_reopen_column(item)
-                position = self._get_next_position(target_column)
-                if self.db.move_kanban_item(task_id, target_column, position):
-                    changes_made = True
-                    logger.info(
-                        f"[KanBanView] Auto-moved task {task_id} from 'done' to '{target_column}' after reopening"
-                    )
-                    self.task_moved.emit(task_id, 'done', target_column)
-                else:
-                    logger.warning(
-                        f"[KanBanView] Failed to auto-move task {task_id} from 'done' to '{target_column}'"
-                    )
+                pending_moves.append({
+                    'task_id': task_id,
+                    'from_column': 'done',
+                    'to_column': target_column,
+                    'reason': 'reopen'
+                })
+
+        # Wykonaj wszystkie zmiany po obliczeniu pozycji
+        changes_made = False
+        for move in pending_moves:
+            # Oblicz pozycję tuż przed zapisem
+            position = self._get_next_position(move['to_column'])
+            
+            if self.db.move_kanban_item(move['task_id'], move['to_column'], position):
+                changes_made = True
+                logger.info(
+                    f"[KanBanView] Auto-moved task {move['task_id']} from '{move['from_column']}' to '{move['to_column']}' ({move['reason']})"
+                )
+                self.task_moved.emit(move['task_id'], move['from_column'], move['to_column'])
+            else:
+                logger.warning(
+                    f"[KanBanView] Failed to auto-move task {move['task_id']} from '{move['from_column']}' to '{move['to_column']}'"
+                )
 
         return changes_made
 

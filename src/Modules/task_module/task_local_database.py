@@ -207,6 +207,32 @@ class TaskLocalDatabase:
                 )
             """)
             
+            # ========== TABELA: task_history ==========
+            # Historia zmian zadań (audyt) - szczególnie przesunięć w Kanban
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS task_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    task_id INTEGER NOT NULL,
+                    action_type TEXT NOT NULL,
+                    old_value TEXT,
+                    new_value TEXT,
+                    details TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+                )
+            """)
+            
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_task_history_task 
+                ON task_history(task_id, created_at DESC)
+            """)
+            
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_task_history_user 
+                ON task_history(user_id, created_at DESC)
+            """)
+            
             # ========== TABELA: task_alarms ==========
             # Metadane alarmów dla zadań (dla cyklicznych i zaawansowanych opcji)
             cursor.execute("""
@@ -1745,6 +1771,26 @@ class TaskLocalDatabase:
                         },
                     )
                 
+                # Zapisz historię dodania do Kanban
+                details = {
+                    'to_column': column_type,
+                    'position': position,
+                    'timestamp': timestamp,
+                    'action': 'added_to_kanban'
+                }
+                cursor.execute("""
+                    INSERT INTO task_history 
+                    (user_id, task_id, action_type, old_value, new_value, details)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (
+                    self.user_id, 
+                    task_id, 
+                    'kanban_add', 
+                    None, 
+                    column_type,
+                    json.dumps(details)
+                ))
+                
                 conn.commit()
                 logger.info(f"[TASK DB] Added task {task_id} to kanban column '{column_type}' at position {position}")
                 return True
@@ -1775,6 +1821,25 @@ class TaskLocalDatabase:
                     },
                     overwrite=True,
                 )
+                
+                # Zapisz historię usunięcia
+                details = {
+                    'from_column': previous_column or 'unknown',
+                    'timestamp': timestamp,
+                    'action': 'removed_from_kanban'
+                }
+                cursor.execute("""
+                    INSERT INTO task_history 
+                    (user_id, task_id, action_type, old_value, new_value, details)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (
+                    self.user_id, 
+                    task_id, 
+                    'kanban_remove', 
+                    previous_column, 
+                    None,
+                    json.dumps(details)
+                ))
                 
                 conn.commit()
                 logger.info(f"[TASK DB] Removed task {task_id} from kanban")
@@ -1847,6 +1912,28 @@ class TaskLocalDatabase:
                     custom_updates,
                     overwrite=True,
                 )
+                
+                # Zapisz historię przesunięcia
+                if previous_column != new_column:
+                    details = {
+                        'from_column': previous_column or 'none',
+                        'to_column': new_column,
+                        'position': new_position,
+                        'timestamp': now_iso
+                    }
+                    cursor.execute("""
+                        INSERT INTO task_history 
+                        (user_id, task_id, action_type, old_value, new_value, details)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    """, (
+                        self.user_id, 
+                        task_id, 
+                        'kanban_move', 
+                        previous_column, 
+                        new_column,
+                        json.dumps(details)
+                    ))
+                    logger.debug(f"[TASK DB] Added history: task {task_id} moved from {previous_column} to {new_column}")
                 
                 conn.commit()
                 logger.info(f"[TASK DB] Moved task {task_id} to column '{new_column}' position {new_position}")
@@ -2222,5 +2309,101 @@ class TaskLocalDatabase:
         except Exception as e:
             logger.error(f"[TASK DB] Failed to calculate next alarm date: {e}")
             return None
+
+    # ========== HISTORIA ZMIAN ==========
+    
+    def add_task_history(
+        self, 
+        task_id: int, 
+        action_type: str, 
+        old_value: Optional[str] = None,
+        new_value: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None
+    ) -> bool:
+        """
+        Dodaj wpis do historii zadania
+        
+        Args:
+            task_id: ID zadania
+            action_type: Typ akcji (np. 'kanban_move', 'status_change', 'edit')
+            old_value: Poprzednia wartość
+            new_value: Nowa wartość
+            details: Dodatkowe szczegóły jako słownik
+            
+        Returns:
+            True jeśli sukces
+        """
+        try:
+            details_json = json.dumps(details) if details else None
+            
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO task_history 
+                    (user_id, task_id, action_type, old_value, new_value, details)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (self.user_id, task_id, action_type, old_value, new_value, details_json))
+                conn.commit()
+                
+            logger.debug(f"[TASK DB] Added history entry: task={task_id}, action={action_type}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"[TASK DB] Failed to add task history: {e}")
+            return False
+    
+    def get_task_history(
+        self, 
+        task_id: Optional[int] = None,
+        limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        """
+        Pobierz historię zmian zadań
+        
+        Args:
+            task_id: ID zadania (None = wszystkie zadania)
+            limit: Maksymalna liczba wpisów
+            
+        Returns:
+            Lista wpisów historii
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                
+                if task_id:
+                    cursor.execute("""
+                        SELECT * FROM task_history
+                        WHERE task_id = ?
+                        ORDER BY created_at DESC
+                        LIMIT ?
+                    """, (task_id, limit))
+                else:
+                    cursor.execute("""
+                        SELECT * FROM task_history
+                        WHERE user_id = ?
+                        ORDER BY created_at DESC
+                        LIMIT ?
+                    """, (self.user_id, limit))
+                
+                rows = cursor.fetchall()
+                history = []
+                
+                for row in rows:
+                    entry = dict(row)
+                    # Parse details JSON if exists
+                    if entry.get('details'):
+                        try:
+                            entry['details'] = json.loads(entry['details'])
+                        except:
+                            pass
+                    history.append(entry)
+                
+                return history
+                
+        except Exception as e:
+            logger.error(f"[TASK DB] Failed to get task history: {e}")
+            return []
 
 
