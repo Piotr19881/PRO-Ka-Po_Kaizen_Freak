@@ -86,6 +86,9 @@ class TaskView(QWidget):
 		
 		# Inicjalizacja menu kontekstowego (lazy import)
 		self.context_menu = None
+		
+		# Auto-stretch dla kolumny Zadanie
+		self._stretch_enabled = False
 
 		self._general_settings: Dict[str, Any] = {
 			'auto_archive_enabled': False,
@@ -102,6 +105,37 @@ class TaskView(QWidget):
 		"""Ustaw menedżera alarmów dla integracji z widokiem alarmów"""
 		self.alarm_manager = alarm_manager
 		logger.info("[TaskView] Alarm manager set")
+	
+	def set_task_logic(self, task_logic, local_db):
+		"""
+		Ustaw task_logic i local_db po zalogowaniu użytkownika.
+		Przeładowuje konfigurację i dane z właściwej bazy użytkownika.
+		
+		Args:
+			task_logic: Instancja TasksManager/TaskLogic
+			local_db: Instancja TaskLocalDatabase
+		"""
+		self.task_logic = task_logic
+		self.local_db = local_db
+		
+		# Przeładuj konfigurację z nowej bazy
+		self._load_general_settings()
+		self._load_columns_config()
+		
+		# FIXED: Wczytaj zapisane szerokości PRZED setupem kolumn
+		self._load_persisted_table_settings()
+		
+		self._setup_table_columns()
+		self._load_tag_filter_options()
+		
+		# Załaduj zadania użytkownika
+		if task_logic:
+			try:
+				tasks = task_logic.load_tasks()
+				self.populate_table(tasks)
+				logger.info(f"[TaskView] Task logic set and loaded {len(tasks)} tasks")
+			except Exception as e:
+				logger.error(f"[TaskView] Failed to load tasks after setting task_logic: {e}")
 	
 	def _translate_column_name(self, column_name: str) -> str:
 		"""Przetłumacz nazwę kolumny z bazy danych na klucz i18n
@@ -164,6 +198,34 @@ class TaskView(QWidget):
 		self.search_le = QLineEdit()
 		self.search_le.setPlaceholderText("Szukaj w zadaniach...")
 		left_filters.addWidget(self.search_le)
+		
+		# Przycisk auto-stretch dla kolumny "Zadanie"
+		self.stretch_btn = QPushButton("⬌")
+		self.stretch_btn.setCheckable(True)
+		self.stretch_btn.setChecked(False)  # Domyślnie OFF
+		self.stretch_btn.setFixedSize(35, 35)
+		self.stretch_btn.setToolTip("Auto-dopasowanie szerokości kolumny 'Zadanie'\n(aktywne tylko gdy kolumny odblokowane)")
+		self.stretch_btn.setEnabled(not self._locked)  # Disabled gdy zablokowane
+		self.stretch_btn.clicked.connect(self._on_stretch_toggled)
+		# Ustaw domyślny styl (OFF - czerwony)
+		self.stretch_btn.setStyleSheet("""
+			QPushButton {
+				background-color: #f44336;
+				color: white;
+				font-weight: bold;
+				border: 2px solid #da190b;
+				border-radius: 4px;
+			}
+			QPushButton:hover {
+				background-color: #da190b;
+			}
+			QPushButton:disabled {
+				background-color: #cccccc;
+				color: #666666;
+				border: 2px solid #999999;
+			}
+		""")
+		left_filters.addWidget(self.stretch_btn)
 
 		bar_layout.addLayout(left_filters)
 		bar_layout.addStretch()
@@ -175,6 +237,13 @@ class TaskView(QWidget):
 		self.lock_btn.setChecked(self._locked)
 		self._update_lock_button_text()
 		right_buttons.addWidget(self.lock_btn)
+		
+		# Przycisk synchronizacji (ukryty domyślnie, będzie widoczny po zalogowaniu)
+		self.sync_btn = QPushButton("🔄 Synchronizuj")
+		self.sync_btn.setToolTip("Wymuszony synchronizuj z serwerem")
+		self.sync_btn.setVisible(False)  # Ukryty dopóki sync nie jest włączony
+		self.sync_btn.clicked.connect(self._on_sync_now)
+		right_buttons.addWidget(self.sync_btn)
 
 		self.config_btn = QPushButton("Konfiguruj")
 		right_buttons.addWidget(self.config_btn)
@@ -212,6 +281,15 @@ class TaskView(QWidget):
 
 		# Wstępne załadowanie danych
 		self.populate_table()
+	
+	def resizeEvent(self, event):
+		"""Obsłuż zmianę rozmiaru widgetu - dopasuj kolumnę Zadanie jeśli włączony stretch"""
+		super().resizeEvent(event)
+		# Dopasuj kolumnę Zadanie jeśli włączony auto-fit
+		if hasattr(self, '_stretch_enabled') and self._stretch_enabled:
+			# Użyj QTimer aby odroczyć dopasowanie do momentu zakończenia resize
+			from PyQt6.QtCore import QTimer
+			QTimer.singleShot(0, self._adjust_zadanie_column_width)
 
 	def _load_columns_config(self):
 		"""Wczytaj konfigurację kolumn z bazy danych"""
@@ -342,6 +420,11 @@ class TaskView(QWidget):
 				self.table.setEditTriggers(QTableWidget.EditTrigger.DoubleClicked)
 		if header:
 			self._apply_column_preferences(self._visible_columns_cache or None)
+		
+		# Dopasuj kolumnę Zadanie jeśli włączony auto-fit
+		if hasattr(self, '_stretch_enabled') and self._stretch_enabled:
+			from PyQt6.QtCore import QTimer
+			QTimer.singleShot(50, self._adjust_zadanie_column_width)
 
 	def _capture_current_column_widths(self):
 		"""Zapisz bieżące szerokości kolumn w buforze pamięci."""
@@ -1373,6 +1456,117 @@ class TaskView(QWidget):
 					if width:
 						header.resizeSection(index, width)
 		self._persist_lock_state()
+		
+		# Zaktualizuj stan przycisku stretch
+		if hasattr(self, 'stretch_btn'):
+			self.stretch_btn.setEnabled(not self._locked)
+			logger.debug(f"[TaskView] Stretch button {'disabled' if self._locked else 'enabled'}")
+	
+	def _on_stretch_toggled(self, checked: bool):
+		"""Toggle auto-stretch dla kolumny 'Zadanie'"""
+		# Znajdź indeks kolumny 'Zadanie' - próbuj różnych nazw
+		title_index = -1
+		for possible_name in ['Zadanie', 'zadanie', 'title', 'Title']:
+			title_index = self._find_column_index(possible_name)
+			if title_index >= 0:
+				logger.debug(f"[TaskView] Found column '{possible_name}' at index {title_index}")
+				break
+		
+		if title_index < 0:
+			logger.warning("[TaskView] Column 'Zadanie' not found for stretch toggle")
+			return
+		
+		self._stretch_enabled = checked
+		
+		if checked:
+			# ON - zielony, włącz auto-dopasowanie
+			self.stretch_btn.setStyleSheet("""
+				QPushButton {
+					background-color: #4CAF50;
+					color: white;
+					font-weight: bold;
+					border: 2px solid #45a049;
+					border-radius: 4px;
+				}
+				QPushButton:hover {
+					background-color: #45a049;
+				}
+				QPushButton:disabled {
+					background-color: #cccccc;
+					color: #666666;
+					border: 2px solid #999999;
+				}
+			""")
+			logger.info("[TaskView] Column 'Zadanie' auto-fit mode: ON")
+			# Natychmiast dopasuj szerokość
+			self._adjust_zadanie_column_width()
+		else:
+			# OFF - czerwony, wyłącz auto-dopasowanie
+			self.stretch_btn.setStyleSheet("""
+				QPushButton {
+					background-color: #f44336;
+					color: white;
+					font-weight: bold;
+					border: 2px solid #da190b;
+					border-radius: 4px;
+				}
+				QPushButton:hover {
+					background-color: #da190b;
+				}
+				QPushButton:disabled {
+					background-color: #cccccc;
+					color: #666666;
+					border: 2px solid #999999;
+				}
+			""")
+			logger.info("[TaskView] Column 'Zadanie' auto-fit mode: OFF")
+	
+	def _adjust_zadanie_column_width(self):
+		"""Dopasuj szerokość kolumny 'Zadanie' do dostępnej przestrzeni"""
+		if not hasattr(self, '_stretch_enabled') or not self._stretch_enabled:
+			return
+		
+		# Znajdź indeks kolumny Zadanie
+		title_index = -1
+		for possible_name in ['Zadanie', 'zadanie', 'title', 'Title']:
+			title_index = self._find_column_index(possible_name)
+			if title_index >= 0:
+				break
+		
+		if title_index < 0:
+			return
+		
+		header = self.table.horizontalHeader()
+		if not header:
+			return
+		
+		# Oblicz dostępną szerokość
+		viewport_width = self.table.viewport().width()
+		
+		# Zsumuj szerokości wszystkich innych kolumn
+		other_columns_width = 0
+		for i in range(header.count()):
+			if i != title_index and not header.isSectionHidden(i):
+				other_columns_width += header.sectionSize(i)
+		
+		# Oblicz szerokość dla kolumny Zadanie (minimum 200px)
+		available_width = viewport_width - other_columns_width
+		new_width = max(200, available_width)
+		
+		# Ustaw nową szerokość
+		header.resizeSection(title_index, new_width)
+		logger.debug(f"[TaskView] Adjusted 'Zadanie' column width to {new_width}px (viewport: {viewport_width}px, others: {other_columns_width}px)")
+	
+	def _find_column_index(self, column_id: str) -> int:
+		"""Znajdź indeks kolumny po jej column_id"""
+		if not self._visible_columns_cache:
+			return -1
+		
+		for index, col in enumerate(self._visible_columns_cache):
+			if col.get('column_id', '').lower() == column_id.lower():
+				return index
+		
+		return -1
 
 	def _on_configure_clicked(self):
 		"""Otwórz dialog konfiguracji zadań"""
@@ -1384,6 +1578,34 @@ class TaskView(QWidget):
 				self.refresh_columns()
 			except Exception as e:
 				logger.error(f"[TaskView] Error in configuration callback: {e}")
+	
+	def _on_sync_now(self):
+		"""Wymuszony synchronizacja z serwerem"""
+		try:
+			# Sprawdź czy TasksManager ma metodę sync_now
+			if hasattr(self.task_logic, 'sync_now') and callable(self.task_logic.sync_now):
+				logger.info("[TaskView] Manual sync triggered")
+				self.sync_btn.setEnabled(False)  # Wyłącz przycisk podczas sync
+				self.sync_btn.setText("🔄 Synchronizuję...")
+				
+				# Wywołaj sync
+				self.task_logic.sync_now()
+				
+				# Timer do przywrócenia przycisku (po 3 sekundach)
+				from PyQt6.QtCore import QTimer
+				QTimer.singleShot(3000, lambda: (
+					self.sync_btn.setEnabled(True),
+					self.sync_btn.setText("🔄 Synchronizuj")
+				))
+				
+				# Odśwież widok po sync (z opóźnieniem 1s)
+				QTimer.singleShot(1000, self.refresh_tasks)
+			else:
+				logger.warning("[TaskView] sync_now method not available (sync not enabled)")
+		except Exception as e:
+			logger.error(f"[TaskView] Error during manual sync: {e}")
+			self.sync_btn.setEnabled(True)
+			self.sync_btn.setText("🔄 Synchronizuj")
 
 	def _on_search_changed(self, text: str):
 		"""Filtruj zadania na podstawie tekstu wyszukiwania"""
@@ -3068,7 +3290,12 @@ class TaskView(QWidget):
 		Returns:
 			True jeśli zadanie ma subtaski, False w przeciwnym razie
 		"""
-		if not self.task_logic or not self.task_logic.db:
+		if not self.task_logic:
+			return False
+		
+		# TasksManager ma local_db, TaskLogic (legacy) ma db
+		db = getattr(self.task_logic, 'local_db', None) or getattr(self.task_logic, 'db', None)
+		if not db:
 			return False
 		
 		try:
@@ -3111,7 +3338,12 @@ class TaskView(QWidget):
 			parent_id: ID zadania nadrzędnego
 			parent_row: Wiersz zadania nadrzędnego
 		"""
-		if not self.task_logic or not self.task_logic.db:
+		if not self.task_logic:
+			return
+		
+		# TasksManager ma local_db, TaskLogic (legacy) ma db  
+		db = getattr(self.task_logic, 'local_db', None) or getattr(self.task_logic, 'db', None)
+		if not db:
 			return
 		
 		try:
@@ -3226,7 +3458,12 @@ class TaskView(QWidget):
 			parent_id: ID zadania nadrzędnego
 			parent_row: Wiersz zadania nadrzędnego
 		"""
-		if not self.task_logic or not self.task_logic.db:
+		if not self.task_logic:
+			return
+		
+		# TasksManager ma local_db, TaskLogic (legacy) ma db
+		db = getattr(self.task_logic, 'local_db', None) or getattr(self.task_logic, 'db', None)
+		if not db:
 			return
 		
 		try:
@@ -3331,12 +3568,17 @@ class TaskView(QWidget):
 		Buduje cache wszystkich subtasków jednym zapytaniem do bazy.
 		Zamiast N zapytań (po jednym dla każdego zadania), wykonujemy jedno zapytanie.
 		"""
-		if not self.task_logic or not self.task_logic.db:
+		if not self.task_logic:
+			return
+		
+		# TasksManager ma local_db, TaskLogic (legacy) ma db
+		db = getattr(self.task_logic, 'local_db', None) or getattr(self.task_logic, 'db', None)
+		if not db:
 			return
 		
 		try:
 			# Pobierz wszystkie zadania które mają parent_id (są subtaskami)
-			all_tasks = self.task_logic.db.get_tasks(include_archived=False)
+			all_tasks = db.get_tasks(include_archived=False)
 			
 			# Grupuj subtaski po parent_id
 			self._subtasks_cache.clear()

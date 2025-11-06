@@ -15,6 +15,7 @@ from .auth_router import router as auth_router
 from .alarms_router import router as alarms_router
 from .pomodoro_router import router as pomodoro_router
 from .notes_router import router as notes_router
+from .tasks_router import router as tasks_router
 
 # Inicjalizacja FastAPI
 app = FastAPI(
@@ -39,6 +40,7 @@ app.include_router(auth_router)
 app.include_router(alarms_router)
 app.include_router(pomodoro_router)
 app.include_router(notes_router)
+app.include_router(tasks_router)
 
 
 # =============================================================================

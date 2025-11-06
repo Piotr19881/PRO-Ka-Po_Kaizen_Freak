@@ -653,6 +653,9 @@ class TaskBar(QWidget):
 		payload = self._collect_task_payload(task_text)
 		self.task_added.emit(payload)
 		logger.info(f"[TaskBar] Quick task payload prepared for '{task_text}'")
+		
+		# Wyczyść pola natychmiast po emit (nie czekaj na callback)
+		self.clear_inputs()
 
 	def _on_microphone_clicked(self) -> None:
 		self.task_input.setFocus()

@@ -54,6 +54,12 @@ class KanBanView(QWidget):
         self.context_menu = KanbanContextMenu(self)
         self._log_button: Optional[QPushButton] = None
         
+        # Drag & Drop Manager (inicjalizacja po set_task_logic)
+        self.drag_drop_manager = None
+        
+        # Flaga zapobiegająca rekurencyjnemu refresh podczas drag & drop
+        self._is_refreshing = False
+        
         self._setup_ui()
         self._i18n.language_changed.connect(self._on_language_changed)
         self.update_translations()
@@ -161,6 +167,9 @@ class KanBanView(QWidget):
         container_layout.setContentsMargins(0, 0, 0, 0)
         container_layout.setSpacing(10)
         
+        # Zapisz referencję do layoutu dla późniejszego rebuildu
+        self.columns_layout = container_layout
+        
         # Kolumna 1: Do wykonania (TODO)
         self.todo_column = self._create_column("todo")
         container_layout.addWidget(self.todo_column)
@@ -196,7 +205,7 @@ class KanBanView(QWidget):
     
     def _create_column(self, column_type: str) -> QGroupBox:
         """
-        Utwórz pojedynczą kolumnę KanBan
+        Utwórz pojedynczą kolumnę KanBan z drop zone support
         
         Args:
             column_type: Typ kolumny (todo, in_progress, done, on_hold, review)
@@ -215,9 +224,23 @@ class KanBanView(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
+        # WAŻNE: QScrollArea musi też akceptować drops, aby przekazać je do child widget
+        scroll.setAcceptDrops(True)
+        if scroll.viewport():
+            scroll.viewport().setAcceptDrops(True)
         
-        # Kontener na karty zadań
-        tasks_container = QWidget()
+        # Kontener na karty zadań - z drop zone support
+        if self.drag_drop_manager:
+            from ..Modules.task_module.kanban_drag_and_drop_logic import DropZoneColumn
+            tasks_container = DropZoneColumn(column_type)
+            # Podłącz sygnał drop
+            tasks_container.task_dropped.connect(self.drag_drop_manager.handle_task_dropped)
+            logger.info(f"[KanBanView] Created DropZoneColumn for '{column_type}' with acceptDrops={tasks_container.acceptDrops()}")
+        else:
+            # Fallback gdy manager nie jest dostępny
+            tasks_container = QWidget()
+            logger.warning(f"[KanBanView] No drag_drop_manager - using plain QWidget for '{column_type}'")
+        
         tasks_container.setObjectName(f"{column_type}_tasks")
         tasks_layout = QVBoxLayout(tasks_container)
         tasks_layout.setContentsMargins(0, 0, 0, 0)
@@ -297,6 +320,38 @@ class KanBanView(QWidget):
             dialog.exec()
         except Exception as exc:
             logger.error(f"[KanBanView] Failed to open Kanban log dialog: {exc}")
+    
+    # ============================================================================
+    # DRAG & DROP CALLBACKS
+    # ============================================================================
+    
+    def _on_card_drag_finished(self, task_id: int, source_column: str, success: bool):
+        """Callback po zakończeniu drag (success lub cancel)"""
+        if not success:
+            logger.debug(f"[KanBanView] Drag cancelled for task {task_id}")
+        # Można dodać animację powrotu karty jeśli cancel
+    
+    def _on_drag_drop_success(self, task_id: int, from_column: str, to_column: str, position: int):
+        """Callback po udanym przeniesieniu zadania przez drag & drop"""
+        logger.info(f"[KanBanView] Drag & Drop success: task {task_id} moved {from_column} → {to_column}")
+        
+        # Odśwież board aby pokazać nową pozycję
+        logger.debug(f"[KanBanView] Calling refresh_board() after drag & drop, _is_refreshing={self._is_refreshing}")
+        self.refresh_board()
+        
+        # Emituj sygnał task_moved (dla synchronizacji)
+        self.task_moved.emit(task_id, to_column, position)
+    
+    def _on_drag_drop_failed(self, task_id: int, from_column: str, to_column: str, reason: str):
+        """Callback gdy przeniesienie przez drag & drop nie powiodło się"""
+        logger.warning(f"[KanBanView] Drag & Drop failed: {reason}")
+        
+        # Pokaż komunikat błędu użytkownikowi
+        QMessageBox.warning(
+            self,
+            t('kanban.drag.failed_title', 'Nie można przenieść'),
+            t('kanban.drag.failed_message', f'Powód: {reason}')
+        )
 
     def apply_theme(self, *, refresh: bool = True) -> None:
         self._current_colors = self._theme_manager.get_current_colors()
@@ -487,6 +542,18 @@ class KanBanView(QWidget):
         if hasattr(task_logic, 'db'):
             self.db = task_logic.db
             self._load_settings()
+            
+            # Inicjalizacja Drag & Drop Manager
+            if self.db and not self.drag_drop_manager:
+                from ..Modules.task_module.kanban_drag_and_drop_logic import KanbanDragDropManager
+                self.drag_drop_manager = KanbanDragDropManager(self.db, self.settings, self)
+                self.drag_drop_manager.task_moved_successfully.connect(self._on_drag_drop_success)
+                self.drag_drop_manager.task_move_failed.connect(self._on_drag_drop_failed)
+                logger.info("[KanBanView] Drag & Drop Manager initialized")
+                
+                # WAŻNE: Przebuduj kolumny aby używały DropZoneColumn
+                self._rebuild_columns()
+            
             self.refresh_board()
             if self._log_button:
                 self._log_button.setEnabled(self.db is not None)
@@ -567,17 +634,56 @@ class KanBanView(QWidget):
         try:
             self.db.update_kanban_settings(self.settings)
             self.settings_changed.emit(self.settings)
+            
+            # Update drag_drop_manager settings
+            if self.drag_drop_manager:
+                self.drag_drop_manager.settings = self.settings
+                logger.debug("[KanBanView] DragDropManager settings updated")
+            
             logger.info(f"[KanBanView] Settings saved: {self.settings}")
         except Exception as e:
             logger.error(f"[KanBanView] Failed to save settings: {e}")
     
+    def _rebuild_columns(self):
+        """Przebuduj kolumny aby używały DropZoneColumn po inicjalizacji managera"""
+        logger.info("[KanBanView] Rebuilding columns with Drag & Drop support")
+        
+        # Usuń stare kolumny z layoutu
+        while self.columns_layout.count():
+            item = self.columns_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        
+        self.columns.clear()
+        
+        # Utwórz kolumny na nowo (tym razem z DropZoneColumn)
+        column_types = ['todo', 'in_progress', 'done', 'on_hold', 'review']
+        for col_type in column_types:
+            column = self._create_column(col_type)
+            self.columns[col_type] = column
+            self.columns_layout.addWidget(column)
+            
+            # Ustaw widoczność na podstawie ustawień
+            show_key = f'show_{col_type}'
+            if show_key in self.settings:
+                column.setVisible(self.settings[show_key])
+        
+        logger.info("[KanBanView] Columns rebuilt successfully")
+    
     def refresh_board(self):
         """Odśwież wszystkie kolumny"""
+        # Zapobiegnij rekurencyjnemu odświeżaniu
+        if self._is_refreshing:
+            logger.debug("[KanBanView] Refresh already in progress, skipping")
+            return
+            
         if not self.db:
             logger.warning("[KanBanView] Cannot refresh board - no database")
             return
         
         try:
+            self._is_refreshing = True
+            
             # Pobierz wszystkie zadania z KanBan
             items = self.db.get_kanban_items()
 
@@ -609,6 +715,9 @@ class KanBanView(QWidget):
             
         except Exception as e:
             logger.error(f"[KanBanView] Failed to refresh board: {e}")
+        finally:
+            # Zawsze resetuj flagę po zakończeniu
+            self._is_refreshing = False
 
     def _sync_task_status_with_columns(self, items: List[Dict[str, Any]]) -> bool:
         """Ensure KanBan columns match task completion status."""
@@ -765,11 +874,24 @@ class KanBanView(QWidget):
         return self._build_generic_card(column_type, task)
 
     def _create_base_card(self, column_type: str, task_id: Optional[int]) -> Tuple[QFrame, QVBoxLayout]:
-        card = QFrame()
+        """Utwórz bazową kartę - z drag&drop jeśli dostępne"""
+        
+        # Utwórz kartę z drag&drop support jeśli manager jest dostępny
+        if task_id and self.drag_drop_manager:
+            from ..Modules.task_module.kanban_drag_and_drop_logic import DraggableTaskCard
+            card = DraggableTaskCard(task_id, column_type)
+            # Podłącz sygnały drag
+            card.drag_started.connect(self.drag_drop_manager.handle_drag_started)
+            card.drag_finished.connect(self._on_card_drag_finished)
+        else:
+            # Fallback dla kart bez task_id lub gdy manager nie jest dostępny
+            card = QFrame()
+        
         card.setFrameShape(QFrame.Shape.StyledPanel)
         card.setProperty('task_id', task_id)
         card.setProperty('column_type', column_type)
         self._apply_card_theme(card, column_type)
+        
         layout = QVBoxLayout()
         layout.setContentsMargins(6, 6, 6, 6)
         layout.setSpacing(6)

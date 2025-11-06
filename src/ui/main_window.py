@@ -543,6 +543,12 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'notes_view'):
             self.notes_view.set_user_data(user_data, on_token_refreshed=self.on_token_refreshed)
         
+        # Przekaż dane użytkownika do TasksManager aby włączyć synchronizację
+        if hasattr(self, 'tasks_manager'):
+            self._enable_tasks_sync(user_data)
+            # Podłącz sygnały synchronizacji do Status LED
+            self._connect_tasks_to_status_led()
+        
         # Status LED: user logged in, connected
         if hasattr(self, 'status_led_manager'):
             self.status_led_manager.set_status('connected_idle')
@@ -558,6 +564,11 @@ class MainWindow(QMainWindow):
         import json
         
         logger.info("User logging out")
+        
+        # Cleanup TasksManager sync przed wylogowaniem
+        if hasattr(self, 'tasks_manager') and self.tasks_manager:
+            logger.info("Stopping tasks sync...")
+            self.tasks_manager.cleanup()
         
         # Usuń zapisane tokeny
         tokens_file = config.DATA_DIR / "tokens.json"
@@ -606,23 +617,23 @@ class MainWindow(QMainWindow):
         try:
             logger.info(f"🎨 [MAIN] _refresh_all_views_theme() called")
             
-            # 🎨 Notes View
+            # Notes View
             if hasattr(self, 'notes_view') and self.notes_view:
-                logger.info(f"🎨 [MAIN] Found notes_view: {self.notes_view}")
+                logger.info(f"[MAIN] Found notes_view: {self.notes_view}")
                 if hasattr(self.notes_view, 'apply_theme'):
-                    logger.info(f"🎨 [MAIN] Calling notes_view.apply_theme()")
+                    logger.info(f"[MAIN] Calling notes_view.apply_theme()")
                     try:
                         self.notes_view.apply_theme()
-                        logger.info(f"🎨 [MAIN] notes_view.apply_theme() completed successfully")
+                        logger.info(f"[MAIN] notes_view.apply_theme() completed successfully")
                     except Exception as e:
-                        logger.error(f"🚨 [MAIN] Exception in notes_view.apply_theme(): {e}")
+                        logger.error(f"[MAIN] Exception in notes_view.apply_theme(): {e}")
                         import traceback
-                        logger.error(f"🚨 [MAIN] Traceback: {traceback.format_exc()}")
+                        logger.error(f"[MAIN] Traceback: {traceback.format_exc()}")
                     logger.debug("Refreshed notes_view theme")
                 else:
-                    logger.warning(f"🚨 [MAIN] notes_view has no apply_theme method!")
+                    logger.warning(f"[MAIN] notes_view has no apply_theme method!")
             else:
-                logger.warning(f"🚨 [MAIN] notes_view not found! hasattr={hasattr(self, 'notes_view')}")
+                logger.warning(f"[MAIN] notes_view not found! hasattr={hasattr(self, 'notes_view')}")
             
             # 🎨 Pomodoro View
             if hasattr(self, 'pomodoro_view') and self.pomodoro_view:
@@ -749,19 +760,22 @@ class MainWindow(QMainWindow):
         
         # Widok Zadań (nasz nowy TaskView)
         try:
-            # Import TaskLogic i TaskLocalDatabase
-            from ..Modules.task_module.task_logic import TaskLogic
+            # Import TasksManager (nowa wersja z sync) oraz backward-compatible TaskLogic
+            from ..Modules.task_module.task_logic import TasksManager, TaskLogic
             from ..Modules.task_module.task_local_database import TaskLocalDatabase
             
             # Utwórz ścieżkę do bazy danych zadań
             db_dir = Path(__file__).parent.parent / 'database'
             db_dir.mkdir(exist_ok=True)
-            task_db_path = db_dir / 'tasks.db'
             
-            # Utwórz instancje
-            self.task_local_db = TaskLocalDatabase(db_path=task_db_path, user_id=1)  # TODO: dynamiczny user_id
-            self.task_logic = TaskLogic(db=self.task_local_db)
-            self.task_view = TaskView(task_logic=self.task_logic, local_db=self.task_local_db)
+            # DELAY: Nie inicjalizuj TasksManager tutaj - zostanie utworzony w set_user_data()
+            # Tymczasowo ustaw None - TaskView obsłuży brak task_logic
+            self.tasks_manager = None
+            self.task_logic = None
+            self.task_local_db = None
+            
+            # Utwórz TaskView bez task_logic (zostanie ustawiony w set_user_data)
+            self.task_view = TaskView(task_logic=None, local_db=None)
             
             # Przekaż alarm_manager do TaskView
             if hasattr(self, 'alarms_view') and hasattr(self.alarms_view, 'alarm_manager'):
@@ -792,7 +806,8 @@ class MainWindow(QMainWindow):
             # Podmień metodę _add_subtask_dialog aby obsługiwała dodawanie subtasków
             self.task_view._add_subtask_dialog = lambda parent_id: self._handle_add_subtask(parent_id)
             
-            logger.info(f"TaskView initialized with database at {task_db_path}")
+            # TasksManager zostanie zainicjalizowany w set_user_data()
+            logger.info("TaskView initialized (TasksManager will be set after login)")
         except Exception as e:
             logger.error(f"Failed to initialize TaskView: {e}")
             import traceback
@@ -952,8 +967,14 @@ class MainWindow(QMainWindow):
         if not title:
             return
 
-        if not getattr(self, 'task_logic', None) or not getattr(self.task_logic, 'db', None):
-            logger.warning("[MainWindow] Cannot add task – task logic or database not ready")
+        if not getattr(self, 'task_logic', None):
+            logger.warning("[MainWindow] Cannot add task – task logic not ready")
+            return
+        
+        # TasksManager ma local_db, TaskLogic (legacy) ma db
+        has_db = getattr(self.task_logic, 'local_db', None) or getattr(self.task_logic, 'db', None)
+        if not has_db:
+            logger.warning("[MainWindow] Cannot add task – database not ready")
             return
 
         source = self.sender()
@@ -971,12 +992,16 @@ class MainWindow(QMainWindow):
             return
 
         task_id = new_task.get('id')
+        logger.debug(f"[MainWindow] Task added with id={task_id}, add_to_kanban={add_to_kanban}, checkbox_selected={checkbox_selected}")
+        
         task_view = getattr(self, 'task_view', None)
         if task_view:
             task_view.refresh_tasks()
             should_send_to_kanban = add_to_kanban or checkbox_selected
+            logger.debug(f"[MainWindow] should_send_to_kanban={should_send_to_kanban}")
             if should_send_to_kanban and task_id:
                 try:
+                    logger.info(f"[MainWindow] Sending task {task_id} to KanBan...")
                     task_view._on_add_to_kanban(task_id)
                 except Exception as exc:
                     logger.error(f"[MainWindow] Failed to send task {task_id} to KanBan: {exc}")
@@ -1079,6 +1104,111 @@ class MainWindow(QMainWindow):
                     logger.warning("Pomodoro sync_manager not found")
         except Exception as e:
             logger.error(f"Failed to connect Pomodoro to Status LED: {e}")
+    
+    def _enable_tasks_sync(self, user_data: dict):
+        """
+        Włącz synchronizację dla modułu Tasks.
+        Tworzy TasksManager z prawdziwym user_id i włączoną synchronizacją.
+        
+        Args:
+            user_data: Słownik z danymi użytkownika (id/user_id, email, access_token, refresh_token)
+        """
+        try:
+            # Pobierz dane do synchronizacji
+            user_id = user_data.get('user_id') or user_data.get('id')
+            access_token = user_data.get('access_token')
+            refresh_token = user_data.get('refresh_token')
+            
+            if not user_id or not access_token:
+                logger.warning("Cannot enable tasks sync: missing user_id or access_token")
+                return
+            
+            # Jeśli TasksManager już istnieje i ma sync włączony, zatrzymaj go
+            if hasattr(self, 'tasks_manager') and self.tasks_manager and self.tasks_manager.enable_sync:
+                logger.info("Stopping previous tasks sync...")
+                self.tasks_manager.cleanup()
+            
+            # Przygotuj ścieżkę do bazy danych
+            from ..Modules.task_module.task_logic import TasksManager
+            from pathlib import Path
+            
+            db_dir = Path(__file__).parent.parent / 'database'
+            db_dir.mkdir(exist_ok=True)
+            
+            # Stwórz nowy TasksManager z user_id i synchronizacją
+            logger.info(f"Creating TasksManager for user_id={user_id}")
+            self.tasks_manager = TasksManager(
+                data_dir=db_dir,
+                user_id=str(user_id),
+                api_base_url="http://127.0.0.1:8000",  # TODO: z configu
+                auth_token=access_token,
+                refresh_token=refresh_token,
+                on_token_refreshed=self.on_token_refreshed,
+                enable_sync=True
+            )
+            
+            # Ustaw callbacks dla real-time updates
+            self.tasks_manager.on_tasks_changed = self._on_tasks_updated
+            self.tasks_manager.on_sync_complete = self._on_tasks_sync_complete
+            
+            # Zaktualizuj referencje
+            self.task_logic = self.tasks_manager  # Backward compatibility
+            self.task_local_db = self.tasks_manager.local_db
+            
+            # Zaktualizuj task_view z nowym manager (używamy set_task_logic dla pełnej inicjalizacji)
+            if hasattr(self, 'task_view') and self.task_view:
+                self.task_view.set_task_logic(self.task_logic, self.task_local_db)
+                
+                # Pokaż przycisk synchronizacji
+                if hasattr(self.task_view, 'sync_btn'):
+                    self.task_view.sync_btn.setVisible(True)
+                    logger.info("[TaskView] Sync button enabled")
+            
+            # Zaktualizuj kanban_view z nowym manager
+            if hasattr(self, 'kanban_view') and self.kanban_view:
+                self.kanban_view.set_task_logic(self.task_logic)
+            
+            # FIXED: Zaktualizuj quick_input używając set_data_sources() (przeładowuje konfigurację)
+            if hasattr(self, 'quick_input') and self.quick_input:
+                self.quick_input.set_data_sources(
+                    task_logic=self.task_logic, 
+                    local_db=self.task_local_db
+                )
+                logger.info("[TaskBar] Data sources updated and configuration reloaded")
+            
+            logger.info(f"✅ Tasks sync enabled for user: {user_data.get('email')}")
+            
+        except Exception as e:
+            logger.error(f"Failed to enable tasks sync: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+    
+    def _connect_tasks_to_status_led(self):
+        """Podłącz sygnały modułu Tasks do Status LED"""
+        try:
+            if hasattr(self, 'tasks_manager') and self.tasks_manager:
+                # Podłącz do sync manager jeśli istnieje
+                if hasattr(self.tasks_manager, 'sync_manager') and self.tasks_manager.sync_manager:
+                    sync_mgr = self.tasks_manager.sync_manager
+                    logger.info("Tasks module connected to Status LED monitoring")
+                else:
+                    logger.warning("Tasks sync_manager not found")
+        except Exception as e:
+            logger.error(f"Failed to connect Tasks to Status LED: {e}")
+    
+    def _on_tasks_updated(self):
+        """Callback wywoływany gdy zadania zostały zaktualizowane przez WebSocket"""
+        logger.info("Tasks updated via WebSocket")
+        if hasattr(self, 'task_view') and self.task_view:
+            self.task_view.refresh_tasks()
+        if hasattr(self, 'kanban_view') and self.kanban_view:
+            self.kanban_view.refresh_board()
+    
+    def _on_tasks_sync_complete(self):
+        """Callback wywoływany po zakończeniu synchronizacji zadań"""
+        logger.debug("Tasks sync complete")
+        # Opcjonalnie: pokazać notyfikację lub zaktualizować status
+
     
     def _open_task_config_dialog(self):
         """Otwórz dialog konfiguracji zadania"""
@@ -1280,4 +1410,28 @@ class MainWindow(QMainWindow):
             logger.error(f"[MainWindow] Error handling add subtask: {e}")
             import traceback
             traceback.print_exc()
+    
+    def closeEvent(self, event):
+        """Obsługa zamknięcia okna - cleanup zasobów"""
+        logger.info("MainWindow closing - cleaning up resources...")
+        
+        try:
+            # Cleanup TasksManager (stop sync workers, WebSocket)
+            if hasattr(self, 'tasks_manager') and self.tasks_manager:
+                logger.info("Cleaning up TasksManager...")
+                self.tasks_manager.cleanup()
+            
+            # Cleanup AlarmManager (jeśli ma cleanup)
+            if hasattr(self, 'alarms_view') and hasattr(self.alarms_view, 'alarm_manager'):
+                if hasattr(self.alarms_view.alarm_manager, 'cleanup'):
+                    logger.info("Cleaning up AlarmManager...")
+                    self.alarms_view.alarm_manager.cleanup()
+            
+            logger.info("Cleanup complete")
+            
+        except Exception as e:
+            logger.error(f"Error during cleanup: {e}")
+        
+        # Wywołaj oryginalny closeEvent
+        super().closeEvent(event)
 

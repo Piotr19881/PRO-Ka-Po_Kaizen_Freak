@@ -78,6 +78,22 @@ class TaskLocalDatabase:
                 ON task_tags(user_id, deleted_at)
             """)
             
+            # Dodaj kolumny synchronizacji do task_tags
+            cursor.execute("PRAGMA table_info(task_tags)")
+            tag_columns = [row[1] for row in cursor.fetchall()]
+            
+            if 'version' not in tag_columns:
+                cursor.execute("ALTER TABLE task_tags ADD COLUMN version INTEGER DEFAULT 1")
+                logger.info("[TASK DB] Added 'version' column to task_tags table")
+            
+            if 'synced_at' not in tag_columns:
+                cursor.execute("ALTER TABLE task_tags ADD COLUMN synced_at TIMESTAMP")
+                logger.info("[TASK DB] Added 'synced_at' column to task_tags table")
+            
+            if 'server_uuid' not in tag_columns:
+                cursor.execute("ALTER TABLE task_tags ADD COLUMN server_uuid TEXT")
+                logger.info("[TASK DB] Added 'server_uuid' column to task_tags table")
+            
             # ========== TABELA: task_custom_lists ==========
             # Przechowuje listy własne użytkownika
             cursor.execute("""
@@ -97,6 +113,22 @@ class TaskLocalDatabase:
                 CREATE INDEX IF NOT EXISTS idx_lists_user 
                 ON task_custom_lists(user_id, deleted_at)
             """)
+            
+            # Dodaj kolumny synchronizacji do task_custom_lists
+            cursor.execute("PRAGMA table_info(task_custom_lists)")
+            list_columns = [row[1] for row in cursor.fetchall()]
+            
+            if 'version' not in list_columns:
+                cursor.execute("ALTER TABLE task_custom_lists ADD COLUMN version INTEGER DEFAULT 1")
+                logger.info("[TASK DB] Added 'version' column to task_custom_lists table")
+            
+            if 'synced_at' not in list_columns:
+                cursor.execute("ALTER TABLE task_custom_lists ADD COLUMN synced_at TIMESTAMP")
+                logger.info("[TASK DB] Added 'synced_at' column to task_custom_lists table")
+            
+            if 'server_uuid' not in list_columns:
+                cursor.execute("ALTER TABLE task_custom_lists ADD COLUMN server_uuid TEXT")
+                logger.info("[TASK DB] Added 'server_uuid' column to task_custom_lists table")
             
             # ========== TABELA: tasks ==========
             # Główna tabela zadań
@@ -147,6 +179,22 @@ class TaskLocalDatabase:
                 cursor.execute("ALTER TABLE tasks ADD COLUMN row_color TEXT")
                 logger.info("[TASK DB] Added missing column 'row_color' to tasks table")
             
+            # Dodaj kolumny dla synchronizacji z serwerem (jeśli nie istnieją)
+            cursor.execute("PRAGMA table_info(tasks)")
+            task_columns = [row[1] for row in cursor.fetchall()]
+            
+            if 'version' not in task_columns:
+                cursor.execute("ALTER TABLE tasks ADD COLUMN version INTEGER DEFAULT 1")
+                logger.info("[TASK DB] Added 'version' column to tasks table")
+            
+            if 'synced_at' not in task_columns:
+                cursor.execute("ALTER TABLE tasks ADD COLUMN synced_at TIMESTAMP")
+                logger.info("[TASK DB] Added 'synced_at' column to tasks table")
+            
+            if 'server_uuid' not in task_columns:
+                cursor.execute("ALTER TABLE tasks ADD COLUMN server_uuid TEXT")
+                logger.info("[TASK DB] Added 'server_uuid' column to tasks table")
+            
             # ========== TABELA: task_tag_assignments ==========
             # Przypisanie tagów do zadań (relacja many-to-many)
             cursor.execute("""
@@ -191,6 +239,26 @@ class TaskLocalDatabase:
                 CREATE INDEX IF NOT EXISTS idx_kanban_task 
                 ON kanban_items(task_id)
             """)
+            
+            # Dodaj kolumny synchronizacji do kanban_items
+            cursor.execute("PRAGMA table_info(kanban_items)")
+            kanban_columns = [row[1] for row in cursor.fetchall()]
+            
+            if 'version' not in kanban_columns:
+                cursor.execute("ALTER TABLE kanban_items ADD COLUMN version INTEGER DEFAULT 1")
+                logger.info("[TASK DB] Added 'version' column to kanban_items table")
+            
+            if 'synced_at' not in kanban_columns:
+                cursor.execute("ALTER TABLE kanban_items ADD COLUMN synced_at TIMESTAMP")
+                logger.info("[TASK DB] Added 'synced_at' column to kanban_items table")
+            
+            if 'server_uuid' not in kanban_columns:
+                cursor.execute("ALTER TABLE kanban_items ADD COLUMN server_uuid TEXT")
+                logger.info("[TASK DB] Added 'server_uuid' column to kanban_items table")
+            
+            if 'deleted_at' not in kanban_columns:
+                cursor.execute("ALTER TABLE kanban_items ADD COLUMN deleted_at TIMESTAMP")
+                logger.info("[TASK DB] Added 'deleted_at' column to kanban_items table")
             
             # ========== TABELA: kanban_settings ==========
             # Ustawienia widoku KanBan dla użytkownika
@@ -269,6 +337,35 @@ class TaskLocalDatabase:
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE(user_id, key)
                 )
+            """)
+            
+            # ========== TABELA: sync_queue ==========
+            # Kolejka synchronizacji z serwerem
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS sync_queue (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    entity_type TEXT NOT NULL,
+                    entity_id TEXT NOT NULL,
+                    local_id INTEGER,
+                    action TEXT NOT NULL,
+                    data TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    retry_count INTEGER DEFAULT 0,
+                    last_error TEXT,
+                    
+                    CHECK (entity_type IN ('task', 'tag', 'kanban_item', 'custom_list')),
+                    CHECK (action IN ('upsert', 'delete'))
+                )
+            """)
+            
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_sync_queue_entity 
+                ON sync_queue(entity_type, entity_id)
+            """)
+            
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_sync_queue_created 
+                ON sync_queue(created_at ASC)
             """)
             
             conn.commit()
@@ -681,6 +778,9 @@ class TaskLocalDatabase:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 
+                # DIAGNOSTIC: Log user_id używany do zapisu
+                logger.info(f"[TASK DB] Saving {len(columns)} columns config for user_id={self.user_id}")
+                
                 # Usuń istniejącą konfigurację użytkownika
                 cursor.execute("""
                     DELETE FROM task_columns_config WHERE user_id = ?
@@ -727,6 +827,9 @@ class TaskLocalDatabase:
             with sqlite3.connect(self.db_path) as conn:
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
+                
+                # DIAGNOSTIC: Log user_id używany do odczytu
+                logger.info(f"[TASK DB] Loading columns config for user_id={self.user_id}")
                 
                 cursor.execute("""
                     SELECT * FROM task_columns_config 
@@ -1319,6 +1422,9 @@ class TaskLocalDatabase:
     def save_setting(self, key: str, value: Any) -> bool:
         """Zapisz ustawienie"""
         try:
+            # DIAGNOSTIC: Log user_id używany do zapisu ustawienia
+            logger.debug(f"[TASK DB] Saving setting '{key}' for user_id={self.user_id}")
+            
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
@@ -1342,7 +1448,9 @@ class TaskLocalDatabase:
                 """, (self.user_id, key))
                 row = cursor.fetchone()
                 if row:
+                    logger.debug(f"[TASK DB] Got setting '{key}' for user_id={self.user_id}: found")
                     return json.loads(row[0])
+                logger.debug(f"[TASK DB] Got setting '{key}' for user_id={self.user_id}: not found, using default")
                 return default
         except Exception as e:
             logger.error(f"[TASK DB] Failed to get setting: {e}")

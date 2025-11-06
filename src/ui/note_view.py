@@ -1538,49 +1538,49 @@ class NoteView(QWidget):
     
     def apply_theme(self):
         """Aplikuje motyw do widoku - zintegrowane z ThemeManager aplikacji"""
-        print("🚨 [DEBUG] apply_theme() START!")
-        logger.info(f"🎨 [NOTES] apply_theme() called!")
-        print("🚨 [DEBUG] apply_theme() AFTER LOGGER!")
+        # print("[DEBUG] apply_theme() START!")
+        logger.info(f"[NOTES] apply_theme() called!")
+        # print("[DEBUG] apply_theme() AFTER LOGGER!")
         
-        print(f"🚨 [DEBUG] theme_manager value: {self.theme_manager}")
-        print("🚨 [DEBUG] Checking theme_manager...")
+        # print(f"[DEBUG] theme_manager value: {self.theme_manager}")
+        # print("[DEBUG] Checking theme_manager...")
         if not self.theme_manager:
-            logger.warning(f"🚨 [NOTES] theme_manager is None!")
-            print("🚨 [DEBUG] theme_manager is None, returning!")
+            logger.warning(f"[NOTES] theme_manager is None!")
+            # print("[DEBUG] theme_manager is None, returning!")
             return
         
-        print("🚨 [DEBUG] theme_manager is OK, continuing...")
-        print("🚨 [DEBUG] Getting QApplication instance...")
+        # print("[DEBUG] theme_manager is OK, continuing...")
+        # print("[DEBUG] Getting QApplication instance...")
         # Pobierz aktualny stylesheet aplikacji
         app = QApplication.instance()
         current_stylesheet = ""
         if app and isinstance(app, QApplication):
             current_stylesheet = app.styleSheet()
         
-        print("🚨 [DEBUG] Checking QApplication...")
+        # print("[DEBUG] Checking QApplication...")
         if not app:
-            logger.warning("🚨 [NOTES] QApplication instance not found, using default theme colors")
-            print("🚨 [DEBUG] QApplication not found, returning!")
+            logger.warning("[NOTES] QApplication instance not found, using default theme colors")
+            # print("[DEBUG] QApplication not found, returning!")
             return
             
-        logger.info(f"📱 [NOTES] QApplication stylesheet length: {len(current_stylesheet)}")
-        print(f"🚨 [DEBUG] Stylesheet length: {len(current_stylesheet)}")
+        logger.info(f"[NOTES] QApplication stylesheet length: {len(current_stylesheet)}")
+        # print(f"[DEBUG] Stylesheet length: {len(current_stylesheet)}")
         
         # Pobierz aktualny motyw
         theme = self.theme_manager.current_theme
         
-        logger.info(f"🎨 [NOTES] Current theme: {theme}")
-        print(f"🚨 [DEBUG] Current theme: {theme}")
+        logger.info(f"[NOTES] Current theme: {theme}")
+        # print(f"[DEBUG] Current theme: {theme}")
         
-        print("🚨 [DEBUG] Calling _extract_theme_colors...")
-        # 🔧 EKSTRAHUJ KOLORY Z AKTUALNEGO MOTYWU APLIKACJI
+        # print("[DEBUG] Calling _extract_theme_colors...")
+        # EKSTRAHUJ KOLORY Z AKTUALNEGO MOTYWU APLIKACJI
         # (zamiast hardkodowania używamy kolorów z ThemeManager)
         colors = self._extract_theme_colors(current_stylesheet, theme)
-        print("🚨 [DEBUG] _extract_theme_colors completed!")
+        # print("[DEBUG] _extract_theme_colors completed!")
         
-        # � HARDCODE - bezpośrednie ustalenie kolorów na podstawie layout'u
+        # HARDCODE - bezpośrednie ustalenie kolorów na podstawie layout'u
         current_layout = self.theme_manager.current_layout if self.theme_manager else 2
-        print(f"🚨 [DEBUG] Current layout: {current_layout}")
+        # print(f"[DEBUG] Current layout: {current_layout}")
         
         if current_layout == 1:  # Layout 1 = jasny (light mode)
             panel_bg = "#ffffff"      # Białe tło dla sekcji
@@ -1595,7 +1595,7 @@ class NoteView(QWidget):
             border_color = "#4a5568"  # Ciemna ramka
             button_color = "#4299e1"  # Jasnoniebieski przycisk
             
-        print(f"🚨 [DEBUG] Using hardcoded colors: panel_bg={panel_bg}, layout={current_layout}")
+        # print(f"[DEBUG] Using hardcoded colors: panel_bg={panel_bg}, layout={current_layout}")
         
         # Zastąp wyekstraktowane kolory hardcode'em
         bg_secondary = panel_bg
@@ -1845,15 +1845,15 @@ class NoteView(QWidget):
         if hasattr(self, 'left_widget') and self.left_widget:
             self.left_widget.setStyleSheet(left_panel_style)
             self.left_widget.update()  # Wymuś odświeżenie
-            print(f"🚨 [DEBUG] Applied style directly to left_widget: {bg_secondary}")
+            # print(f"[DEBUG] Applied style directly to left_widget: {bg_secondary}")
             
         if hasattr(self, 'right_widget') and self.right_widget:
             self.right_widget.setStyleSheet(right_panel_style)
             self.right_widget.update()  # Wymuś odświeżenie
-            print(f"🚨 [DEBUG] Applied style directly to right_widget: {bg_secondary}")
+            # print(f"[DEBUG] Applied style directly to right_widget: {bg_secondary}")
             
-        print(f"🚨 [DEBUG] apply_theme() COMPLETED! Panel colors should be: {bg_secondary}")
-        logger.info(f"🎨 [NOTES] apply_theme() completed successfully with bg_secondary={bg_secondary}")
+        # print(f"[DEBUG] apply_theme() COMPLETED! Panel colors should be: {bg_secondary}")
+        logger.info(f"[NOTES] apply_theme() completed successfully with bg_secondary={bg_secondary}")
     
     def update_translations(self):
         """Aktualizuje tłumaczenia w widoku"""

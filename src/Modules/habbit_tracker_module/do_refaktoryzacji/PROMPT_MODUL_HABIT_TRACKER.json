@@ -1,0 +1,1538 @@
+{
+  "module_name": "HabitTrackerModule",
+  "description": "Moduł śledzenia nawyków z codziennym trackowaniem, statystykami, synchronizacją online/offline i wsparciem i18n",
+  
+  "architecture": {
+    "pattern": "Plugin-based MVC/MVP",
+    "layers": [
+      {
+        "name": "data",
+        "description": "Warstwa dostępu do danych z synchronizacją",
+        "components": [
+          "HabitColumnRepository",
+          "HabitRecordRepository",
+          "SyncManager",
+          "CacheManager"
+        ]
+      },
+      {
+        "name": "domain",
+        "description": "Logika biznesowa i modele",
+        "components": [
+          "HabitColumn model",
+          "HabitRecord model",
+          "HabitService",
+          "StatisticsService",
+          "ValidationRules"
+        ]
+      },
+      {
+        "name": "ui",
+        "description": "Interfejs użytkownika z kalendarzem i statystykami",
+        "components": [
+          "HabitTrackerView",
+          "AddHabitDialog",
+          "EditCellDialog",
+          "StatisticsDialog",
+          "ColumnConfigDialog"
+        ]
+      }
+    ]
+  },
+
+  "authentication": {
+    "type": "External API Server",
+    "implementation": {
+      "auth_service": {
+        "file": "src/core/auth/auth_service.py",
+        "class": "AuthService",
+        "methods": [
+          {
+            "name": "get_token",
+            "returns": "str | None",
+            "description": "Zwraca aktualny token JWT lub None"
+          },
+          {
+            "name": "get_user_id",
+            "returns": "int | None",
+            "description": "Zwraca ID zalogowanego użytkownika"
+          },
+          {
+            "name": "is_authenticated",
+            "returns": "bool",
+            "description": "Sprawdza czy użytkownik jest zalogowany"
+          },
+          {
+            "name": "refresh_token",
+            "returns": "bool",
+            "description": "Odświeża wygasający token"
+          }
+        ]
+      },
+      "api_client": {
+        "file": "src/core/api/api_client.py",
+        "class": "ApiClient",
+        "base_url": "https://api.yourapp.com/v1",
+        "headers": {
+          "Authorization": "Bearer {token}",
+          "Content-Type": "application/json",
+          "Accept-Language": "{current_locale}"
+        },
+        "methods": [
+          {
+            "name": "get",
+            "params": ["endpoint", "params?"],
+            "returns": "dict | list | None"
+          },
+          {
+            "name": "post",
+            "params": ["endpoint", "data"],
+            "returns": "dict | None"
+          },
+          {
+            "name": "put",
+            "params": ["endpoint", "data"],
+            "returns": "dict | None"
+          },
+          {
+            "name": "delete",
+            "params": ["endpoint"],
+            "returns": "bool"
+          }
+        ],
+        "error_handling": [
+          {
+            "status": 401,
+            "action": "trigger_reauth",
+            "description": "Token wygasł, wymaga ponownego logowania"
+          },
+          {
+            "status": 403,
+            "action": "show_permission_error",
+            "description": "Brak uprawnień do zasobu"
+          },
+          {
+            "status": 500,
+            "action": "fallback_to_local",
+            "description": "Błąd serwera, używaj lokalnej bazy"
+          },
+          {
+            "status": 0,
+            "action": "offline_mode",
+            "description": "Brak połączenia, tryb offline"
+          }
+        ]
+      }
+    }
+  },
+
+  "data_synchronization": {
+    "strategy": "Offline-First with Online Sync",
+    "truth_source": "External Database (API)",
+    "local_database": {
+      "type": "SQLite",
+      "file": "data/habits_local.db",
+      "purpose": "Cache i offline fallback",
+      "tables": [
+        {
+          "name": "habit_columns",
+          "schema": {
+            "id": "INTEGER PRIMARY KEY",
+            "remote_id": "INTEGER UNIQUE",
+            "user_id": "INTEGER NOT NULL",
+            "name": "TEXT NOT NULL",
+            "column_type": "TEXT NOT NULL",
+            "scale_max": "INTEGER",
+            "position": "INTEGER DEFAULT 0",
+            "is_visible": "BOOLEAN DEFAULT 1",
+            "created_at": "TEXT NOT NULL",
+            "updated_at": "TEXT NOT NULL",
+            "sync_status": "TEXT DEFAULT 'synced'",
+            "deleted_at": "TEXT",
+            "version": "INTEGER DEFAULT 1"
+          },
+          "indexes": [
+            "CREATE INDEX idx_habit_columns_user ON habit_columns(user_id)",
+            "CREATE INDEX idx_habit_columns_remote ON habit_columns(remote_id)",
+            "CREATE INDEX idx_habit_columns_sync ON habit_columns(sync_status)",
+            "CREATE INDEX idx_habit_columns_position ON habit_columns(position)"
+          ],
+          "notes": "column_type: 'checkbox', 'counter', 'duration', 'time', 'scale', 'text'"
+        },
+        {
+          "name": "habit_records",
+          "schema": {
+            "id": "INTEGER PRIMARY KEY",
+            "remote_id": "INTEGER UNIQUE",
+            "user_id": "INTEGER NOT NULL",
+            "column_id": "INTEGER NOT NULL",
+            "date": "TEXT NOT NULL",
+            "value": "TEXT",
+            "created_at": "TEXT NOT NULL",
+            "updated_at": "TEXT NOT NULL",
+            "sync_status": "TEXT DEFAULT 'synced'",
+            "_fk": "FOREIGN KEY (column_id) REFERENCES habit_columns(id) ON DELETE CASCADE",
+            "_unique": "UNIQUE(column_id, date)"
+          },
+          "indexes": [
+            "CREATE INDEX idx_habit_records_user ON habit_records(user_id)",
+            "CREATE INDEX idx_habit_records_column ON habit_records(column_id)",
+            "CREATE INDEX idx_habit_records_date ON habit_records(date)",
+            "CREATE INDEX idx_habit_records_sync ON habit_records(sync_status)",
+            "CREATE INDEX idx_habit_records_column_date ON habit_records(column_id, date)"
+          ],
+          "notes": "value przechowuje różne typy jako TEXT: '1' dla checkbox, '42' dla counter, '01:30:00' dla duration, '14:30' dla time, '7' dla scale"
+        },
+        {
+          "name": "sync_queue",
+          "schema": {
+            "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+            "table_name": "TEXT NOT NULL",
+            "record_id": "INTEGER NOT NULL",
+            "operation": "TEXT NOT NULL",
+            "data": "TEXT NOT NULL",
+            "created_at": "TEXT NOT NULL",
+            "attempts": "INTEGER DEFAULT 0",
+            "last_error": "TEXT"
+          },
+          "description": "Kolejka operacji do synchronizacji z serwerem"
+        }
+      ]
+    },
+    "sync_manager": {
+      "file": "src/plugins/habits/sync/habit_sync_manager.py",
+      "class": "HabitSyncManager",
+      "methods": [
+        {
+          "name": "sync_all",
+          "description": "Pełna synchronizacja: pull z serwera, push lokalnych zmian",
+          "flow": [
+            "1. Sprawdź połączenie i autoryzację",
+            "2. Pobierz last_sync_timestamp z lokalnej bazy",
+            "3. GET /habit-columns?updated_since={timestamp}",
+            "4. GET /habit-records?updated_since={timestamp}&date_from={30_days_ago}",
+            "5. Rozwiąż konflikty (conflict_resolution)",
+            "6. Zaktualizuj lokalną bazę",
+            "7. Wyślij lokalne zmiany (sync_queue)",
+            "8. Zapisz nowy last_sync_timestamp"
+          ]
+        },
+        {
+          "name": "push_changes",
+          "description": "Wysyła lokalne zmiany na serwer",
+          "flow": [
+            "1. Pobierz rekordy z sync_queue",
+            "2. Grupuj po table_name (habit_columns, habit_records)",
+            "3. Dla każdego rekordu wykonaj POST/PUT/DELETE",
+            "4. Po sukcesie usuń z sync_queue i ustaw sync_status='synced'",
+            "5. Po błędzie zwiększ attempts, zapisz last_error"
+          ]
+        },
+        {
+          "name": "pull_changes",
+          "description": "Pobiera zmiany z serwera",
+          "params": ["since_timestamp", "date_from"],
+          "endpoints": [
+            "GET /habit-columns?updated_since={timestamp}",
+            "GET /habit-records?updated_since={timestamp}&date_from={date}"
+          ]
+        },
+        {
+          "name": "resolve_conflict",
+          "description": "Rozwiązuje konflikt synchronizacji",
+          "strategy": "Server wins (external DB is source of truth)",
+          "rules": [
+            "Jeśli remote.updated_at > local.updated_at -> użyj remote",
+            "Jeśli local.sync_status = 'pending' -> zachowaj local, retry push",
+            "Jeśli oba deleted -> usuń lokalnie",
+            "Loguj konflikty do conflict_log dla audytu"
+          ]
+        },
+        {
+          "name": "sync_date_range",
+          "description": "Synchronizuje rekordy dla określonego zakresu dat",
+          "params": ["date_from", "date_to"],
+          "use_case": "Użytkownik przewija kalendarz wstecz, potrzebuje starszych danych"
+        }
+      ],
+      "auto_sync": {
+        "enabled": true,
+        "interval": "5 minutes",
+        "trigger_events": [
+          "app_startup",
+          "user_login",
+          "network_reconnected",
+          "after_record_update (debounced 30s)",
+          "date_changed (midnight)"
+        ]
+      }
+    }
+  },
+
+  "theming": {
+    "system": "Centralized Theme Manager",
+    "implementation": {
+      "theme_manager": {
+        "file": "src/core/ui/theme_manager.py",
+        "class": "ThemeManager",
+        "singleton": true,
+        "themes": [
+          "light",
+          "dark",
+          "high_contrast"
+        ],
+        "usage_in_module": [
+          {
+            "component": "HabitTrackerView",
+            "injection": "self.theme_manager = app.get_theme_manager()",
+            "apply": "self.setStyleSheet(self.theme_manager.get_table_style())"
+          },
+          {
+            "component": "AddHabitDialog",
+            "injection": "Przekazany przez konstruktor",
+            "apply": "self.apply_theme()"
+          },
+          {
+            "component": "Cell widgets",
+            "apply": "Dynamic styling based on value (green for completed, red for missed)"
+          }
+        ]
+      },
+      "style_methods": [
+        "get_main_widget_style()",
+        "get_table_style()",
+        "get_dialog_style()",
+        "get_button_style()",
+        "get_input_style()",
+        "get_combo_style()",
+        "get_checkbox_style()",
+        "get_calendar_style()"
+      ],
+      "dynamic_theming": {
+        "signal": "theme_changed",
+        "handler": "on_theme_changed",
+        "implementation": "Każdy komponent nasłuchuje sygnału i odświeża style"
+      },
+      "habit_specific_colors": {
+        "checkbox_completed": "#2ecc71 (green)",
+        "checkbox_empty": "#ecf0f1 (light gray)",
+        "counter_low": "#3498db (blue)",
+        "counter_high": "#e74c3c (red)",
+        "scale_gradient": "From #e74c3c (low) to #2ecc71 (high)",
+        "duration_short": "#f39c12 (orange)",
+        "duration_long": "#9b59b6 (purple)",
+        "streak_active": "#f1c40f (gold)",
+        "streak_broken": "#95a5a6 (gray)"
+      }
+    }
+  },
+
+  "internationalization": {
+    "system": "i18n/l10n support",
+    "library": "gettext or custom TranslationManager",
+    "supported_languages": [
+      {
+        "code": "pl",
+        "name": "Polski",
+        "file": "locales/pl/habits.json"
+      },
+      {
+        "code": "en",
+        "name": "English",
+        "file": "locales/en/habits.json"
+      },
+      {
+        "code": "de",
+        "name": "Deutsch",
+        "file": "locales/de/habits.json"
+      }
+    ],
+    "translation_files": {
+      "format": "JSON",
+      "structure": {
+        "habits": {
+          "title": "Habit Tracker",
+          "add_habit": "Add Habit",
+          "edit_habit": "Edit Habit",
+          "delete_habit": "Delete Habit",
+          "view_statistics": "View Statistics",
+          "column_types": {
+            "checkbox": "Checkbox",
+            "counter": "Counter",
+            "duration": "Duration",
+            "time": "Time",
+            "scale": "Scale",
+            "text": "Text"
+          },
+          "type_descriptions": {
+            "checkbox": "Check off when completed",
+            "counter": "Count how many times",
+            "duration": "Track time spent (HH:MM:SS)",
+            "time": "Record specific time",
+            "scale": "Rate quality/intensity (e.g., 7/10)",
+            "text": "Add text notes"
+          },
+          "statistics": {
+            "title": "Statistics",
+            "current_streak": "Current Streak",
+            "longest_streak": "Longest Streak",
+            "completion_rate": "Completion Rate",
+            "total_count": "Total Count",
+            "average_value": "Average Value",
+            "days": "days",
+            "times": "times",
+            "this_week": "This Week",
+            "this_month": "This Month",
+            "all_time": "All Time"
+          },
+          "messages": {
+            "habit_created": "Habit created successfully",
+            "habit_deleted": "Habit deleted successfully",
+            "record_saved": "Record saved successfully",
+            "sync_success": "Synchronized successfully",
+            "sync_failed": "Synchronization failed",
+            "offline_mode": "Working offline"
+          },
+          "errors": {
+            "required_name": "Habit name is required",
+            "invalid_scale": "Scale value must be between 1 and {max}",
+            "invalid_time": "Invalid time format",
+            "invalid_duration": "Invalid duration format",
+            "sync_conflict": "Sync conflict detected",
+            "network_error": "Network error occurred"
+          },
+          "dialogs": {
+            "delete_confirm": "Are you sure you want to delete this habit? All tracking data will be lost.",
+            "yes": "Yes",
+            "no": "No",
+            "cancel": "Cancel",
+            "save": "Save",
+            "close": "Close"
+          }
+        }
+      }
+    },
+    "implementation": {
+      "translation_manager": {
+        "file": "src/core/i18n/translation_manager.py",
+        "class": "TranslationManager",
+        "methods": [
+          {
+            "name": "tr",
+            "params": ["key", "context?", "params?"],
+            "returns": "str",
+            "example": "tr('habits.add_habit') -> 'Dodaj nawyk'"
+          },
+          {
+            "name": "set_language",
+            "params": ["lang_code"],
+            "description": "Zmienia aktywny język aplikacji"
+          },
+          {
+            "name": "get_current_language",
+            "returns": "str",
+            "example": "'pl'"
+          }
+        ],
+        "usage_in_module": [
+          {
+            "file": "src/plugins/habits/ui/habit_tracker_view.py",
+            "example": "self.add_button.setText(self.tr('habits.add_habit'))"
+          },
+          {
+            "file": "src/plugins/habits/ui/add_habit_dialog.py",
+            "example": "self.setWindowTitle(self.tr('habits.edit_habit'))"
+          }
+        ]
+      },
+      "dynamic_translation": {
+        "signal": "language_changed",
+        "handler": "on_language_changed",
+        "implementation": "Każdy komponent odświeża teksty po zmianie języka"
+      },
+      "date_formatting": {
+        "library": "QLocale from PyQt6",
+        "usage": "QLocale().toString(date, QLocale.FormatType.ShortFormat)",
+        "examples": {
+          "pl": "02.11.2025",
+          "en": "11/02/2025",
+          "de": "02.11.2025"
+        }
+      }
+    }
+  },
+
+  "habit_types": {
+    "description": "6 typów nawyków do trackowania",
+    "types": [
+      {
+        "name": "checkbox",
+        "display_name": "Checkbox (odznacz)",
+        "storage": "TEXT ('1' lub NULL/'')",
+        "ui_widget": "QCheckBox",
+        "use_cases": [
+          "Wykonałem ćwiczenia",
+          "Przeczytałem książkę",
+          "Wypiłem 2L wody"
+        ],
+        "validation": "value in ['1', '0', '', null]",
+        "statistics": [
+          "completion_rate (% dni z '1')",
+          "current_streak (ile dni pod rząd z '1')",
+          "longest_streak",
+          "total_days_completed"
+        ]
+      },
+      {
+        "name": "counter",
+        "display_name": "Counter (Ile razy)",
+        "storage": "TEXT (reprezentacja liczby: '0', '5', '42')",
+        "ui_widget": "QSpinBox",
+        "use_cases": [
+          "Ile razy zrobiłem pompki",
+          "Ile szklanek wody wypiłem",
+          "Ile stron przeczytałem"
+        ],
+        "validation": "value.isdigit() and int(value) >= 0",
+        "statistics": [
+          "total_count (suma wszystkich wartości)",
+          "average_per_day",
+          "max_value",
+          "days_with_activity (dni gdzie value > 0)"
+        ]
+      },
+      {
+        "name": "duration",
+        "display_name": "Duration (Czas trwania)",
+        "storage": "TEXT (format 'HH:MM:SS' lub sekund: '3600')",
+        "ui_widget": "Custom DurationEdit or QTimeEdit",
+        "use_cases": [
+          "Ile czasu medytowałem",
+          "Jak długo ćwiczyłem",
+          "Czas nauki"
+        ],
+        "validation": "regex: '^\\d{1,2}:\\d{2}:\\d{2}$' lub isdigit()",
+        "statistics": [
+          "total_duration (suma czasu)",
+          "average_duration_per_day",
+          "longest_session",
+          "days_with_activity"
+        ],
+        "conversion": "Parse to seconds for calculations, display as HH:MM:SS"
+      },
+      {
+        "name": "time",
+        "display_name": "Time (Godzina)",
+        "storage": "TEXT (format 'HH:MM' lub 'HH:MM:SS')",
+        "ui_widget": "QTimeEdit",
+        "use_cases": [
+          "O której wstałem",
+          "Kiedy poszedłem spać",
+          "Godzina posiłku"
+        ],
+        "validation": "regex: '^\\d{1,2}:\\d{2}(:\\d{2})?$'",
+        "statistics": [
+          "average_time (średnia godzina)",
+          "earliest_time",
+          "latest_time",
+          "consistency (odchylenie standardowe)"
+        ]
+      },
+      {
+        "name": "scale",
+        "display_name": "Scale (Skala)",
+        "storage": "TEXT (liczba: '7', '10')",
+        "ui_widget": "QSlider or QSpinBox",
+        "configuration": {
+          "scale_max": "INTEGER (np. 10, 100)",
+          "display": "Show as 'X/MAX' (e.g., 7/10)"
+        },
+        "use_cases": [
+          "Ocena nastroju (1-10)",
+          "Poziom energii (1-5)",
+          "Jakość snu (1-10)"
+        ],
+        "validation": "value.isdigit() and 1 <= int(value) <= scale_max",
+        "statistics": [
+          "average_value",
+          "min_value",
+          "max_value",
+          "trend (rosnący/malejący)",
+          "days_above_threshold"
+        ]
+      },
+      {
+        "name": "text",
+        "display_name": "Text (Notatki)",
+        "storage": "TEXT (dowolny tekst)",
+        "ui_widget": "QTextEdit or QLineEdit",
+        "use_cases": [
+          "Dziennik wdzięczności",
+          "Notatki z dnia",
+          "Obserwacje"
+        ],
+        "validation": "max_length: 1000 characters",
+        "statistics": [
+          "days_with_notes (dni z niepustym tekstem)",
+          "average_length",
+          "word_cloud (opcjonalnie)"
+        ]
+      }
+    ]
+  },
+
+  "backup_strategy": {
+    "description": "Backup oparty na datach modyfikacji",
+    "implementation": {
+      "backup_manager": {
+        "file": "src/core/backup/backup_manager.py",
+        "class": "BackupManager",
+        "methods": [
+          {
+            "name": "create_backup",
+            "description": "Tworzy backup lokalnej bazy danych",
+            "filename_format": "backup_habits_{timestamp}.db",
+            "location": "data/backups/",
+            "include_metadata": {
+              "created_at": "ISO 8601 timestamp",
+              "user_id": "ID użytkownika",
+              "app_version": "wersja aplikacji",
+              "columns_count": "liczba nawyków",
+              "records_count": "liczba rekordów",
+              "date_range": "oldest_date - newest_date"
+            }
+          },
+          {
+            "name": "restore_backup",
+            "description": "Przywraca backup z pliku",
+            "strategy": "Compare by updated_at dates",
+            "conflict_resolution": [
+              "1. Porównaj updated_at dla każdego rekordu",
+              "2. Jeśli backup.updated_at > current.updated_at -> restore",
+              "3. Jeśli current.updated_at > backup.updated_at -> keep current",
+              "4. Mark restored records with sync_status='pending'",
+              "5. Trigger sync to push to server"
+            ]
+          },
+          {
+            "name": "auto_backup",
+            "enabled": true,
+            "schedule": "daily at 02:00",
+            "retention": "Keep last 30 backups",
+            "cleanup": "Delete backups older than 30 days"
+          },
+          {
+            "name": "export_to_csv",
+            "description": "Export habit data to CSV for analysis",
+            "format": "date,habit_name,value",
+            "use_case": "Analiza w Excel lub Google Sheets"
+          }
+        ]
+      },
+      "modification_tracking": {
+        "updated_at_field": "TEXT NOT NULL",
+        "auto_update": "UPDATE trigger or ORM hook",
+        "format": "ISO 8601 UTC",
+        "example": "2025-11-02T14:30:00Z"
+      }
+    }
+  },
+
+  "file_structure": {
+    "description": "Struktura plików modułu habit tracker",
+    "tree": {
+      "src/plugins/habits/": {
+        "__init__.py": "Plugin registration",
+        "plugin.py": "HabitsPlugin class with lifecycle hooks",
+        
+        "models/": {
+          "__init__.py": "",
+          "habit_column.py": "HabitColumn model with validation",
+          "habit_record.py": "HabitRecord model",
+          "habit_statistics.py": "Statistics calculation model"
+        },
+        
+        "repositories/": {
+          "__init__.py": "",
+          "habit_column_repository.py": "CRUD for habit columns (local + remote)",
+          "habit_record_repository.py": "CRUD for habit records (local + remote)"
+        },
+        
+        "services/": {
+          "__init__.py": "",
+          "habit_service.py": "Business logic (validation, permissions)",
+          "statistics_service.py": "Calculate streaks, averages, trends"
+        },
+        
+        "sync/": {
+          "__init__.py": "",
+          "habit_sync_manager.py": "Synchronization logic",
+          "conflict_resolver.py": "Conflict resolution strategies"
+        },
+        
+        "ui/": {
+          "__init__.py": "",
+          "habit_tracker_view.py": "Main calendar/table view",
+          "add_habit_dialog.py": "Add new habit column",
+          "edit_cell_dialog.py": "Edit single record",
+          "statistics_dialog.py": "Show statistics and charts",
+          "column_config_dialog.py": "Manage habit columns",
+          "widgets/": {
+            "cell_widgets.py": "Custom widgets for each habit type",
+            "duration_edit.py": "Custom duration input widget",
+            "scale_slider.py": "Custom scale slider widget",
+            "streak_indicator.py": "Visual streak display"
+          }
+        },
+        
+        "api/": {
+          "__init__.py": "",
+          "habit_api.py": "API endpoints wrapper",
+          "schemas.py": "Request/Response schemas"
+        },
+        
+        "utils/": {
+          "__init__.py": "",
+          "date_utils.py": "Date range calculations, week/month helpers",
+          "value_parsers.py": "Parse and validate different value types",
+          "statistics_calculator.py": "Statistical calculations"
+        }
+      },
+      
+      "locales/": {
+        "pl/habits.json": "Polish translations",
+        "en/habits.json": "English translations",
+        "de/habits.json": "German translations"
+      },
+      
+      "tests/plugins/habits/": {
+        "test_habit_service.py": "Unit tests",
+        "test_statistics_service.py": "Statistics tests",
+        "test_habit_repository.py": "Repository tests",
+        "test_sync_manager.py": "Sync tests",
+        "test_ui.py": "UI tests",
+        "test_value_parsers.py": "Parser tests"
+      }
+    }
+  },
+
+  "api_endpoints": {
+    "base_url": "/api/v1/habits",
+    "endpoints": [
+      {
+        "method": "GET",
+        "path": "/habit-columns",
+        "description": "List habit columns for current user",
+        "query_params": {
+          "updated_since": "ISO timestamp for sync (optional)",
+          "include_deleted": "boolean (default: false)"
+        },
+        "response": {
+          "columns": [
+            {
+              "id": 1,
+              "user_id": 123,
+              "name": "Morning Meditation",
+              "column_type": "duration",
+              "scale_max": null,
+              "position": 0,
+              "is_visible": true,
+              "created_at": "2025-11-01T10:00:00Z",
+              "updated_at": "2025-11-02T14:30:00Z",
+              "deleted_at": null,
+              "version": 1
+            }
+          ],
+          "total": 10
+        }
+      },
+      {
+        "method": "POST",
+        "path": "/habit-columns",
+        "description": "Create new habit column",
+        "body": {
+          "name": "string (required)",
+          "column_type": "string (required, enum: checkbox|counter|duration|time|scale|text)",
+          "scale_max": "integer (optional, required if type=scale)",
+          "position": "integer (optional)",
+          "is_visible": "boolean (default: true)"
+        },
+        "response": "Created column object with id"
+      },
+      {
+        "method": "PUT",
+        "path": "/habit-columns/{id}",
+        "description": "Update habit column",
+        "body": "Same as POST (all fields optional except column_type)",
+        "response": "Updated column object"
+      },
+      {
+        "method": "DELETE",
+        "path": "/habit-columns/{id}",
+        "description": "Delete habit column (soft delete)",
+        "response": {
+          "success": true,
+          "deleted_at": "2025-11-02T15:00:00Z"
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/habit-records",
+        "description": "List habit records for date range",
+        "query_params": {
+          "date_from": "YYYY-MM-DD (required)",
+          "date_to": "YYYY-MM-DD (required)",
+          "column_id": "integer (optional, filter by habit)",
+          "updated_since": "ISO timestamp for sync (optional)"
+        },
+        "response": {
+          "records": [
+            {
+              "id": 100,
+              "user_id": 123,
+              "column_id": 1,
+              "date": "2025-11-02",
+              "value": "00:15:00",
+              "created_at": "2025-11-02T07:30:00Z",
+              "updated_at": "2025-11-02T07:30:00Z"
+            }
+          ],
+          "total": 50
+        }
+      },
+      {
+        "method": "POST",
+        "path": "/habit-records",
+        "description": "Create or update habit record",
+        "body": {
+          "column_id": "integer (required)",
+          "date": "YYYY-MM-DD (required)",
+          "value": "string (required, format depends on column_type)"
+        },
+        "response": "Created/updated record object",
+        "notes": "Uses UPSERT logic: update if (column_id, date) exists, insert otherwise"
+      },
+      {
+        "method": "PUT",
+        "path": "/habit-records/{id}",
+        "description": "Update habit record",
+        "body": {
+          "value": "string (required)"
+        },
+        "response": "Updated record object"
+      },
+      {
+        "method": "DELETE",
+        "path": "/habit-records/{id}",
+        "description": "Delete habit record",
+        "response": {
+          "success": true
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/habit-statistics/{column_id}",
+        "description": "Get statistics for specific habit",
+        "query_params": {
+          "date_from": "YYYY-MM-DD (optional)",
+          "date_to": "YYYY-MM-DD (optional)"
+        },
+        "response": {
+          "column_id": 1,
+          "column_name": "Morning Meditation",
+          "column_type": "duration",
+          "statistics": {
+            "total_days": 30,
+            "days_with_data": 25,
+            "completion_rate": 0.833,
+            "current_streak": 7,
+            "longest_streak": 12,
+            "total_value": "12:30:00",
+            "average_value": "00:30:00",
+            "min_value": "00:05:00",
+            "max_value": "01:15:00"
+          }
+        }
+      }
+    ],
+    "authentication": "All endpoints require Bearer token in Authorization header",
+    "error_responses": {
+      "400": "Bad Request - validation error",
+      "401": "Unauthorized - invalid or expired token",
+      "403": "Forbidden - insufficient permissions",
+      "404": "Not Found - resource doesn't exist",
+      "409": "Conflict - version mismatch or duplicate (column_id, date)",
+      "500": "Internal Server Error"
+    }
+  },
+
+  "ui_components": {
+    "habit_tracker_view": {
+      "file": "src/plugins/habits/ui/habit_tracker_view.py",
+      "class": "HabitTrackerView",
+      "description": "Main view with calendar-style habit tracking table",
+      "layout": {
+        "orientation": "Horizontal scrolling calendar",
+        "rows": "Habit columns (one per row)",
+        "columns": "Dates (today - 30 days back, scrollable)",
+        "header": "Date labels with day names",
+        "sidebar": "Habit names with quick stats"
+      },
+      "features": [
+        "Today highlighted (different background color)",
+        "Weekend dates highlighted (light blue/gray)",
+        "Cells colored based on value (green=completed, gray=empty, gradient for scale)",
+        "Click cell to edit",
+        "Double-click for detailed dialog",
+        "Right-click context menu: Edit, Clear, Copy, Statistics",
+        "Horizontal scroll to see older dates",
+        "Auto-scroll to today on load",
+        "Streak indicators (fire emoji, number of days)",
+        "Sync status indicator",
+        "Offline mode banner"
+      ],
+      "toolbar": {
+        "buttons": [
+          "Add Habit",
+          "Manage Columns",
+          "Statistics",
+          "Refresh",
+          "Sync Now",
+          "Date Range Picker",
+          "Export to CSV"
+        ]
+      },
+      "cell_rendering": {
+        "checkbox": "✓ icon or filled box if '1', empty if not",
+        "counter": "Display number, color by magnitude",
+        "duration": "Display HH:MM, color by duration",
+        "time": "Display HH:MM",
+        "scale": "Display X/MAX, background gradient",
+        "text": "Display first 20 chars, tooltip for full text"
+      }
+    },
+    "add_habit_dialog": {
+      "file": "src/plugins/habits/ui/add_habit_dialog.py",
+      "class": "AddHabitDialog",
+      "description": "Dialog to add new habit column",
+      "fields": [
+        {
+          "name": "name",
+          "widget": "QLineEdit",
+          "validation": "Required, max 100 chars, unique",
+          "placeholder": "E.g., Morning Exercise, Reading, Meditation..."
+        },
+        {
+          "name": "column_type",
+          "widget": "QComboBox",
+          "options": ["checkbox", "counter", "duration", "time", "scale", "text"],
+          "descriptions": "Show description for each type"
+        },
+        {
+          "name": "scale_max",
+          "widget": "QSpinBox",
+          "visible_when": "column_type == 'scale'",
+          "range": "2-100",
+          "default": 10
+        }
+      ],
+      "buttons": ["Save", "Cancel"],
+      "validation": [
+        "Name required",
+        "scale_max required if type=scale"
+      ],
+      "sync_behavior": [
+        "Online: POST to API immediately",
+        "Offline: save local + add to sync_queue"
+      ]
+    },
+    "edit_cell_dialog": {
+      "file": "src/plugins/habits/ui/edit_cell_dialog.py",
+      "class": "EditCellDialog",
+      "description": "Dialog to edit single habit record",
+      "dynamic_content": "Based on column_type",
+      "variants": [
+        {
+          "type": "checkbox",
+          "widget": "Large checkbox with label 'Mark as completed'",
+          "action": "Toggle between '1' and ''"
+        },
+        {
+          "type": "counter",
+          "widget": "QSpinBox with +/- buttons",
+          "display": "Current value: X, Add/subtract: ±N"
+        },
+        {
+          "type": "duration",
+          "widget": "Custom DurationEdit (hours, minutes, seconds spinboxes)",
+          "display": "HH:MM:SS with quick presets (15min, 30min, 1h)"
+        },
+        {
+          "type": "time",
+          "widget": "QTimeEdit with clock popup",
+          "display": "HH:MM with 'Now' button"
+        },
+        {
+          "type": "scale",
+          "widget": "QSlider with value label",
+          "display": "Slider 1-MAX, large value display (X/MAX)"
+        },
+        {
+          "type": "text",
+          "widget": "QTextEdit",
+          "display": "Multiline text area, char counter"
+        }
+      ],
+      "common_fields": [
+        {
+          "name": "date",
+          "widget": "QDateEdit",
+          "default": "today",
+          "max": "today"
+        }
+      ],
+      "buttons": ["Save", "Clear", "Cancel"]
+    },
+    "statistics_dialog": {
+      "file": "src/plugins/habits/ui/statistics_dialog.py",
+      "class": "StatisticsDialog",
+      "description": "Show detailed statistics and charts for habit",
+      "tabs": [
+        {
+          "name": "Overview",
+          "content": [
+            "Current Streak (large, prominent)",
+            "Longest Streak",
+            "Completion Rate (this week, this month, all time)",
+            "Total Days Tracked",
+            "Days with Data"
+          ]
+        },
+        {
+          "name": "Charts",
+          "content": [
+            "Line chart: value over time",
+            "Bar chart: weekly/monthly aggregates",
+            "Heatmap calendar: GitHub-style contribution graph",
+            "Pie chart: completion distribution (for checkbox)"
+          ],
+          "library": "matplotlib or PyQtGraph"
+        },
+        {
+          "name": "Details",
+          "content": [
+            "Table with all records",
+            "Date, Value, Notes (if text type)",
+            "Sort and filter options",
+            "Export to CSV button"
+          ]
+        }
+      ],
+      "date_range_filter": {
+        "presets": ["Last 7 days", "Last 30 days", "This month", "This year", "All time"],
+        "custom": "Date range picker"
+      }
+    },
+    "column_config_dialog": {
+      "file": "src/plugins/habits/ui/column_config_dialog.py",
+      "class": "ColumnConfigDialog",
+      "description": "Manage habit columns",
+      "features": [
+        "List all habit columns",
+        "Drag & drop to reorder",
+        "Toggle visibility (eye icon)",
+        "Edit name (double-click)",
+        "Delete column (trash icon with confirmation)",
+        "Add new column (+ button)"
+      ],
+      "list_view": {
+        "columns": ["Order", "Name", "Type", "Visible", "Actions"],
+        "actions": ["Edit", "Delete", "Move Up", "Move Down"]
+      }
+    }
+  },
+
+  "models": {
+    "habit_column_model": {
+      "file": "src/plugins/habits/models/habit_column.py",
+      "class": "HabitColumn",
+      "fields": [
+        {
+          "name": "id",
+          "type": "int | None",
+          "description": "Local ID"
+        },
+        {
+          "name": "remote_id",
+          "type": "int | None",
+          "description": "Server ID"
+        },
+        {
+          "name": "user_id",
+          "type": "int",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "str",
+          "required": true,
+          "max_length": 100
+        },
+        {
+          "name": "column_type",
+          "type": "str",
+          "enum": ["checkbox", "counter", "duration", "time", "scale", "text"],
+          "required": true
+        },
+        {
+          "name": "scale_max",
+          "type": "int | None",
+          "required_if": "column_type == 'scale'"
+        },
+        {
+          "name": "position",
+          "type": "int",
+          "default": 0
+        },
+        {
+          "name": "is_visible",
+          "type": "bool",
+          "default": true
+        },
+        {
+          "name": "created_at",
+          "type": "datetime",
+          "required": true
+        },
+        {
+          "name": "updated_at",
+          "type": "datetime",
+          "required": true
+        },
+        {
+          "name": "sync_status",
+          "type": "str",
+          "enum": ["synced", "pending", "conflict", "error"],
+          "default": "synced"
+        },
+        {
+          "name": "deleted_at",
+          "type": "datetime | None"
+        },
+        {
+          "name": "version",
+          "type": "int",
+          "default": 1
+        }
+      ],
+      "methods": [
+        "validate() -> bool",
+        "to_dict() -> dict",
+        "from_dict(data: dict) -> HabitColumn",
+        "is_synced() -> bool",
+        "needs_sync() -> bool"
+      ]
+    },
+    "habit_record_model": {
+      "file": "src/plugins/habits/models/habit_record.py",
+      "class": "HabitRecord",
+      "fields": [
+        {
+          "name": "id",
+          "type": "int | None"
+        },
+        {
+          "name": "remote_id",
+          "type": "int | None"
+        },
+        {
+          "name": "user_id",
+          "type": "int",
+          "required": true
+        },
+        {
+          "name": "column_id",
+          "type": "int",
+          "required": true
+        },
+        {
+          "name": "date",
+          "type": "date",
+          "required": true
+        },
+        {
+          "name": "value",
+          "type": "str | None",
+          "description": "Format depends on column_type"
+        },
+        {
+          "name": "created_at",
+          "type": "datetime",
+          "required": true
+        },
+        {
+          "name": "updated_at",
+          "type": "datetime",
+          "required": true
+        },
+        {
+          "name": "sync_status",
+          "type": "str",
+          "enum": ["synced", "pending", "conflict", "error"],
+          "default": "synced"
+        }
+      ],
+      "methods": [
+        "validate(column: HabitColumn) -> bool",
+        "to_dict() -> dict",
+        "from_dict(data: dict) -> HabitRecord",
+        "parse_value(column_type: str) -> Any",
+        "format_value(value: Any, column_type: str) -> str"
+      ]
+    }
+  },
+
+  "statistics_service": {
+    "file": "src/plugins/habits/services/statistics_service.py",
+    "class": "StatisticsService",
+    "methods": [
+      {
+        "name": "calculate_streak",
+        "params": ["column_id", "date_to?"],
+        "returns": {
+          "current_streak": "int (days)",
+          "longest_streak": "int (days)"
+        },
+        "algorithm": [
+          "1. Get all records for column, sorted by date DESC",
+          "2. Start from date_to (or today)",
+          "3. Count consecutive days with non-empty value",
+          "4. Break on first missing day",
+          "5. For longest: scan entire history for max consecutive"
+        ]
+      },
+      {
+        "name": "calculate_completion_rate",
+        "params": ["column_id", "date_from", "date_to"],
+        "returns": "float (0.0 - 1.0)",
+        "algorithm": [
+          "1. Count total days in range",
+          "2. Count days with non-empty value",
+          "3. Return days_with_value / total_days"
+        ]
+      },
+      {
+        "name": "calculate_aggregates",
+        "params": ["column_id", "date_from", "date_to"],
+        "returns": {
+          "total": "sum of all values (for counter, duration)",
+          "average": "average value",
+          "min": "minimum value",
+          "max": "maximum value",
+          "median": "median value",
+          "std_dev": "standard deviation"
+        },
+        "applies_to": ["counter", "duration", "scale"]
+      },
+      {
+        "name": "get_weekly_summary",
+        "params": ["column_id", "week_start_date"],
+        "returns": {
+          "week_dates": ["2025-10-27", "...", "2025-11-02"],
+          "values": [1, null, 1, 1, null, 1, 1],
+          "completion_rate": 0.714,
+          "total_value": "depends on type"
+        }
+      },
+      {
+        "name": "get_monthly_summary",
+        "params": ["column_id", "year", "month"],
+        "returns": "Similar to weekly but for entire month"
+      },
+      {
+        "name": "get_heatmap_data",
+        "params": ["column_id", "date_from", "date_to"],
+        "returns": [
+          {
+            "date": "2025-11-02",
+            "value": "00:15:00",
+            "intensity": 0.5
+          }
+        ],
+        "description": "For GitHub-style contribution heatmap, intensity 0.0-1.0"
+      }
+    ]
+  },
+
+  "testing": {
+    "unit_tests": [
+      "test_habit_service.py: Business logic validation",
+      "test_habit_repository.py: Database operations",
+      "test_statistics_service.py: Streak, completion rate calculations",
+      "test_sync_manager.py: Sync scenarios",
+      "test_value_parsers.py: Parse/validate different value types",
+      "test_conflict_resolver.py: Conflict resolution"
+    ],
+    "integration_tests": [
+      "test_offline_sync.py: Offline mode -> online sync",
+      "test_api_integration.py: Real API calls (mock server)",
+      "test_backup_restore.py: Backup and restore flows",
+      "test_date_range_sync.py: Sync older date ranges"
+    ],
+    "ui_tests": [
+      "test_habit_tracker_view.py: UI interactions",
+      "test_add_habit_dialog.py: Dialog validation",
+      "test_edit_cell_dialog.py: Cell editing for each type",
+      "test_statistics_dialog.py: Statistics display"
+    ],
+    "test_scenarios": [
+      {
+        "name": "Streak calculation accuracy",
+        "steps": [
+          "1. Create checkbox habit",
+          "2. Add records: [1,1,0,1,1,1] for last 6 days",
+          "3. Calculate streak",
+          "4. Expect current_streak=3, longest_streak=3"
+        ]
+      },
+      {
+        "name": "Offline habit tracking",
+        "steps": [
+          "1. Disconnect network",
+          "2. Edit habit record (set value='1')",
+          "3. Verify saved to local DB with sync_status='pending'",
+          "4. Reconnect network",
+          "5. Trigger sync",
+          "6. Verify record sent to server (UPSERT)",
+          "7. Verify sync_status='synced'"
+        ]
+      },
+      {
+        "name": "Sync conflict with same-day edit",
+        "steps": [
+          "1. Have record synced (date=2025-11-02, value='1', version=1)",
+          "2. Offline: edit locally to value='5' (version=2)",
+          "3. Server: edited by another device to value='3' (version=2)",
+          "4. Online: trigger sync",
+          "5. Detect conflict",
+          "6. Apply 'server wins': local='3', version=2",
+          "7. Notify user"
+        ]
+      },
+      {
+        "name": "Duration value parsing",
+        "steps": [
+          "1. Test parse_duration('01:30:00') -> 5400 seconds",
+          "2. Test parse_duration('90') -> 90 seconds",
+          "3. Test format_duration(5400) -> '01:30:00'",
+          "4. Test invalid input handling"
+        ]
+      },
+      {
+        "name": "Scale validation",
+        "steps": [
+          "1. Create scale habit with scale_max=10",
+          "2. Try to set value='15'",
+          "3. Expect validation error",
+          "4. Set value='7'",
+          "5. Expect success"
+        ]
+      }
+    ]
+  },
+
+  "performance_considerations": {
+    "database": [
+      "Use composite index on (column_id, date) for fast lookups",
+      "Index on user_id for multi-user filtering",
+      "Index on sync_status for sync queue processing",
+      "LIMIT date range queries (default: last 30 days, load more on scroll)",
+      "Use prepared statements",
+      "Vacuum database monthly"
+    ],
+    "sync": [
+      "Sync only visible date range (e.g., last 30 days) by default",
+      "Load older data on-demand when user scrolls back",
+      "Debounce auto-sync (30s after last change)",
+      "Batch sync_queue items (max 100 per request)",
+      "Use updated_since parameter to fetch only changes",
+      "Exponential backoff for failed syncs"
+    ],
+    "ui": [
+      "Render only visible cells (virtual scrolling horizontally)",
+      "Cache cell widgets for reuse",
+      "Lazy load statistics (calculate on-demand)",
+      "Use QThreads for heavy calculations (statistics, chart generation)",
+      "Show progress indicators for long operations",
+      "Debounce cell updates (300ms after last keystroke)"
+    ],
+    "statistics": [
+      "Cache calculated statistics (invalidate on data change)",
+      "Pre-calculate common stats (today's completion rate)",
+      "Limit chart data points (max 365 for line charts)",
+      "Use worker threads for chart generation"
+    ]
+  },
+
+  "security": {
+    "authentication": [
+      "Store tokens securely (keyring or encrypted storage)",
+      "Auto-refresh expired tokens",
+      "Clear tokens on logout",
+      "Validate token before each API call"
+    ],
+    "authorization": [
+      "Verify user_id matches authenticated user",
+      "Server validates all permissions",
+      "Don't trust client-side checks",
+      "Column_id must belong to user"
+    ],
+    "data_protection": [
+      "Encrypt local database (optional, using SQLCipher)",
+      "Sanitize user inputs (prevent XSS/SQL injection)",
+      "Use HTTPS for all API communication",
+      "Validate SSL certificates",
+      "Limit text field lengths to prevent DoS"
+    ]
+  },
+
+  "error_handling": {
+    "strategies": [
+      {
+        "type": "Network errors",
+        "action": "Switch to offline mode, queue operations",
+        "ui": "Show offline banner, disable sync button"
+      },
+      {
+        "type": "Authentication errors",
+        "action": "Clear tokens, redirect to login",
+        "ui": "Show login dialog"
+      },
+      {
+        "type": "Validation errors",
+        "action": "Show field-level errors",
+        "ui": "Highlight invalid fields in red, show error message"
+      },
+      {
+        "type": "Sync conflicts",
+        "action": "Apply 'server wins' strategy",
+        "ui": "Show notification: 'Your change was overwritten by newer data from server'"
+      },
+      {
+        "type": "Server errors (5xx)",
+        "action": "Retry with exponential backoff (max 3 attempts)",
+        "ui": "Show error message, suggest try again later"
+      },
+      {
+        "type": "Invalid value for type",
+        "action": "Reject save, show validation error",
+        "ui": "Highlight field, show error: 'Value must be between 1 and 10'"
+      },
+      {
+        "type": "Duplicate (column_id, date)",
+        "action": "Treat as update (UPSERT logic)",
+        "ui": "Update existing record silently"
+      }
+    ],
+    "logging": {
+      "library": "Python logging module",
+      "levels": ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+      "handlers": [
+        "File: logs/habits.log (rotating, max 10MB)",
+        "Console: for development",
+        "Sentry: for production error tracking (optional)"
+      ],
+      "log_events": [
+        "Habit column created/updated/deleted",
+        "Record saved/updated/deleted",
+        "Sync started/completed/failed",
+        "Conflict detected and resolved",
+        "Statistics calculated",
+        "Backup created/restored"
+      ]
+    }
+  },
+
+  "implementation_checklist": [
+    "[ ] Setup project structure (folders, __init__.py)",
+    "[ ] Implement models (HabitColumn, HabitRecord, HabitStatistics)",
+    "[ ] Create local database schema with migrations",
+    "[ ] Implement HabitColumnRepository (CRUD operations)",
+    "[ ] Implement HabitRecordRepository (CRUD operations)",
+    "[ ] Implement HabitService (business logic, validation)",
+    "[ ] Implement StatisticsService (streaks, aggregates, trends)",
+    "[ ] Setup ApiClient with authentication",
+    "[ ] Implement HabitSyncManager (pull, push, conflict resolution)",
+    "[ ] Implement value parsers for each habit type",
+    "[ ] Create UI components (HabitTrackerView, dialogs)",
+    "[ ] Implement cell widgets for each habit type",
+    "[ ] Integrate ThemeManager into all UI components",
+    "[ ] Setup TranslationManager and create translation files",
+    "[ ] Implement calendar/table rendering with scrolling",
+    "[ ] Add streak indicators and visual feedback",
+    "[ ] Implement StatisticsDialog with charts",
+    "[ ] Add BackupManager integration",
+    "[ ] Implement auto-sync with debouncing",
+    "[ ] Add sync status indicators in UI",
+    "[ ] Implement offline mode detection and handling",
+    "[ ] Implement date range loading (lazy load older data)",
+    "[ ] Add export to CSV functionality",
+    "[ ] Write unit tests (models, services, repositories, parsers)",
+    "[ ] Write integration tests (sync, API, backup)",
+    "[ ] Write UI tests (views, dialogs, cell widgets)",
+    "[ ] Add error handling and logging",
+    "[ ] Optimize performance (indexes, caching, lazy loading)",
+    "[ ] Security review (token storage, input validation)",
+    "[ ] Documentation (API, usage, setup)",
+    "[ ] User manual (how to use habit tracker)",
+    "[ ] Code review and refactoring",
+    "[ ] Final testing (manual + automated)",
+    "[ ] Deployment preparation"
+  ],
+
+  "dependencies": {
+    "python": ">=3.10",
+    "packages": [
+      "PyQt6>=6.5.0",
+      "requests>=2.31.0",
+      "python-dotenv>=1.0.0",
+      "pydantic>=2.0.0 (for data validation)",
+      "matplotlib>=3.7.0 (for charts in statistics)",
+      "numpy>=1.24.0 (for statistical calculations)",
+      "sqlalchemy>=2.0.0 (optional ORM)",
+      "pytest>=7.4.0 (for testing)",
+      "pytest-qt>=4.2.0 (for UI testing)",
+      "responses>=0.23.0 (for mocking API in tests)"
+    ]
+  },
+
+  "future_enhancements": [
+    "Habit templates (pre-configured common habits)",
+    "Reminders/notifications for habits at specific times",
+    "Gamification: badges, achievements, leaderboards",
+    "Social features: share progress, compare with friends",
+    "AI insights: 'You meditate more on weekends' patterns",
+    "Mobile app with same API backend",
+    "Apple Health / Google Fit integration",
+    "Habit dependencies: 'Do A before B'",
+    "Smart scheduling: 'Best time to do this habit'",
+    "Habit challenges: '30-day meditation challenge'"
+  ],
+
+  "notes": [
+    "External database (via API) jest źródłem prawdy - zawsze priorytet dla danych z serwera",
+    "Lokalna baza SQLite to cache i fallback dla offline mode",
+    "Unique constraint na (column_id, date) zapewnia jeden rekord per nawyk per dzień",
+    "UPSERT logic: POST /habit-records aktualizuje jeśli (column_id, date) istnieje",
+    "Synchronizacja oparta na updated_at timestamps z rozwiązywaniem konfliktów",
+    "Backup używa dat modyfikacji do inteligentnego przywracania",
+    "Wszystkie teksty przez TranslationManager dla pełnego i18n/l10n",
+    "ThemeManager wstrzykiwany do wszystkich komponentów UI",
+    "Token autoryzacji w każdym requeście do API",
+    "Graceful degradation: app działa offline, sync po powrocie połączenia",
+    "Streak calculation: consecutive days with non-empty value",
+    "Default date range: last 30 days (load more on scroll back)",
+    "Cell colors depend on habit type and value (visual feedback)",
+    "Statistics calculated on-demand and cached for performance"
+  ]
+}
