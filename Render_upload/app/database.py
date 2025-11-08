@@ -47,6 +47,7 @@ def init_db():
         from . import pomodoro_models  # Schema s05_pomodoro
         from . import notes_models  # Schema s06_notes
         from . import tasks_models  # Schema s06_tasks
+        from . import habit_models  # Schema s07_habits
         
         # Tworzenie tabel dla wszystkich zarejestrowanych modeli
         Base.metadata.create_all(bind=engine)

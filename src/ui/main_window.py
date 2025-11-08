@@ -23,6 +23,7 @@ from .task_config_dialog import TaskConfigDialog
 from .kanban_view import KanBanView
 from .task_bar import TaskBar
 from .quick_task_bar import QuickTaskDialog
+from ..Modules.habbit_tracker_module import HabbitTrackerView
 
 
 class CustomTitleBar(QWidget):
@@ -543,6 +544,11 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'notes_view'):
             self.notes_view.set_user_data(user_data, on_token_refreshed=self.on_token_refreshed)
         
+        # Przekaż dane użytkownika do HabitTrackerView aby włączyć synchronizację
+        if hasattr(self, 'habit_view'):
+            self.habit_view.set_user_data(user_data)
+            logger.info("[MAIN] ✅ Habit tracker synchronization enabled")
+        
         # Przekaż dane użytkownika do TasksManager aby włączyć synchronizację
         if hasattr(self, 'tasks_manager'):
             self._enable_tasks_sync(user_data)
@@ -652,6 +658,23 @@ class MainWindow(QMainWindow):
                 if hasattr(self.settings_view, 'apply_theme'):
                     self.settings_view.apply_theme()
                     logger.debug("Refreshed settings_view theme")
+            
+            # 🎨 Habit Tracker View
+            if hasattr(self, 'habit_view') and self.habit_view:
+                if hasattr(self.habit_view, 'apply_theme'):
+                    try:
+                        self.habit_view.apply_theme()
+                        logger.info("[MAIN] habit_view.apply_theme() completed successfully")
+                    except Exception as e:
+                        logger.error(f"[MAIN] Exception in habit_view.apply_theme(): {e}")
+                        import traceback
+                        logger.error(f"[MAIN] Traceback: {traceback.format_exc()}")
+                    logger.debug("Refreshed habit_view theme")
+                else:
+                    logger.warning("[MAIN] habit_view has no apply_theme method!")
+            else:
+                logger.warning(f"[MAIN] habit_view not found! hasattr={hasattr(self, 'habit_view')}")
+            
             if getattr(self, 'quick_task_dialog', None):
                 self.quick_task_dialog.apply_theme()
                     
@@ -817,6 +840,30 @@ class MainWindow(QMainWindow):
             self.task_local_db = None
             self.task_logic = None
         
+        # Widok Habit Tracker
+        try:
+            from ..Modules.habbit_tracker_module.habit_database import HabitDatabase
+            
+            # Utwórz ścieżkę do bazy danych habit tracker
+            db_dir = Path(__file__).parent.parent / 'database'
+            db_dir.mkdir(exist_ok=True)
+            habit_db_path = db_dir / 'habit_tracker.db'
+            
+            # Utwórz bazę danych nawyków (user_id będzie ustawiony w set_user_data)
+            self.habit_db = HabitDatabase(habit_db_path, user_id=1)
+            
+            # Utwórz HabbitTrackerView z bazą danych
+            self.habit_view = HabbitTrackerView(db_manager=self.habit_db)
+            self.content_stack.addWidget(self.habit_view)
+            
+            logger.info("HabbitTrackerView initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize HabbitTrackerView: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            self.habit_view = None
+            self.habit_db = None
+        
         main_layout.addWidget(self.content_stack, stretch=1)
         
         # Separator
@@ -950,6 +997,16 @@ class MainWindow(QMainWindow):
                 self.kanban_view.refresh_board()
             else:
                 logger.warning("KanBanView not initialized")
+                self.content_stack.setCurrentWidget(self.main_content)
+                self.quick_input.setVisible(True)
+        elif view_name == 'habit_tracker':
+            if hasattr(self, 'habit_view') and self.habit_view:
+                self.content_stack.setCurrentWidget(self.habit_view)
+                self.quick_input.setVisible(True)
+                # Odśwież widok nawyków przy każdym wejściu
+                self.habit_view.refresh_table()
+            else:
+                logger.warning("HabbitTrackerView not initialized")
                 self.content_stack.setCurrentWidget(self.main_content)
                 self.quick_input.setVisible(True)
         else:

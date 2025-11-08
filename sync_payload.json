@@ -1,0 +1,94 @@
+{
+  "user_id": "207222a2-3845-40c2-9bea-cd5bbd6e15f6",
+  "columns": [
+    {
+      "id": "1",
+      "user_id": "207222a2-3845-40c2-9bea-cd5bbd6e15f6",
+      "name": "pobudka",
+      "type": "time",
+      "position": 0,
+      "created_at": "2025-11-07T23:08:27.877782",
+      "updated_at": "2025-11-07 05:35:20",
+      "server_id": null,
+      "version": 1
+    },
+    {
+      "id": "2",
+      "user_id": "207222a2-3845-40c2-9bea-cd5bbd6e15f6",
+      "name": "pierwszy buch",
+      "type": "time",
+      "position": 1,
+      "created_at": "2025-11-07T23:08:27.877813",
+      "updated_at": "2025-11-07 21:17:22",
+      "server_id": null,
+      "version": 1
+    },
+    {
+      "id": "3",
+      "user_id": "207222a2-3845-40c2-9bea-cd5bbd6e15f6",
+      "name": "Ile Buch\u00f3W",
+      "type": "counter",
+      "position": 2,
+      "created_at": "2025-11-07T23:08:27.877817",
+      "updated_at": "2025-11-07 21:23:32",
+      "server_id": null,
+      "version": 1
+    },
+    {
+      "id": "4",
+      "user_id": "207222a2-3845-40c2-9bea-cd5bbd6e15f6",
+      "name": "drzemka",
+      "type": "duration",
+      "position": 3,
+      "created_at": "2025-11-07T23:08:27.877820",
+      "updated_at": "2025-11-07 21:35:03",
+      "server_id": null,
+      "version": 1
+    },
+    {
+      "id": "5",
+      "user_id": "207222a2-3845-40c2-9bea-cd5bbd6e15f6",
+      "name": "produktywnosc",
+      "type": "scale",
+      "position": 4,
+      "created_at": 10,
+      "updated_at": "2025-11-07 21:35:24",
+      "server_id": null,
+      "version": 1
+    },
+    {
+      "id": "6",
+      "user_id": "207222a2-3845-40c2-9bea-cd5bbd6e15f6",
+      "name": "kawa",
+      "type": "checkbox",
+      "position": 5,
+      "created_at": "2025-11-07T23:08:27.877823",
+      "updated_at": "2025-11-07 21:35:41",
+      "server_id": null,
+      "version": 1
+    },
+    {
+      "id": "7",
+      "user_id": "207222a2-3845-40c2-9bea-cd5bbd6e15f6",
+      "name": "test",
+      "type": "text",
+      "position": 6,
+      "created_at": "2025-11-07T23:08:27.877825",
+      "updated_at": "2025-11-07 21:35:59",
+      "server_id": null,
+      "version": 1
+    },
+    {
+      "id": "8",
+      "user_id": "207222a2-3845-40c2-9bea-cd5bbd6e15f6",
+      "name": "SERIE",
+      "type": "counter",
+      "position": 7,
+      "created_at": "2025-11-07T23:08:27.877827",
+      "updated_at": "2025-11-07 22:06:59",
+      "server_id": null,
+      "version": 1
+    }
+  ],
+  "records": []
+}

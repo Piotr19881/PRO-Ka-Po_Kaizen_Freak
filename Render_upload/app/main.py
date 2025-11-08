@@ -8,6 +8,19 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from typing import Dict
 import uvicorn
+import logging
+
+# Konfiguracja loggingu
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler()
+    ]
+)
+
+# Logger dla głównej aplikacji
+logger = logging.getLogger("main")
 
 from .config import settings
 from .database import get_db, test_connection, init_db
@@ -16,6 +29,7 @@ from .alarms_router import router as alarms_router
 from .pomodoro_router import router as pomodoro_router
 from .notes_router import router as notes_router
 from .tasks_router import router as tasks_router
+from .habit_router import router as habit_router
 
 # Inicjalizacja FastAPI
 app = FastAPI(
@@ -41,6 +55,18 @@ app.include_router(alarms_router)
 app.include_router(pomodoro_router)
 app.include_router(notes_router)
 app.include_router(tasks_router)
+app.include_router(habit_router)
+
+logger.info("🚀 HABIT TRACKER ROUTER został zarejestrowany w aplikacji FastAPI!")
+logger.info("📍 HABIT TRACKER: Dostępne endpointy:")
+logger.info("   - GET    /api/habits/columns")
+logger.info("   - POST   /api/habits/columns") 
+logger.info("   - PUT    /api/habits/columns/{id}")
+logger.info("   - DELETE /api/habits/columns/{id}")
+logger.info("   - GET    /api/habits/records")
+logger.info("   - POST   /api/habits/records")
+logger.info("   - POST   /api/habits/sync")
+logger.info("   - POST   /api/habits/monthly")
 
 
 # =============================================================================

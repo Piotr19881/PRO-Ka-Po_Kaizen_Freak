@@ -507,6 +507,14 @@ class ThemeManager:
                 "accent_pressed": "#2196F3",
                 "border_light": "#404040",
                 "border_dark": "#202020",
+                # Kolory dla weekendów (ciemny motyw)
+                "weekend_saturday": "#1B4D3E",  # Ciemny zielony
+                "weekend_sunday": "#4A2C2A",    # Ciemny pomarańczowy/brązowy
+                "weekend_text": "#E0E0E0",      # Jasny tekst
+                # Kolory dla checkboxów
+                "checkbox_border": "#64B5F6",
+                "checkbox_checked": "#4CAF50",
+                "checkbox_checked_hover": "#45A049",
             }
         else:
             return {
@@ -519,6 +527,14 @@ class ThemeManager:
                 "accent_pressed": "#0D47A1",
                 "border_light": "#CCCCCC",
                 "border_dark": "#999999",
+                # Kolory dla weekendów (jasny motyw)
+                "weekend_saturday": "#C8FFC8",  # Jasny zielony
+                "weekend_sunday": "#FFC896",    # Jasny pomarańczowy
+                "weekend_text": "#000000",      # Ciemny tekst
+                # Kolory dla checkboxów
+                "checkbox_border": "#3498db",
+                "checkbox_checked": "#27ae60",
+                "checkbox_checked_hover": "#229954",
             }
 
 

@@ -15,6 +15,12 @@ POMODORO_API_BASE_URL = os.getenv(
     'http://127.0.0.1:8000'  # Default: localhost dla developmentu
 )
 
+# Habit Tracker API Base URL (używa tego samego backendu co Pomodoro)
+HABIT_API_BASE_URL = os.getenv(
+    'HABIT_API_URL',
+    'http://127.0.0.1:8000'  # Default: localhost dla developmentu
+)
+
 # ==================== DATABASE PATHS ====================
 
 # Local SQLite databases directory
