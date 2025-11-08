@@ -84,6 +84,10 @@ class QuickTaskDialog(QDialog):
 	def clear_inputs(self) -> None:
 		self.task_bar.clear_inputs()
 
+	def set_task_text(self, text: str) -> None:
+		"""Ustaw tekst zadania w polu wprowadzania"""
+		self.task_bar.task_input.setText(text)
+
 	def apply_theme(self) -> None:
 		self._apply_theme()
 

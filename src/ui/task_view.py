@@ -9,6 +9,26 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QTimer
 from loguru import logger
 from ..utils.i18n_manager import t
+
+
+class DateTableWidgetItem(QTableWidgetItem):
+	"""Niestandardowy item dla właściwego sortowania dat."""
+	
+	def __lt__(self, other):
+		"""Porównanie dla sortowania - używa timestamp z UserRole+1."""
+		self_data = self.data(Qt.ItemDataRole.UserRole + 1)
+		other_data = other.data(Qt.ItemDataRole.UserRole + 1)
+		
+		# Puste wartości na końcu
+		if self_data is None and other_data is None:
+			return False
+		if self_data is None:
+			return False  # Puste idą na koniec
+		if other_data is None:
+			return True
+		
+		# Porównaj timestampy
+		return self_data < other_data
 from .ui_task_simple_dialogs import (
 	CurrencyInputDialog,
 	DatePickerDialog,
@@ -261,6 +281,9 @@ class TaskView(QWidget):
 		self.table.verticalHeader().setVisible(False)
 		self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
 		self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+		
+		# Włącz sortowanie - użytkownik może kliknąć nagłówek kolumny
+		self.table.setSortingEnabled(True)
 		
 		# Włącz menu kontekstowe
 		self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -767,6 +790,11 @@ class TaskView(QWidget):
 		
 		visible_columns = self._get_visible_columns()
 		
+		# Wyłącz sortowanie podczas dodawania wierszy (optymalizacja wydajności)
+		sorting_was_enabled = self.table.isSortingEnabled()
+		if sorting_was_enabled:
+			self.table.setSortingEnabled(False)
+		
 		# Wyczyść tabelę i mapę wierszy
 		self.table.setRowCount(0)
 		# Jawnie usuń wszystkie referencje przed wyczyszczeniem
@@ -972,12 +1000,48 @@ class TaskView(QWidget):
 					if numeric_value is not None:
 						row_task[col_id] = numeric_value
 				else:
-					# Dla pozostałych typów używamy QTableWidgetItem
-					item = QTableWidgetItem(str(value) if value is not None else '')
-					# Zapisz task_id w UserRole pierwszej kolumny
-					if col_idx == 0:
-						item.setData(Qt.ItemDataRole.UserRole, task.get('id'))
-					self.table.setItem(row, col_idx, item)
+					# Sprawdź czy to kolumna z datą
+					is_date_col = self._is_date_column(col_config)
+					
+					# Kolumny systemowe z datami (created_at, updated_at, completion_date)
+					date_fields = {'created_at', 'updated_at', 'completion_date', 'data dodania', 'data realizacji'}
+					is_system_date = col_id.lower() in date_fields
+					
+					if is_date_col or is_system_date:
+						# Użyj DateTableWidgetItem dla właściwego sortowania
+						item = DateTableWidgetItem(str(value) if value is not None else '')
+						
+						# Konwertuj datę do timestamp dla sortowania
+						timestamp = None
+						if value:
+							try:
+								# Obsługa różnych formatów daty
+								date_str = str(value)
+								if 'T' in date_str:
+									dt = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+								elif ' ' in date_str:
+									dt = datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S')
+								else:
+									dt = datetime.strptime(date_str, '%Y-%m-%d')
+								timestamp = dt.timestamp()
+							except (ValueError, AttributeError) as e:
+								logger.debug(f"[TaskView] Could not parse date '{value}': {e}")
+						
+						# Zapisz timestamp w UserRole+1 dla sortowania
+						item.setData(Qt.ItemDataRole.UserRole + 1, timestamp)
+						
+						# Zapisz task_id w UserRole pierwszej kolumny
+						if col_idx == 0:
+							item.setData(Qt.ItemDataRole.UserRole, task.get('id'))
+						
+						self.table.setItem(row, col_idx, item)
+					else:
+						# Dla pozostałych typów używamy zwykłego QTableWidgetItem
+						item = QTableWidgetItem(str(value) if value is not None else '')
+						# Zapisz task_id w UserRole pierwszej kolumny
+						if col_idx == 0:
+							item.setData(Qt.ItemDataRole.UserRole, task.get('id'))
+						self.table.setItem(row, col_idx, item)
 			
 			# Zastosuj kolor wiersza, jeśli jest ustawiony
 			row_color = task.get('row_color')
@@ -1000,6 +1064,10 @@ class TaskView(QWidget):
 				if row_data and isinstance(row_data, dict):
 					row_data.clear()
 			logger.info(f"[TaskView] Removed {len(invalid_rows)} orphaned entries from row map")
+		
+		# Włącz ponownie sortowanie
+		if sorting_was_enabled:
+			self.table.setSortingEnabled(True)
 		
 		logger.info(f"[TaskView] Populated table with {len(tasks)} tasks and {len(visible_columns)} columns")
 
@@ -1428,12 +1496,30 @@ class TaskView(QWidget):
 		if row_index is None:
 			return
 		
+		# Użyj DateTableWidgetItem dla właściwego sortowania
 		item = self.table.item(row_index, completion_col_idx)
 		if item is None:
-			item = QTableWidgetItem()
+			item = DateTableWidgetItem()
+			self.table.setItem(row_index, completion_col_idx, item)
+		elif not isinstance(item, DateTableWidgetItem):
+			# Zamień na DateTableWidgetItem jeśli to zwykły item
+			old_text = item.text()
+			item = DateTableWidgetItem()
+			item.setText(old_text)
 			self.table.setItem(row_index, completion_col_idx, item)
 		
 		item.setText(display_value)
+		
+		# Zapisz timestamp dla sortowania
+		timestamp = None
+		if display_value:
+			try:
+				dt = datetime.strptime(display_value, '%Y-%m-%d')
+				timestamp = dt.timestamp()
+			except (ValueError, AttributeError) as e:
+				logger.debug(f"[TaskView] Could not parse completion date '{display_value}': {e}")
+		
+		item.setData(Qt.ItemDataRole.UserRole + 1, timestamp)
 
 	# ---------- Handlery ----------
 	def _on_lock_toggled(self, checked: bool):

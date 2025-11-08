@@ -17,6 +17,7 @@ from .config_view import SettingsView
 from .alarms_view import AlarmsView
 from .pomodoro_view import PomodoroView
 from .note_view import NoteView
+from .callcryptor_view import CallCryptorView
 from .status_led import StatusLED, get_status_led_manager
 from .task_view import TaskView
 from .task_config_dialog import TaskConfigDialog
@@ -151,9 +152,11 @@ class CustomTitleBar(QWidget):
             (t('user_menu.settings.tasks'), 1),
             (t('user_menu.settings.kanban'), 2),
             (t('user_menu.settings.custom'), 3),
-            (t('user_menu.settings.transcriptor'), 4),
-            (t('user_menu.settings.ai'), 5),
-            (t('user_menu.settings.about'), 6),
+            (t('user_menu.settings.callcryptor'), 4),
+            (t('user_menu.settings.assistant'), 5),
+            (t('user_menu.settings.ai'), 6),
+            (t('user_menu.settings.email_accounts'), 7),
+            (t('user_menu.settings.about'), 8),
         ]
         
         for tab_name, tab_index in settings_tabs:
@@ -278,7 +281,7 @@ class NavigationBar(QWidget):
             'pomodoro',
             'habit_tracker',
             'notes',
-            'transcriptor',
+            'callcryptor',
             'alarms',
             'hotkey',
         ]
@@ -364,7 +367,7 @@ class NavigationBar(QWidget):
             'pomodoro': t('nav.pomodoro'),
             'habit_tracker': t('nav.habit_tracker'),
             'notes': t('nav.notes'),
-            'transcriptor': t('nav.transcriptor'),
+            'callcryptor': t('nav.callcryptor'),
             'alarms': t('nav.alarms'),
             'hotkey': t('nav.hotkey'),
         }
@@ -485,11 +488,19 @@ class MainWindow(QMainWindow):
         self.user_data = None  # Dane zalogowanego użytkownika
         self.on_token_refreshed = on_token_refreshed  # Callback dla odświeżonych tokenów
         self._quick_add_shortcut: QShortcut | None = None
+        
+        # Inicjalizacja asystenta głosowego
+        self._assistant_core = None
+        self._assistant_watcher = None
+        self._quick_task_watcher = None
+        self._task_assistant_module = None
+        
         self._setup_window()
         self._setup_ui()
         self._connect_signals()
         self._initialize_theme_icon()
         self._initialize_status_led()
+        self._initialize_assistant()
     
     def _initialize_theme_icon(self):
         """Ustaw ikonę motywu zgodnie z aktualnym layoutem"""
@@ -544,6 +555,11 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'notes_view'):
             self.notes_view.set_user_data(user_data, on_token_refreshed=self.on_token_refreshed)
         
+        # Przekaż dane użytkownika do CallCryptorView
+        if hasattr(self, 'callcryptor_view'):
+            self.callcryptor_view.set_user_data(user_data)
+            logger.info("[MAIN] ✅ CallCryptor initialized")
+        
         # Przekaż dane użytkownika do HabitTrackerView aby włączyć synchronizację
         if hasattr(self, 'habit_view'):
             self.habit_view.set_user_data(user_data)
@@ -554,6 +570,11 @@ class MainWindow(QMainWindow):
             self._enable_tasks_sync(user_data)
             # Podłącz sygnały synchronizacji do Status LED
             self._connect_tasks_to_status_led()
+        
+        # Przekaż dane użytkownika do Email Settings Card
+        if hasattr(self, 'settings_view') and hasattr(self.settings_view, 'tab_email'):
+            self.settings_view.tab_email.set_user_data(user_data)
+            logger.info("[MAIN] ✅ Email settings initialized")
         
         # Status LED: user logged in, connected
         if hasattr(self, 'status_led_manager'):
@@ -675,6 +696,22 @@ class MainWindow(QMainWindow):
             else:
                 logger.warning(f"[MAIN] habit_view not found! hasattr={hasattr(self, 'habit_view')}")
             
+            # 🎨 CallCryptor View
+            if hasattr(self, 'callcryptor_view') and self.callcryptor_view:
+                if hasattr(self.callcryptor_view, 'apply_theme'):
+                    try:
+                        self.callcryptor_view.apply_theme()
+                        logger.info("[MAIN] callcryptor_view.apply_theme() completed successfully")
+                    except Exception as e:
+                        logger.error(f"[MAIN] Exception in callcryptor_view.apply_theme(): {e}")
+                        import traceback
+                        logger.error(f"[MAIN] Traceback: {traceback.format_exc()}")
+                    logger.debug("Refreshed callcryptor_view theme")
+                else:
+                    logger.warning("[MAIN] callcryptor_view has no apply_theme method!")
+            else:
+                logger.warning(f"[MAIN] callcryptor_view not found! hasattr={hasattr(self, 'callcryptor_view')}")
+            
             if getattr(self, 'quick_task_dialog', None):
                 self.quick_task_dialog.apply_theme()
                     
@@ -780,6 +817,10 @@ class MainWindow(QMainWindow):
         # Widok Notatek
         self.notes_view = NoteView()
         self.content_stack.addWidget(self.notes_view)
+        
+        # Widok CallCryptor
+        self.callcryptor_view = CallCryptorView(parent=self)
+        self.content_stack.addWidget(self.callcryptor_view)
         
         # Widok Zadań (nasz nowy TaskView)
         try:
@@ -981,6 +1022,14 @@ class MainWindow(QMainWindow):
         elif view_name == 'notes':
             self.content_stack.setCurrentWidget(self.notes_view)
             self.quick_input.setVisible(True)  # Pokaż quick input w notatkach
+        elif view_name == 'callcryptor':
+            if hasattr(self, 'callcryptor_view') and self.callcryptor_view:
+                self.content_stack.setCurrentWidget(self.callcryptor_view)
+                self.quick_input.setVisible(True)  # Pokaż quick input w CallCryptor
+            else:
+                logger.warning("CallCryptorView not initialized")
+                self.content_stack.setCurrentWidget(self.main_content)
+                self.quick_input.setVisible(True)
         elif view_name == 'tasks':
             if hasattr(self, 'task_view') and self.task_view:
                 self.content_stack.setCurrentWidget(self.task_view)
@@ -1491,4 +1540,300 @@ class MainWindow(QMainWindow):
         
         # Wywołaj oryginalny closeEvent
         super().closeEvent(event)
+    
+    # =========================================================================
+    # ASSISTANT INTEGRATION
+    # =========================================================================
+    def _initialize_assistant(self) -> None:
+        """Inicjalizuj system asystenta głosowego."""
+        try:
+            logger.info("[MainWindow] Initializing voice assistant...")
+            
+            from ..core.assisstant.assistant_core import AssistantCore
+            from ..core.assisstant.assistant_database import AssistantDatabase
+            from ..core.assisstant.modules.task_assist import TaskAssistantModule
+            from ..core.assisstant.input_watcher import AssistantInputWatcher
+            
+            logger.info("[MainWindow] Assistant imports successful")
+            
+            # Utwórz bazę danych asystenta
+            db_path = config.DATA_DIR / "assistant.db"
+            logger.info(f"[MainWindow] Creating assistant database at: {db_path}")
+            
+            assistant_db = AssistantDatabase(db_path=str(db_path))
+            assistant_db.init_default_phrases()
+            
+            logger.info("[MainWindow] Assistant database initialized")
+            
+            # Utwórz rdzeń asystenta
+            self._assistant_core = AssistantCore(
+                database=assistant_db,
+                language_provider=lambda: get_i18n().get_current_language(),
+            )
+            
+            logger.info("[MainWindow] Assistant core created")
+            
+            # Załaduj frazy do cache
+            self._assistant_core.refresh_cache()
+            
+            logger.info("[MainWindow] Phrases cache refreshed")
+            
+            # Utwórz moduł asystenta zadań
+            self._task_assistant_module = TaskAssistantModule(task_controller=self)
+            
+            logger.info("[MainWindow] Task assistant module created")
+            
+            # Zarejestruj moduł w rdzeniu asystenta
+            self._assistant_core.register_module(self._task_assistant_module)
+            
+            logger.info("[MainWindow] Task module registered in core")
+            
+            # Utwórz i zarejestruj moduł asystenta kanban
+            from ..core.assisstant.modules.kanban_assist import KanbanAssistantModule
+            
+            self._kanban_assistant_module = KanbanAssistantModule(kanban_controller=self)
+            self._assistant_core.register_module(self._kanban_assistant_module)
+            
+            logger.info("[MainWindow] Kanban module registered in core")
+            
+            # Utwórz i zarejestruj moduł asystenta pomodoro
+            from ..core.assisstant.modules.pomodoro_assist import PomodoroAssistantModule
+            
+            self._pomodoro_assistant_module = PomodoroAssistantModule(pomodoro_controller=self.pomodoro_view)
+            self._assistant_core.register_module(self._pomodoro_assistant_module)
+            
+            logger.info("[MainWindow] Pomodoro module registered in core")
+            
+            # Podłącz watcher do pola quick input (dolny pasek)
+            if hasattr(self, 'quick_input'):
+                logger.info("[MainWindow] quick_input found, checking task_input...")
+                
+                if hasattr(self.quick_input, 'task_input'):
+                    logger.info("[MainWindow] task_input found, creating watcher...")
+                    
+                    self._assistant_watcher = AssistantInputWatcher(
+                        line_edit=self.quick_input.task_input,
+                        assistant=self._assistant_core,
+                        debounce_ms=1200,
+                        context_name="quick_task_bar",
+                    )
+                    logger.info("[MainWindow] Assistant watcher attached to quick_input")
+                else:
+                    logger.warning("[MainWindow] quick_input.task_input not found!")
+            else:
+                logger.warning("[MainWindow] quick_input not found!")
+            
+            # Podłącz watcher do QuickTaskDialog (floating window)
+            if hasattr(self, 'quick_task_dialog') and self.quick_task_dialog:
+                logger.info("[MainWindow] quick_task_dialog found, checking task_bar...")
+                
+                if hasattr(self.quick_task_dialog, 'task_bar') and hasattr(self.quick_task_dialog.task_bar, 'task_input'):
+                    logger.info("[MainWindow] task_bar.task_input found, creating watcher...")
+                    
+                    self._quick_task_watcher = AssistantInputWatcher(
+                        line_edit=self.quick_task_dialog.task_bar.task_input,
+                        assistant=self._assistant_core,
+                        debounce_ms=1200,
+                        context_name="floating_quick_task",
+                    )
+                    logger.info("[MainWindow] Assistant watcher attached to QuickTaskDialog")
+                else:
+                    logger.warning("[MainWindow] quick_task_dialog.task_bar.task_input not found!")
+            else:
+                logger.warning("[MainWindow] quick_task_dialog not available!")
+            
+            logger.success("[MainWindow] Voice assistant initialized successfully")
+            
+        except Exception as exc:
+            logger.error(f"[MainWindow] Failed to initialize assistant: {exc}")
+            import traceback
+            logger.error(traceback.format_exc())
+    
+    def handle_assistant_task_create(self, command, title: str) -> None:
+        """
+        Obsługuje tworzenie zadania przez asystenta głosowego.
+        
+        Args:
+            command: Sparsowana komenda ParsedCommand
+            title: Tytuł zadania
+        """
+        if not title:
+            logger.warning("[MainWindow] Assistant create task: empty title")
+            return
+        
+        # Deleguj do istniejącej logiki dodawania zadań
+        payload = {"title": title}
+        self._on_task_added(payload)
+        
+        logger.success(f"[MainWindow] Assistant created task: '{title}'")
+    
+    # ======================================================================
+    # Assistant - Kanban handlers
+    # ======================================================================
+    
+    def handle_assistant_kanban_open(self, command) -> None:
+        """
+        Otwiera widok kanban przez asystenta głosowego.
+        
+        Args:
+            command: Sparsowana komenda ParsedCommand
+        """
+        if not hasattr(self, 'kanban_view') or not self.kanban_view:
+            logger.warning("[MainWindow] Kanban view not available")
+            return
+        
+        # Przełącz na widok kanban
+        self.content_stack.setCurrentWidget(self.kanban_view)
+        
+        # Odśwież tablicę
+        self.kanban_view.refresh_board()
+        
+        logger.success("[MainWindow] Assistant opened kanban view")
+    
+    def handle_assistant_kanban_show_all(self, command) -> None:
+        """
+        Pokazuje wszystkie kolumny kanban przez asystenta głosowego.
+        
+        Args:
+            command: Sparsowana komenda ParsedCommand
+        """
+        if not hasattr(self, 'kanban_view') or not self.kanban_view:
+            logger.warning("[MainWindow] Kanban view not available")
+            return
+        
+        # Przełącz na widok kanban jeśli nie jesteśmy już tam
+        current_is_kanban = self.content_stack.currentWidget() == self.kanban_view
+        if not current_is_kanban:
+            self.content_stack.setCurrentWidget(self.kanban_view)
+            # Odśwież tylko przy pierwszym wejściu do widoku
+            self.kanban_view.refresh_board()
+        
+        # Pokaż wszystkie kolumny (bez refresh - checkboxy same pokażą kolumny)
+        self.kanban_view.assistant_show_all_columns()
+        
+        logger.success("[MainWindow] Assistant showed all kanban columns")
+    
+    def handle_assistant_kanban_show_column(self, command, column_name: str) -> None:
+        """
+        Pokazuje konkretną kolumnę kanban przez asystenta głosowego.
+        
+        Args:
+            command: Sparsowana komenda ParsedCommand
+            column_name: Internal column name ('todo', 'done', 'review', 'on_hold', 'in_progress')
+        """
+        if not hasattr(self, 'kanban_view') or not self.kanban_view:
+            logger.warning("[MainWindow] Kanban view not available")
+            return
+        
+        # Przełącz na widok kanban jeśli nie jesteśmy już tam
+        current_is_kanban = self.content_stack.currentWidget() == self.kanban_view
+        if not current_is_kanban:
+            self.content_stack.setCurrentWidget(self.kanban_view)
+            # Odśwież tylko przy pierwszym wejściu do widoku
+            self.kanban_view.refresh_board()
+        
+        # Pokaż kolumnę
+        changed = self.kanban_view.assistant_show_column(column_name)
+        
+        if changed:
+            logger.success(f"[MainWindow] Assistant showed kanban column: {column_name}")
+        else:
+            logger.info(f"[MainWindow] Kanban column '{column_name}' already visible")
+    
+    def handle_assistant_kanban_hide_column(self, command, column_name: str) -> None:
+        """
+        Ukrywa konkretną kolumnę kanban przez asystenta głosowego.
+        
+        Args:
+            command: Sparsowana komenda ParsedCommand
+            column_name: Internal column name ('todo', 'done', 'review', 'on_hold')
+        """
+        if not hasattr(self, 'kanban_view') or not self.kanban_view:
+            logger.warning("[MainWindow] Kanban view not available")
+            return
+        
+        # Przełącz na widok kanban jeśli nie jesteśmy już tam
+        current_is_kanban = self.content_stack.currentWidget() == self.kanban_view
+        if not current_is_kanban:
+            self.content_stack.setCurrentWidget(self.kanban_view)
+            # Odśwież tylko przy pierwszym wejściu do widoku
+            self.kanban_view.refresh_board()
+        
+        
+        # Ukryj kolumnę (bez refresh - checkbox sam ukryje kolumnę)
+        changed = self.kanban_view.assistant_hide_column(column_name)
+        
+        if changed:
+            logger.success(f"[MainWindow] Assistant hid kanban column: {column_name}")
+        else:
+            logger.info(f"[MainWindow] Kanban column '{column_name}' already hidden")
+    
+    # ========== POMODORO ASSISTANT HANDLERS ==========
+    
+    def handle_assistant_pomodoro_open(self, command) -> None:
+        """
+        Otwiera widok Pomodoro przez asystenta głosowego.
+        
+        Args:
+            command: Sparsowana komenda ParsedCommand
+        """
+        if not hasattr(self, 'pomodoro_view') or not self.pomodoro_view:
+            logger.warning("[MainWindow] Pomodoro view not available")
+            return
+        
+        # Przełącz na widok pomodoro
+        self.content_stack.setCurrentWidget(self.pomodoro_view)
+        logger.success("[MainWindow] Assistant opened pomodoro view")
+    
+    def handle_assistant_pomodoro_start(self, command) -> None:
+        """
+        Rozpoczyna sesję Pomodoro przez asystenta głosowego.
+        
+        Args:
+            command: Sparsowana komenda ParsedCommand
+        """
+        if not hasattr(self, 'pomodoro_view') or not self.pomodoro_view:
+            logger.warning("[MainWindow] Pomodoro view not available")
+            return
+        
+        # Przełącz na widok pomodoro jeśli nie jesteśmy już tam
+        current_is_pomodoro = self.content_stack.currentWidget() == self.pomodoro_view
+        if not current_is_pomodoro:
+            self.content_stack.setCurrentWidget(self.pomodoro_view)
+        
+        # Rozpocznij sesję
+        self.pomodoro_view.assistant_start()
+        logger.success("[MainWindow] Assistant started pomodoro session")
+    
+    def handle_assistant_pomodoro_pause(self, command) -> None:
+        """
+        Pauzuje sesję Pomodoro przez asystenta głosowego.
+        
+        Args:
+            command: Sparsowana komenda ParsedCommand
+        """
+        if not hasattr(self, 'pomodoro_view') or not self.pomodoro_view:
+            logger.warning("[MainWindow] Pomodoro view not available")
+            return
+        
+        # Pauzuj sesję
+        self.pomodoro_view.assistant_pause()
+        logger.success("[MainWindow] Assistant paused pomodoro session")
+    
+    def handle_assistant_pomodoro_stop(self, command) -> None:
+        """
+        Zatrzymuje sesję Pomodoro przez asystenta głosowego.
+        
+        Args:
+            command: Sparsowana komenda ParsedCommand
+        """
+        if not hasattr(self, 'pomodoro_view') or not self.pomodoro_view:
+            logger.warning("[MainWindow] Pomodoro view not available")
+            return
+        
+        # Zatrzymaj sesję
+        self.pomodoro_view.assistant_stop()
+        logger.success("[MainWindow] Assistant stopped pomodoro session")
+
+
 

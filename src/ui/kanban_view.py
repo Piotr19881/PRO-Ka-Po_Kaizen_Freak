@@ -852,15 +852,82 @@ class KanBanView(QWidget):
         else:
             main_tasks = items
         
+        # Zastosuj filtry
+        filtered_tasks = self._apply_column_filters(column_type, main_tasks)
+        
         # Dodaj karty zadań
-        for task_item in sorted(main_tasks, key=lambda x: x.get('position', 0)):
+        for task_item in sorted(filtered_tasks, key=lambda x: x.get('position', 0)):
             card = self._create_task_card(column_type, task_item)
             if isinstance(layout, QVBoxLayout):
                 layout.insertWidget(layout.count() - 1, card)
             else:
                 layout.addWidget(card)
         
-        logger.debug(f"[KanBanView] Populated column '{column_type}' with {len(main_tasks)} cards ({len(items)} total items)")
+        logger.debug(f"[KanBanView] Populated column '{column_type}' with {len(filtered_tasks)} cards ({len(items)} total items)")
+
+    def _apply_column_filters(self, column_type: str, tasks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Zastosuj filtry do zadań w kolumnie
+        
+        Args:
+            column_type: Typ kolumny
+            tasks: Lista zadań do przefiltrowania
+            
+        Returns:
+            Przefiltrowana lista zadań
+        """
+        filtered = list(tasks)
+        
+        # Filtr 1: Ukryj zakończone po określonym czasie (tylko dla kolumny 'done')
+        if column_type == 'done':
+            hide_after_days = self.settings.get('hide_completed_after', 0)
+            
+            if hide_after_days == -1:
+                # Ukryj wszystkie zarchiwizowane
+                filtered = [t for t in filtered if not t.get('full_task', {}).get('archived', False)]
+            elif hide_after_days > 0:
+                # Ukryj zadania zakończone ponad X dni temu
+                from datetime import datetime, timedelta
+                now = datetime.now()
+                cutoff_date = now - timedelta(days=hide_after_days)
+                
+                remaining = []
+                for task in filtered:
+                    full_task = task.get('full_task', {})
+                    completion_date_str = full_task.get('completion_date') or task.get('completion_date')
+                    
+                    if completion_date_str:
+                        try:
+                            # Parsuj datę zakończenia
+                            if 'T' in str(completion_date_str):
+                                completion_date = datetime.fromisoformat(completion_date_str.replace('Z', '+00:00'))
+                            elif ' ' in str(completion_date_str):
+                                completion_date = datetime.strptime(completion_date_str, '%Y-%m-%d %H:%M:%S')
+                            else:
+                                completion_date = datetime.strptime(completion_date_str, '%Y-%m-%d')
+                            
+                            # Zachowaj tylko zadania zakończone po cutoff_date
+                            if completion_date >= cutoff_date:
+                                remaining.append(task)
+                        except (ValueError, AttributeError) as e:
+                            logger.debug(f"[KanBanView] Could not parse completion_date '{completion_date_str}': {e}")
+                            # Jeśli nie można sparsować, zachowaj zadanie
+                            remaining.append(task)
+                    else:
+                        # Brak daty zakończenia - zachowaj
+                        remaining.append(task)
+                
+                filtered = remaining
+        
+        # Filtr 2: Limit zadań w kolumnie "W trakcie"
+        if column_type == 'in_progress':
+            max_in_progress = self.settings.get('max_in_progress', 3)
+            if max_in_progress > 0 and len(filtered) > max_in_progress:
+                # Ogranicz do max_in_progress (zachowaj pierwsze według position)
+                filtered = filtered[:max_in_progress]
+                logger.info(f"[KanBanView] Limited 'in_progress' to {max_in_progress} tasks")
+        
+        return filtered
 
     
     def _create_task_card(self, column_type: str, task: Dict[str, Any]) -> QFrame:
@@ -1333,73 +1400,187 @@ class KanBanView(QWidget):
     
     # ---------- Handlery zdarzeń ----------
     
-    def _on_hide_completed_changed(self, text: str):
+    def _on_hide_completed_changed(self, index: int):
         """Zmiana opcji ukrywania zakończonych zadań"""
-        if text == t("kanban.settings.hide_never"):
-            self.settings['hide_completed_after'] = 0
-        elif text == t("kanban.settings.hide_1day"):
-            self.settings['hide_completed_after'] = 1
-        elif text == t("kanban.settings.hide_5days"):
-            self.settings['hide_completed_after'] = 5
-        elif text == t("kanban.settings.hide_14days"):
-            self.settings['hide_completed_after'] = 14
-        elif text == t("kanban.settings.hide_archived"):
-            self.settings['hide_completed_after'] = -1
-        else:
-            self.settings['hide_completed_after'] = 0
-        
-        self._save_settings()
-        self.refresh_board()
+        # Pobierz wartość z data() zamiast tekstu
+        value = self.hide_completed_combo.itemData(index)
+        if value is not None:
+            self.settings['hide_completed_after'] = value
+            self._save_settings()
+            self.refresh_board()
+            logger.info(f"[KanBanView] Hide completed after changed to {value} days")
     
     def _on_max_in_progress_changed(self, value: int):
         """Zmiana maksymalnej liczby zadań w trakcie"""
         self.settings['max_in_progress'] = value
         self._save_settings()
+        
+        # Odśwież tablicę aby zastosować nowy limit
+        self.refresh_board()
+        
+        logger.info(f"[KanBanView] Max in progress changed to {value}")
     
     def _on_review_toggled(self, state: int):
         """Przełączenie widoczności kolumny 'Do sprawdzenia'"""
         show = (state == Qt.CheckState.Checked.value)
         self.settings['show_review'] = show
         
-        if show:
-            self.review_column.show()
-        else:
-            self.review_column.hide()
+        # Bezpieczna manipulacja kolumną (może być usunięta przez Qt)
+        try:
+            if show:
+                self.review_column.show()
+            else:
+                self.review_column.hide()
+        except RuntimeError as e:
+            logger.warning(f"[KanBanView] Review column widget deleted: {e}")
+            return
         
         self._save_settings()
+        self.refresh_board()  # Odśwież tablicę aby załadować zadania
     
     def _on_hold_toggled(self, state: int):
         """Przełączenie widoczności kolumny 'Odłożone'"""
         show = (state == Qt.CheckState.Checked.value)
         self.settings['show_on_hold'] = show
         
-        if show:
-            self.on_hold_column.show()
-        else:
-            self.on_hold_column.hide()
+        # Bezpieczna manipulacja kolumną
+        try:
+            if show:
+                self.on_hold_column.show()
+            else:
+                self.on_hold_column.hide()
+        except RuntimeError as e:
+            logger.warning(f"[KanBanView] On-hold column widget deleted: {e}")
+            return
         
         self._save_settings()
+        self.refresh_board()  # Odśwież tablicę aby załadować zadania
 
     def _on_todo_toggled(self, state: int):
         """Przełączenie widoczności kolumny 'Do wykonania'"""
         show = (state == Qt.CheckState.Checked.value)
         self.settings['show_todo'] = show
 
-        if show:
-            self.todo_column.show()
-        else:
-            self.todo_column.hide()
+        # Bezpieczna manipulacja kolumną
+        try:
+            if show:
+                self.todo_column.show()
+            else:
+                self.todo_column.hide()
+        except RuntimeError as e:
+            logger.warning(f"[KanBanView] Todo column widget deleted: {e}")
+            return
 
-        # Nie zapisujemy do bazy – stan utrzymujemy jedynie w sesji UI
+        self._save_settings()
+        self.refresh_board()  # Odśwież tablicę aby załadować zadania
 
     def _on_done_toggled(self, state: int):
         """Przełączenie widoczności kolumny 'Ukończone'"""
         show = (state == Qt.CheckState.Checked.value)
         self.settings['show_done'] = show
 
-        if show:
-            self.done_column.show()
-        else:
-            self.done_column.hide()
+        # Bezpieczna manipulacja kolumną
+        try:
+            if show:
+                self.done_column.show()
+            else:
+                self.done_column.hide()
+        except RuntimeError as e:
+            logger.warning(f"[KanBanView] Done column widget deleted: {e}")
+            return
 
-        # Nie zapisujemy do bazy – stan utrzymujemy jedynie w sesji UI
+        self._save_settings()
+        self.refresh_board()  # Odśwież tablicę aby załadować zadania
+    
+    # ======================================================================
+    # Assistant voice command endpoints
+    # ======================================================================
+    
+    def assistant_show_column(self, column_name: str) -> bool:
+        """
+        Pokaż kolumnę przez asystenta głosowego.
+        
+        Args:
+            column_name: Internal column name ('todo', 'done', 'review', 'on_hold', 'in_progress')
+            
+        Returns:
+            True jeśli kolumna była ukryta (zmiana), False jeśli już widoczna
+        """
+        # Note: kolumna 'in_progress' zawsze widoczna, nie ma checkboxa
+        if column_name == 'in_progress':
+            logger.info("[KanbanView] Column 'in_progress' is always visible")
+            return False
+        
+        checkbox_map = {
+            'todo': self.todo_check,
+            'done': self.done_check,
+            'review': self.review_check,
+            'on_hold': self.on_hold_check,
+        }
+        
+        checkbox = checkbox_map.get(column_name)
+        if not checkbox:
+            logger.warning(f"[KanbanView] Unknown column name: {column_name}")
+            return False
+        
+        # Sprawdź czy już zaznaczony
+        if checkbox.isChecked():
+            logger.debug(f"[KanbanView] Column '{column_name}' already visible")
+            return False
+        
+        # Zaznacz checkbox (to automatycznie wywoła odpowiedni _on_*_toggled)
+        checkbox.setChecked(True)
+        logger.info(f"[KanbanView] Column '{column_name}' shown by assistant")
+        return True
+    
+    def assistant_hide_column(self, column_name: str) -> bool:
+        """
+        Ukryj kolumnę przez asystenta głosowego.
+        
+        Args:
+            column_name: Internal column name ('todo', 'done', 'review', 'on_hold', 'in_progress')
+            
+        Returns:
+            True jeśli kolumna była widoczna (zmiana), False jeśli już ukryta
+        """
+        # Note: kolumna 'in_progress' zawsze widoczna
+        if column_name == 'in_progress':
+            logger.warning("[KanbanView] Cannot hide 'in_progress' column - always visible")
+            return False
+        
+        checkbox_map = {
+            'todo': self.todo_check,
+            'done': self.done_check,
+            'review': self.review_check,
+            'on_hold': self.on_hold_check,
+        }
+        
+        checkbox = checkbox_map.get(column_name)
+        if not checkbox:
+            logger.warning(f"[KanbanView] Unknown column name: {column_name}")
+            return False
+        
+        # Sprawdź czy już odznaczony
+        if not checkbox.isChecked():
+            logger.debug(f"[KanbanView] Column '{column_name}' already hidden")
+            return False
+        
+        # Odznacz checkbox (to automatycznie wywoła odpowiedni _on_*_toggled)
+        checkbox.setChecked(False)
+        logger.info(f"[KanbanView] Column '{column_name}' hidden by assistant")
+        return True
+    
+    def assistant_show_all_columns(self) -> None:
+        """Pokaż wszystkie kolumny (zaznacz wszystkie checkboxy)."""
+        checkboxes = [
+            self.todo_check,
+            self.done_check,
+            self.review_check,
+            self.on_hold_check,
+        ]
+        
+        for checkbox in checkboxes:
+            if not checkbox.isChecked():
+                checkbox.setChecked(True)
+        
+        logger.info("[KanbanView] All columns shown by assistant")

@@ -54,6 +54,8 @@ class AIModel(Enum):
     GEMINI_PRO_VISION = "gemini-pro-vision"
     GEMINI_1_5_PRO = "gemini-1.5-pro"
     GEMINI_1_5_FLASH = "gemini-1.5-flash"
+    GEMINI_2_0_FLASH = "gemini-2.0-flash"
+    GEMINI_2_5_PRO = "gemini-2.5-pro"
     
     # OpenAI models
     GPT_4 = "gpt-4"
@@ -659,6 +661,392 @@ class AIManager:
     def get_current_provider(self) -> Optional[AIProvider]:
         """Get currently configured provider"""
         return self._config.provider if self._config else None
+    
+    def transcribe_audio(self, audio_file_path: str, language: str = "pl") -> str:
+        """
+        Transkrybuj plik audio używając skonfigurowanego AI providera.
+        
+        Obsługiwane providery:
+        - Google Gemini (gemini-1.5-pro, gemini-1.5-flash)
+        - OpenAI Whisper
+        
+        Args:
+            audio_file_path: Ścieżka do pliku audio
+            language: Kod języka (domyślnie "pl" dla polskiego)
+            
+        Returns:
+            Transkrybowany tekst
+            
+        Raises:
+            ValueError: Jeśli provider nie jest skonfigurowany lub nie obsługuje transkrypcji
+            FileNotFoundError: Jeśli plik audio nie istnieje
+        """
+        from pathlib import Path
+        import mimetypes
+        
+        # Sprawdź czy plik istnieje
+        audio_path = Path(audio_file_path)
+        if not audio_path.exists():
+            raise FileNotFoundError(f"Audio file not found: {audio_file_path}")
+        
+        # Sprawdź czy provider jest skonfigurowany
+        if self._config is None:
+            raise ValueError(
+                "No AI provider configured. "
+                "Call set_provider() first."
+            )
+        
+        provider = self._config.provider
+        
+        # === GOOGLE GEMINI ===
+        if provider == AIProvider.GEMINI:
+            try:
+                import base64
+                
+                # Użyj modelu z konfiguracji, jeśli nie ma - spróbuj załadować z ustawień
+                model_name = self._config.model
+                if not model_name:
+                    # Próba załadowania z pliku ustawień
+                    settings = load_ai_settings()
+                    model_name = settings.get('models', {}).get('gemini')
+                
+                # Jeśli nadal brak - użyj domyślnego
+                if not model_name:
+                    model_name = "gemini-1.5-flash"
+                    self.logger.warning(
+                        f"[AIManager] No Gemini model configured, using default: {model_name}"
+                    )
+                
+                # Sprawdź czy model obsługuje audio
+                if not any(version in model_name for version in ["1.5", "2.0", "2.5"]):
+                    raise ValueError(
+                        f"Model {model_name} does not support audio transcription.\n"
+                        f"Supported Gemini models: gemini-1.5-pro, gemini-1.5-flash, gemini-2.0-flash, gemini-2.5-pro"
+                    )
+                
+                self.logger.info(f"Transcribing audio with Gemini ({model_name}): {audio_path.name}")
+                
+                # Wczytaj plik audio i zakoduj do base64
+                with open(audio_file_path, 'rb') as audio_file:
+                    audio_data = base64.b64encode(audio_file.read()).decode('utf-8')
+                
+                # Określ MIME type
+                mime_type, _ = mimetypes.guess_type(audio_file_path)
+                if not mime_type:
+                    # Domyślne MIME types dla popularnych formatów
+                    ext = audio_path.suffix.lower()
+                    mime_types_map = {
+                        '.mp3': 'audio/mp3',
+                        '.wav': 'audio/wav',
+                        '.m4a': 'audio/mp4',
+                        '.amr': 'audio/amr',
+                        '.ogg': 'audio/ogg',
+                        '.flac': 'audio/flac'
+                    }
+                    mime_type = mime_types_map.get(ext, 'audio/mpeg')
+                
+                # Stwórz prompt do transkrypcji
+                prompt = f"""Dokonaj transkrypcji tego nagrania audio na język polski.
+
+Zasady:
+1. Transkrybuj dokładnie wszystkie wypowiedziane słowa
+2. Zachowaj naturalny podział na zdania i akapity
+3. Użyj poprawnej interpunkcji polskiej
+4. Jeśli w nagraniu jest kilka osób, oznacz kto mówi (np. "Osoba 1:", "Osoba 2:")
+5. W przypadku niezrozumiałych fragmentów użyj [niezrozumiałe]
+
+Zwróć tylko czystą transkrypcję bez dodatkowych komentarzy."""
+                
+                # Przygotuj request do Gemini API
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
+                headers = {
+                    'Content-Type': 'application/json'
+                }
+                params = {
+                    'key': self._config.api_key
+                }
+                
+                payload = {
+                    "contents": [
+                        {
+                            "parts": [
+                                {"text": prompt},
+                                {
+                                    "inline_data": {
+                                        "mime_type": mime_type,
+                                        "data": audio_data
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                    "generationConfig": {
+                        "temperature": 0.4,
+                        "maxOutputTokens": 8192,
+                    }
+                }
+                
+                # Wyślij request
+                response = requests.post(url, headers=headers, params=params, json=payload, timeout=120)
+                response.raise_for_status()
+                
+                # Parsuj odpowiedź
+                result = response.json()
+                self.logger.debug(f"Gemini API response: {result}")
+                
+                if 'candidates' in result and len(result['candidates']) > 0:
+                    candidate = result['candidates'][0]
+                    
+                    # Sprawdź różne formaty odpowiedzi
+                    transcription_text = None
+                    
+                    # Format 1: content.parts[0].text
+                    if 'content' in candidate and 'parts' in candidate['content']:
+                        parts = candidate['content']['parts']
+                        if len(parts) > 0 and 'text' in parts[0]:
+                            transcription_text = parts[0]['text']
+                    
+                    # Format 2: text bezpośrednio w candidate
+                    elif 'text' in candidate:
+                        transcription_text = candidate['text']
+                    
+                    # Format 3: output/generated_text
+                    elif 'output' in candidate:
+                        transcription_text = candidate['output']
+                    
+                    if transcription_text and transcription_text.strip():
+                        self.logger.info(f"Gemini transcription completed: {len(transcription_text)} characters")
+                        return transcription_text
+                    else:
+                        # Pusta odpowiedź - może być thinking tokens bez output
+                        self.logger.warning(f"Gemini returned empty transcription. Model: {model_name}, Response: {result}")
+                        # Rzuć wyjątek żeby można było spróbować fallback
+                        raise ValueError(f"Model {model_name} returned empty transcription (may not support audio properly)")
+                
+                # Jeśli nie udało się pobrać tekstu
+                self.logger.error(f"Unexpected response format from Gemini API: {result}")
+                raise ValueError(f"Unexpected response format - no candidates in response")
+                
+            except requests.RequestException as e:
+                self.logger.error(f"Gemini API request failed: {e}")
+                raise ValueError(f"Gemini API request failed: {str(e)}")
+            except Exception as e:
+                self.logger.error(f"Gemini transcription failed: {e}")
+                raise
+        
+        # === OPENAI WHISPER ===
+        elif provider == AIProvider.OPENAI:
+            try:
+                import openai
+                
+                # Konfiguracja OpenAI
+                openai.api_key = self._config.api_key
+                
+                # Otwórz plik audio
+                with open(audio_file_path, 'rb') as audio_file:
+                    # Wywołaj Whisper API
+                    self.logger.info(f"Transcribing audio with Whisper: {audio_path.name}")
+                    
+                    response = openai.audio.transcriptions.create(
+                        model="whisper-1",
+                        file=audio_file,
+                        language=language,
+                        response_format="text"
+                    )
+                    
+                    transcription_text = response if isinstance(response, str) else response.text
+                    
+                    self.logger.info(f"Whisper transcription completed: {len(transcription_text)} characters")
+                    return transcription_text
+                    
+            except ImportError:
+                raise ValueError(
+                    "OpenAI library not installed. "
+                    "Install it with: pip install openai"
+                )
+            except Exception as e:
+                self.logger.error(f"Whisper transcription failed: {e}")
+                raise
+        
+        # === INNE PROVIDERY (NIE OBSŁUGUJĄ) ===
+        else:
+            raise ValueError(
+                f"Provider '{provider.value}' does not support audio transcription.\n\n"
+                f"Polecani dostawcy z obsługą transkrypcji:\n"
+                f"• Google Gemini (gemini-1.5-pro, gemini-1.5-flash)\n"
+                f"• OpenAI Whisper\n\n"
+                f"Skonfiguruj innego dostawcę w Ustawieniach → AI"
+            )
+    
+    def summarize_audio(self, 
+                       audio_file_path: str, 
+                       additional_prompt: str = "", 
+                       language: str = "pl") -> str:
+        """
+        Podsumuj plik audio używając skonfigurowanego AI providera.
+        
+        Jeśli provider obsługuje audio bezpośrednio (Gemini 1.5+), wyśle plik.
+        W przeciwnym razie najpierw transkrybuje, a potem podsumowuje.
+        
+        Args:
+            audio_file_path: Ścieżka do pliku audio
+            additional_prompt: Dodatkowy prompt od użytkownika
+            language: Kod języka (domyślnie "pl")
+            
+        Returns:
+            Tekst podsumowania w formacie JSON z polami "summary" i "tasks"
+        """
+        import base64
+        import mimetypes
+        from pathlib import Path
+        
+        # Sprawdź czy plik istnieje
+        audio_path = Path(audio_file_path)
+        if not audio_path.exists():
+            raise FileNotFoundError(f"Audio file not found: {audio_file_path}")
+        
+        # Sprawdź czy provider jest skonfigurowany
+        if self._config is None:
+            raise ValueError("No AI provider configured.")
+        
+        provider = self._config.provider
+        
+        # === GEMINI - obsługuje audio bezpośrednio ===
+        if provider == AIProvider.GEMINI:
+            try:
+                model_name = self._config.model
+                if not model_name:
+                    settings = load_ai_settings()
+                    model_name = settings.get('models', {}).get('gemini', 'gemini-1.5-flash')
+                
+                # Sprawdź czy model obsługuje audio
+                if not any(version in model_name for version in ["1.5", "2.0", "2.5"]):
+                    # Fallback - transkrybuj a potem podsumuj
+                    self.logger.info(f"Model {model_name} doesn't support audio, falling back to transcription")
+                    transcription = self.transcribe_audio(audio_file_path, language)
+                    return self._summarize_text(transcription, additional_prompt)
+                
+                self.logger.info(f"Summarizing audio with Gemini ({model_name}): {audio_path.name}")
+                
+                # Wczytaj audio jako base64
+                with open(audio_file_path, 'rb') as audio_file:
+                    audio_data = base64.b64encode(audio_file.read()).decode('utf-8')
+                
+                # MIME type
+                mime_type, _ = mimetypes.guess_type(audio_file_path)
+                if not mime_type:
+                    ext = audio_path.suffix.lower()
+                    mime_types_map = {
+                        '.mp3': 'audio/mp3',
+                        '.wav': 'audio/wav',
+                        '.m4a': 'audio/mp4',
+                        '.amr': 'audio/amr',
+                        '.ogg': 'audio/ogg',
+                        '.flac': 'audio/flac'
+                    }
+                    mime_type = mime_types_map.get(ext, 'audio/mpeg')
+                
+                # Prompt do podsumowania
+                standard_prompt = """Przeanalizuj to nagranie rozmowy i stwórz:
+
+1. PODSUMOWANIE - zwięzłe podsumowanie rozmowy (2-3 akapity) zawierające:
+   - główne tematy omawiane w rozmowie
+   - kluczowe ustalenia i decyzje
+   - ważne informacje przekazane przez uczestników
+
+2. ZADANIA - listę konkretnych zadań do wykonania wynikających z rozmowy:
+   - każde zadanie w osobnej linii
+   - używaj formatu: "- [konkretne zadanie]"
+   - wypisz TYLKO zadania które wynikają bezpośrednio z rozmowy
+
+Zwróć odpowiedź w formacie JSON:
+{
+  "summary": "tekst podsumowania",
+  "tasks": ["zadanie 1", "zadanie 2", "zadanie 3"]
+}
+"""
+                
+                if additional_prompt:
+                    standard_prompt += f"\n\nDodatkowe instrukcje:\n{additional_prompt}"
+                
+                # Request do Gemini
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
+                params = {'key': self._config.api_key}
+                
+                payload = {
+                    "contents": [
+                        {
+                            "parts": [
+                                {"text": standard_prompt},
+                                {
+                                    "inline_data": {
+                                        "mime_type": mime_type,
+                                        "data": audio_data
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                    "generationConfig": {
+                        "temperature": 0.4,
+                        "maxOutputTokens": 8192,
+                    }
+                }
+                
+                response = requests.post(url, params=params, json=payload, timeout=120)
+                response.raise_for_status()
+                result = response.json()
+                
+                if 'candidates' in result and len(result['candidates']) > 0:
+                    summary_text = result['candidates'][0]['content']['parts'][0]['text']
+                    self.logger.info(f"Gemini audio summary completed")
+                    return summary_text
+                
+                raise ValueError(f"Unexpected Gemini response: {result}")
+                
+            except Exception as e:
+                self.logger.error(f"Gemini audio summary failed: {e}")
+                raise
+        
+        # === INNE PROVIDERY - transkrybuj najpierw ===
+        else:
+            self.logger.info(f"Provider {provider.value} doesn't support audio directly, transcribing first")
+            transcription = self.transcribe_audio(audio_file_path, language)
+            return self._summarize_text(transcription, additional_prompt)
+    
+    def _summarize_text(self, text: str, additional_prompt: str = "") -> str:
+        """Podsumuj tekst używając aktywnego providera."""
+        standard_prompt = f"""Przeanalizuj tę transkrypcję rozmowy:
+
+{text}
+
+Stwórz:
+
+1. PODSUMOWANIE - zwięzłe podsumowanie (2-3 akapity) zawierające:
+   - główne tematy
+   - kluczowe ustalenia
+   - ważne informacje
+
+2. ZADANIA - lista zadań do wykonania:
+   - format: "- [zadanie]"
+   - tylko zadania wynikające z rozmowy
+
+Zwróć JSON:
+{{
+  "summary": "podsumowanie",
+  "tasks": ["zadanie 1", "zadanie 2"]
+}}
+"""
+        
+        if additional_prompt:
+            standard_prompt += f"\n\nDodatkowe instrukcje:\n{additional_prompt}"
+        
+        response = self.generate(standard_prompt, use_cache=False)
+        
+        if response.error:
+            raise ValueError(f"AI summarization failed: {response.error}")
+        
+        return response.text
     
     def clear_cache(self) -> None:
         """Clear response cache"""

@@ -25,7 +25,7 @@ def setup_logging() -> None:
     logger.add(
         sys.stderr,
         format=config.LOG_FORMAT,
-        level=config.LOG_LEVEL,
+        level="DEBUG",  # TYMCZASOWO dla debugowania email scanera
         colorize=True,
     )
     

@@ -18,6 +18,9 @@ from ..core.config import config, save_settings, load_settings
 from .style_creator_dialog import StyleCreatorDialog
 from ..utils.theme_manager import get_theme_manager
 from .ai_settings import AISettingsTab
+from .assistant_settings_tab import AssistantSettingsTab
+from .email_settings_card import EmailSettingsCard
+from .email_settings_card import EmailSettingsCard
 
 
 class GeneralSettingsTab(QWidget):
@@ -744,6 +747,8 @@ class SettingsView(QWidget):
         # Karty
         self.tab_general = GeneralSettingsTab()
         self.tab_ai = AISettingsTab()
+        self.tab_assistant = AssistantSettingsTab()
+        self.tab_email = EmailSettingsCard()
         
         self.tabs.addTab(self.tab_general, "Ogólne")
         
@@ -752,7 +757,9 @@ class SettingsView(QWidget):
         self.tabs.addTab(self._create_placeholder_tab("Kanban"), "Kanban")
         self.tabs.addTab(self._create_placeholder_tab("Własne"), "Własne")
         self.tabs.addTab(self._create_placeholder_tab("Transkryptor"), "Transkryptor")
+        self.tabs.addTab(self.tab_assistant, "Asystent")  # NOWA KARTA
         self.tabs.addTab(self.tab_ai, "AI")
+        self.tabs.addTab(self.tab_email, "Konta E-mail")  # EMAIL ACCOUNTS
         self.tabs.addTab(self._create_placeholder_tab("O aplikacji"), "O aplikacji")
         
         layout.addWidget(self.tabs)
@@ -782,11 +789,14 @@ class SettingsView(QWidget):
         self.tabs.setTabText(2, t('settings.kanban'))
         self.tabs.setTabText(3, t('settings.custom'))
         self.tabs.setTabText(4, t('settings.transcriptor'))
-        self.tabs.setTabText(5, t('settings.ai'))
-        self.tabs.setTabText(6, t('settings.about'))
+        self.tabs.setTabText(5, t('settings.assistant', 'Asystent'))
+        self.tabs.setTabText(6, t('settings.ai'))
+        self.tabs.setTabText(7, t('settings.email_accounts'))
+        self.tabs.setTabText(8, t('settings.about'))
         
         # Odśwież karty
         self.tab_general.update_translations()
+        self.tab_assistant.update_translations()
         self.tab_ai.update_translations()
         
         logger.info("Settings view translations updated")

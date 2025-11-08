@@ -1301,6 +1301,57 @@ class PomodoroView(QWidget):
         # Sync manager automatycznie rozwiązuje konflikty ("server wins")
         # To jest tylko informacja dla debugowania
         logger.info(f"Sync conflict for {item_type}: server version accepted")
+    
+    # ========== ASYSTENT GŁOSOWY ==========
+    
+    def assistant_open(self):
+        """Otwiera widok pomodoro (wywoływane przez asystenta głosowego)"""
+        logger.debug("[PomodoroView] Assistant: Opening pomodoro view")
+        # Ta metoda jest wywoływana przez handler w MainWindow
+        # który już przełączył widok - więc nic nie robimy
+        pass
+    
+    def assistant_start(self):
+        """Rozpoczyna sesję pomodoro (wywoływane przez asystenta głosowego)"""
+        logger.debug("[PomodoroView] Assistant: Starting pomodoro session")
+        
+        # Jeśli sesja jest aktywna lub w pauzie, ignoruj
+        if self.pomodoro_logic and self.pomodoro_logic.current_session:
+            status = self.pomodoro_logic.current_session.status
+            if status == SessionStatus.ACTIVE:
+                logger.info("[PomodoroView] Session already active, ignoring start command")
+                return
+            elif status == SessionStatus.PAUSED:
+                # Wznowienie zapauzowanej sesji
+                self._on_start_pause_clicked()
+                return
+        
+        # Rozpocznij nową sesję
+        self._on_start_pause_clicked()
+    
+    def assistant_pause(self):
+        """Pauzuje sesję pomodoro (wywoływane przez asystenta głosowego)"""
+        logger.debug("[PomodoroView] Assistant: Pausing pomodoro session")
+        
+        # Tylko jeśli sesja jest aktywna
+        if self.pomodoro_logic and self.pomodoro_logic.current_session:
+            status = self.pomodoro_logic.current_session.status
+            if status == SessionStatus.ACTIVE:
+                self._on_start_pause_clicked()
+            else:
+                logger.info("[PomodoroView] No active session to pause")
+        else:
+            logger.info("[PomodoroView] No active session to pause")
+    
+    def assistant_stop(self):
+        """Zatrzymuje sesję pomodoro (wywoływane przez asystenta głosowego)"""
+        logger.debug("[PomodoroView] Assistant: Stopping pomodoro session")
+        
+        # Tylko jeśli sesja istnieje
+        if self.pomodoro_logic and self.pomodoro_logic.current_session:
+            self._on_stop_clicked()
+        else:
+            logger.info("[PomodoroView] No active session to stop")
 
 
 class PomodoroTimerPopup(QWidget):
