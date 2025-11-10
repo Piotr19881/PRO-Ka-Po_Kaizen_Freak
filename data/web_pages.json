@@ -1,0 +1,17 @@
+[
+  {
+    "name": "google",
+    "url": "https://www.google.com",
+    "color": "#4caf50"
+  },
+  {
+    "name": "test",
+    "url": "https://pl.wikipedia.org/wiki/Hypatia_z_Aleksandrii",
+    "color": "#4caf50"
+  },
+  {
+    "name": "promirbud.eu",
+    "url": "https://promirbud.eu",
+    "color": "#4caf50"
+  }
+]

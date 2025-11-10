@@ -28,6 +28,7 @@ from .quick_task_bar import QuickTaskDialog
 from .navigation_bar import NavigationBar
 from ..Modules.habbit_tracker_module import HabbitTrackerView
 from .pro_app_view import ProAppView
+from .p_web_view import PWebView
 from ..Modules.pro_app.module_viewer import ModuleViewer
 
 
@@ -883,6 +884,17 @@ class MainWindow(QMainWindow):
             logger.error(traceback.format_exc())
             self.pro_app_view = None
         
+        # Widok P-Web
+        try:
+            self.p_web_view = PWebView(parent=self)
+            self.content_stack.addWidget(self.p_web_view)
+            logger.info("PWebView initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize PWebView: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            self.p_web_view = None
+        
         main_layout.addWidget(self.content_stack, stretch=1)
         
         # Separator
@@ -1106,6 +1118,12 @@ class MainWindow(QMainWindow):
                 self.content_stack.setCurrentWidget(self.pro_app_view)
             else:
                 logger.warning("ProAppView not initialized")
+                self.content_stack.setCurrentWidget(self.main_content)
+        elif view_name == 'pweb':
+            if hasattr(self, 'p_web_view') and self.p_web_view:
+                self.content_stack.setCurrentWidget(self.p_web_view)
+            else:
+                logger.warning("PWebView not initialized")
                 self.content_stack.setCurrentWidget(self.main_content)
         elif view_name.startswith('custom_'):
             # Obsługa custom buttons

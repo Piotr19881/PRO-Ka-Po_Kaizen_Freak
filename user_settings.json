@@ -106,7 +106,7 @@
                 "id": "pweb",
                 "label": "P-Web",
                 "description": "Przeglądarka i narzędzia webowe",
-                "visible": false,
+                "visible": true,
                 "is_custom": false
             },
             {

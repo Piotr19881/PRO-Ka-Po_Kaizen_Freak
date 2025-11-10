@@ -1417,6 +1417,51 @@
   "external_app.error_title": "Błąd",
   "external_app.error_message": "Nie udało się uruchomić aplikacji:\n{0}",
   
+  "pweb.title": "P-Web - Przeglądarka",
+  "pweb.back": "Wstecz",
+  "pweb.refresh": "Odśwież",
+  "pweb.page_label": "Strona:",
+  "pweb.add_page": "Dodaj stronę",
+  "pweb.delete_page": "Usuń stronę",
+  
+  "pweb.add_dialog_title": "Dodaj stronę",
+  "pweb.add_dialog_name_label": "Nazwa:",
+  "pweb.add_dialog_name_placeholder": "np. Google",
+  "pweb.add_dialog_url_label": "Adres URL:",
+  "pweb.add_dialog_url_placeholder": "np. https://www.google.com",
+  "pweb.add_dialog_color_label": "Kolor:",
+  "pweb.add_dialog_choose_color": "Wybierz kolor",
+  "pweb.add_dialog_color_tooltip": "Wybierz kolor dla strony w zakładkach",
+  
+  "pweb.delete_dialog_title": "Usuń stronę",
+  "pweb.delete_dialog_label": "Wybierz stronę do usunięcia:",
+  
+  "pweb.error_no_name": "Proszę podać nazwę strony.",
+  "pweb.error_no_url": "Proszę podać adres URL.",
+  "pweb.error_select_page": "Proszę wybrać stronę do usunięcia.",
+  "pweb.error_load_json": "Uszkodzony plik danych. Rozpoczynam z pustą listą stron.",
+  "pweb.error_save_json": "Nie udało się zapisać danych: {0}",
+  
+  "pweb.info_no_pages": "Brak zapisanych stron do usunięcia.",
+  "pweb.info_deleted": "Strona została usunięta.",
+  
+  "pweb.context.create_note": "📝 Utwórz notatkę z zaznaczenia",
+  "pweb.context.create_task": "✅ Utwórz zadanie z zaznaczenia",
+  "pweb.context.copy": "Kopiuj",
+  "pweb.context.paste": "Wklej",
+  "pweb.context.copy_link": "Kopiuj link",
+  "pweb.context.open_page_external": "Otwórz stronę w domyślnej przeglądarce",
+  "pweb.context.open_link_external": "Otwórz link w domyślnej przeglądarce",
+  
+  "pweb.success.note_created": "Notatka utworzona: {title}",
+  "pweb.success.task_created": "Zadanie utworzone: {title}",
+  
+  "pweb.error.no_main_window": "Nie można uzyskać dostępu do głównego okna aplikacji.",
+  "pweb.error.no_notes_view": "Widok notatek nie jest dostępny.",
+  "pweb.error.no_task_view": "Widok zadań nie jest dostępny.",
+  "pweb.error.note_creation_failed": "Nie udało się utworzyć notatki: {error}",
+  "pweb.error.task_creation_failed": "Nie udało się utworzyć zadania: {error}",
+  
   "common.unknown": "Nieznany"
 }
 

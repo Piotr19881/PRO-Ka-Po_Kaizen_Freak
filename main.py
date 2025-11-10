@@ -4,6 +4,15 @@ Main entry point for PRO-Ka-Po Kaizen Freak Application
 import sys
 from pathlib import Path
 
+# WAŻNE: Import QtWebEngine PRZED utworzeniem QApplication
+# Musi być na samym początku, przed innymi importami PyQt6
+try:
+    from PyQt6.QtWebEngineWidgets import QWebEngineView
+    from PyQt6.QtWebEngineCore import QWebEngineProfile
+except ImportError:
+    # QtWebEngine nie jest zainstalowany - aplikacja będzie działać bez modułu P-Web
+    pass
+
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt
 from loguru import logger
