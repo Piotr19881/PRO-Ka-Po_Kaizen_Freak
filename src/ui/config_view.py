@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTabWidget,
     QLabel, QComboBox, QPushButton, QCheckBox,
     QLineEdit, QGroupBox, QScrollArea, QFrame,
-    QMessageBox, QDialog, QFileDialog
+    QMessageBox, QDialog, QFileDialog, QFormLayout
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QUrl
 from PyQt6.QtGui import QFont, QKeySequence
@@ -729,6 +729,639 @@ class GeneralSettingsTab(QWidget):
         logger.info("Settings tab translations updated")
 
 
+class EnvironmentSettingsTab(QWidget):
+    """Karta ustawień środowiska - pozycje pasków, widoczność, konfiguracja przycisków"""
+    
+    settings_changed = pyqtSignal(dict)
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._setup_ui()
+        self._load_settings()
+        self._connect_signals()
+    
+    def _setup_ui(self):
+        """Konfiguracja interfejsu karty środowiska"""
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Scroll area
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        
+        # Widget wewnątrz scroll area
+        scroll_widget = QWidget()
+        scroll_layout = QVBoxLayout(scroll_widget)
+        scroll_layout.setSpacing(15)
+        scroll_layout.setContentsMargins(10, 10, 10, 10)
+        
+        # === SEKCJA: Układ aplikacji ===
+        layout_group = QGroupBox(t('environment.layout_title', 'Układ aplikacji'))
+        layout_layout = QVBoxLayout()
+        
+        # Info
+        info_label = QLabel(t('environment.layout_info', 
+            'Wybierz układ pasków nawigacji i szybkiego dodawania zadań:'))
+        info_label.setWordWrap(True)
+        layout_layout.addWidget(info_label)
+        
+        # Radio buttons dla pozycji
+        from PyQt6.QtWidgets import QRadioButton, QButtonGroup
+        
+        self.layout_button_group = QButtonGroup()
+        
+        # Opcja 1: Przyciski góra, Zadania dół
+        self.layout_nav_top_task_bottom = QRadioButton(
+            t('environment.layout_nav_top_task_bottom', '🔼 Przyciski nawigacji na górze, pasek zadań na dole')
+        )
+        self.layout_button_group.addButton(self.layout_nav_top_task_bottom, 1)
+        layout_layout.addWidget(self.layout_nav_top_task_bottom)
+        
+        # Opcja 2: Zadania góra, Przyciski dół
+        self.layout_task_top_nav_bottom = QRadioButton(
+            t('environment.layout_task_top_nav_bottom', '🔽 Pasek zadań na górze, przyciski nawigacji na dole')
+        )
+        self.layout_button_group.addButton(self.layout_task_top_nav_bottom, 2)
+        layout_layout.addWidget(self.layout_task_top_nav_bottom)
+        
+        # Checkbox dla widoczności paska zadań
+        self.taskbar_visible_check = QCheckBox(
+            t('environment.taskbar_visible_check', '✅ Pokaż pasek szybkiego dodawania zadań')
+        )
+        self.taskbar_visible_check.setStyleSheet("margin-top: 10px; font-weight: bold;")
+        layout_layout.addWidget(self.taskbar_visible_check)
+        
+        # Info o QuickTaskDialog
+        quick_dialog_info = QLabel(
+            t('environment.quick_dialog_info', 
+              'ℹ️ Pasek zadań można zawsze wywołać skrótem klawiszowym (domyślnie Ctrl+N)')
+        )
+        quick_dialog_info.setStyleSheet("color: #666; font-style: italic; margin-top: 5px;")
+        quick_dialog_info.setWordWrap(True)
+        layout_layout.addWidget(quick_dialog_info)
+        
+        layout_group.setLayout(layout_layout)
+        scroll_layout.addWidget(layout_group)
+        
+        # === SEKCJA: Skróty klawiszowe ===
+        shortcuts_group = QGroupBox(t('environment.shortcuts_title', 'Skróty klawiszowe'))
+        shortcuts_layout = QFormLayout()
+        
+        # Skrót dla toggle drugiego rzędu przycisków
+        shortcut_row = QHBoxLayout()
+        self.toggle_nav_shortcut_edit = QLineEdit()
+        self.toggle_nav_shortcut_edit.setPlaceholderText("np. Ctrl+Shift+N")
+        self.toggle_nav_shortcut_edit.setMinimumWidth(150)
+        shortcut_row.addWidget(self.toggle_nav_shortcut_edit)
+        shortcut_row.addStretch()
+        
+        shortcuts_layout.addRow(
+            t('environment.shortcut_toggle_nav', 'Rozwiń/zwiń dodatkowe przyciski:'),
+            shortcut_row
+        )
+        
+        shortcuts_group.setLayout(shortcuts_layout)
+        scroll_layout.addWidget(shortcuts_group)
+        
+        # === SEKCJA: Konfiguracja przycisków nawigacji ===
+        buttons_group = QGroupBox(t('environment.buttons_config_title', 'Konfiguracja przycisków nawigacji'))
+        buttons_layout = QVBoxLayout()
+        
+        # Podsekcja: Siatka przycisków
+        grid_layout = QHBoxLayout()
+        
+        # Ilość rzędów
+        rows_label = QLabel(t('environment.rows_count', 'Liczba rzędów:'))
+        grid_layout.addWidget(rows_label)
+        
+        from PyQt6.QtWidgets import QSpinBox
+        self.rows_spinbox = QSpinBox()
+        self.rows_spinbox.setMinimum(1)
+        self.rows_spinbox.setMaximum(6)
+        self.rows_spinbox.setValue(2)  # Domyślnie 2 rzędy
+        self.rows_spinbox.setToolTip(t('environment.rows_count_tooltip', 'Liczba rzędów przycisków (1-6)'))
+        grid_layout.addWidget(self.rows_spinbox)
+        
+        grid_layout.addSpacing(20)
+        
+        # Ilość przycisków w rzędzie
+        buttons_per_row_label = QLabel(t('environment.buttons_per_row', 'Przycisków w rzędzie:'))
+        grid_layout.addWidget(buttons_per_row_label)
+        
+        self.buttons_per_row_spinbox = QSpinBox()
+        self.buttons_per_row_spinbox.setMinimum(5)
+        self.buttons_per_row_spinbox.setMaximum(8)
+        self.buttons_per_row_spinbox.setValue(8)  # Domyślnie 8
+        self.buttons_per_row_spinbox.setToolTip(t('environment.buttons_per_row_tooltip', 'Liczba przycisków w rzędzie (5-8)'))
+        grid_layout.addWidget(self.buttons_per_row_spinbox)
+        
+        grid_layout.addStretch()
+        buttons_layout.addLayout(grid_layout)
+        
+        # Info
+        info_text = QLabel(t('environment.buttons_info', 
+            'Konfiguruj widoczność i etykiety przycisków nawigacji.\n'
+            'Przycisk "Zadania" jest zawsze widoczny (główny widok aplikacji).'))
+        info_text.setWordWrap(True)
+        info_text.setStyleSheet("color: #666; margin-top: 10px; margin-bottom: 10px;")
+        buttons_layout.addWidget(info_text)
+        
+        # Tabela konfiguracji przycisków wbudowanych
+        from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView
+        
+        self.buttons_table = QTableWidget()
+        self.buttons_table.setColumnCount(5)
+        self.buttons_table.setHorizontalHeaderLabels([
+            t('environment.table_module', 'Moduł'),
+            t('environment.table_label', 'Tekst na przycisku'),
+            t('environment.table_description', 'Opis'),
+            t('environment.table_visible', 'Widoczność'),
+            t('environment.table_actions', 'Akcje')
+        ])
+        
+        # Lista wbudowanych modułów (tasks jest non-editable)
+        self.builtin_modules = [
+            {'id': 'tasks', 'label': 'Zadania', 'description': 'Główny widok zadań i projektów', 'visible': True, 'locked': True},
+            {'id': 'kanban', 'label': 'Kanban', 'description': 'Tablica Kanban do zarządzania przepływem pracy', 'visible': True, 'locked': False},
+            {'id': 'pomodoro', 'label': 'Pomodoro', 'description': 'Timer Pomodoro do produktywnej pracy', 'visible': True, 'locked': False},
+            {'id': 'habit_tracker', 'label': 'Habit Tracker', 'description': 'Śledzenie nawyków i rutyn dziennych', 'visible': True, 'locked': False},
+            {'id': 'notes', 'label': 'Notatki', 'description': 'Notatki i dokumenty', 'visible': True, 'locked': False},
+            {'id': 'callcryptor', 'label': 'CallCryptor', 'description': 'Szyfrowanie połączeń i komunikacji', 'visible': True, 'locked': False},
+            {'id': 'alarms', 'label': 'Alarmy', 'description': 'Alarmy i przypomnienia', 'visible': True, 'locked': False},
+            {'id': 'fastkey', 'label': 'FastKey', 'description': 'Szybkie skróty klawiszowe', 'visible': False, 'locked': False},
+            {'id': 'promail', 'label': 'Pro-Mail', 'description': 'Zaawansowane zarządzanie pocztą', 'visible': False, 'locked': False},
+            {'id': 'pfile', 'label': 'P-File', 'description': 'Menedżer plików i dokumentów', 'visible': False, 'locked': False},
+            {'id': 'pweb', 'label': 'P-Web', 'description': 'Przeglądarka i narzędzia webowe', 'visible': False, 'locked': False},
+            {'id': 'quickboard', 'label': 'QuickBoard', 'description': 'Szybka tablica notatek', 'visible': False, 'locked': False},
+            {'id': 'proapp', 'label': 'Pro-App', 'description': 'Zarządzanie aplikacjami', 'visible': False, 'locked': False},
+        ]
+        
+        self.buttons_table.setRowCount(len(self.builtin_modules))
+        
+        for row, module in enumerate(self.builtin_modules):
+            # Kolumna 0: Moduł (read-only)
+            module_item = QTableWidgetItem(module['label'])
+            module_item.setFlags(module_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            module_item.setData(Qt.ItemDataRole.UserRole, module['id'])  # Zapisz ID
+            self.buttons_table.setItem(row, 0, module_item)
+            
+            # Kolumna 1: Tekst przycisku (editable)
+            label_item = QTableWidgetItem(module['label'])
+            if module['locked']:
+                label_item.setFlags(label_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                label_item.setToolTip(t('environment.locked_tooltip', 'Ten przycisk jest wymagany'))
+            self.buttons_table.setItem(row, 1, label_item)
+            
+            # Kolumna 2: Opis (editable)
+            description_item = QTableWidgetItem(module.get('description', ''))
+            if module['locked']:
+                description_item.setFlags(description_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            self.buttons_table.setItem(row, 2, description_item)
+            
+            # Kolumna 3: Widoczność (checkbox - wyśrodkowany)
+            visible_item = QTableWidgetItem()
+            visible_item.setCheckState(Qt.CheckState.Checked if module['visible'] else Qt.CheckState.Unchecked)
+            visible_item.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
+            visible_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            if module['locked']:
+                visible_item.setFlags(visible_item.flags() & ~Qt.ItemFlag.ItemIsEnabled)
+                visible_item.setToolTip(t('environment.locked_tooltip', 'Ten przycisk jest wymagany'))
+            self.buttons_table.setItem(row, 3, visible_item)
+            
+            # Kolumna 4: Akcje (pusta dla wbudowanych modułów)
+            action_item = QTableWidgetItem('')
+            action_item.setFlags(Qt.ItemFlag.NoItemFlags)
+            self.buttons_table.setItem(row, 4, action_item)
+        
+        # Dopasuj szerokości kolumn
+        self.buttons_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self.buttons_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        self.buttons_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        self.buttons_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        self.buttons_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        self.buttons_table.setMinimumHeight(400)
+        
+        buttons_layout.addWidget(self.buttons_table)
+        
+        # Przycisk dodawania custom buttons
+        add_custom_btn_layout = QHBoxLayout()
+        add_custom_btn_layout.addStretch()
+        
+        self.add_custom_button_btn = QPushButton(t('environment.add_custom_button', '+ Dodaj własny przycisk'))
+        self.add_custom_button_btn.setToolTip(t('environment.add_custom_button_tooltip', 
+            'Dodaj przycisk dla aplikacji zewnętrznej lub własnego widoku Python'))
+        self.add_custom_button_btn.clicked.connect(self._on_add_custom_button)
+        add_custom_btn_layout.addWidget(self.add_custom_button_btn)
+        
+        add_custom_btn_layout.addStretch()
+        buttons_layout.addLayout(add_custom_btn_layout)
+        
+        buttons_group.setLayout(buttons_layout)
+        scroll_layout.addWidget(buttons_group)
+        
+        # === PRZYCISKI AKCJI ===
+        scroll_layout.addStretch()
+        
+        buttons_row = QHBoxLayout()
+        buttons_row.addStretch()
+        
+        self.reset_btn = QPushButton(t('environment.reset_defaults', 'Przywróć domyślne'))
+        self.reset_btn.clicked.connect(self._reset_to_defaults)
+        buttons_row.addWidget(self.reset_btn)
+        
+        self.save_btn = QPushButton(t('environment.save', 'Zapisz'))
+        self.save_btn.setObjectName("primaryButton")
+        self.save_btn.clicked.connect(self._save_settings)
+        buttons_row.addWidget(self.save_btn)
+        
+        scroll_layout.addLayout(buttons_row)
+        
+        scroll.setWidget(scroll_widget)
+        main_layout.addWidget(scroll)
+        
+        logger.info("Environment settings tab initialized")
+    
+    def _connect_signals(self):
+        """Połącz sygnały"""
+        # Radio buttons automatycznie obsługują zmianę stanu w grupie
+        pass
+    
+    def _on_setting_changed(self):
+        """Obsługa zmiany ustawienia (oznacz jako zmienione)"""
+        # Można dodać visual feedback że są niezapisane zmiany
+        pass
+    
+    def _on_add_custom_button(self):
+        """Otwórz dialog dodawania własnego przycisku"""
+        from .custom_button_dialog import CustomButtonDialog
+        
+        dialog = CustomButtonDialog(parent=self)
+        if dialog.exec() == CustomButtonDialog.DialogCode.Accepted:
+            # Pobierz dane z dialogu
+            button_data = dialog.get_button_data()
+            
+            # Dodaj do tabeli jako nowy wiersz
+            row = self.buttons_table.rowCount()
+            self.buttons_table.insertRow(row)
+            
+            # Wygeneruj unikalne ID dla custom przycisku
+            custom_id = f"custom_{row}_{button_data['label'].lower().replace(' ', '_')}"
+            
+            # Kolumna 0: Nazwa modułu (pokazujemy etykietę)
+            from PyQt6.QtWidgets import QTableWidgetItem
+            module_item = QTableWidgetItem(f"[Custom] {button_data['label']}")
+            module_item.setFlags(module_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            module_item.setData(Qt.ItemDataRole.UserRole, custom_id)  # Zapisz ID
+            # Zapisz pełne dane custom przycisku
+            module_item.setData(Qt.ItemDataRole.UserRole + 1, button_data)
+            self.buttons_table.setItem(row, 0, module_item)
+            
+            # Kolumna 1: Tekst przycisku (edytowalny)
+            label_item = QTableWidgetItem(button_data['label'])
+            self.buttons_table.setItem(row, 1, label_item)
+            
+            # Kolumna 2: Opis (edytowalny)
+            description_item = QTableWidgetItem(button_data.get('description', ''))
+            self.buttons_table.setItem(row, 2, description_item)
+            
+            # Kolumna 3: Widoczność (checkbox - wyśrodkowany)
+            visible_item = QTableWidgetItem()
+            visible_item.setCheckState(Qt.CheckState.Checked if button_data.get('visible', True) else Qt.CheckState.Unchecked)
+            visible_item.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
+            visible_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.buttons_table.setItem(row, 3, visible_item)
+            
+            # Kolumna 4: Przycisk usuwania
+            self._add_delete_button(row)
+            
+            logger.info(f"Added custom button: {button_data['label']} ({button_data['custom_type']})")
+            
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.information(
+                self,
+                t('custom_button.added_title', 'Przycisk dodany'),
+                t('custom_button.added_message', f'Dodano przycisk "{button_data["label"]}".\n\nNie zapomnij zapisać ustawień!')
+            )
+    
+    def _add_delete_button(self, row):
+        """Dodaj przycisk usuwania do custom button row"""
+        from PyQt6.QtWidgets import QPushButton, QWidget, QHBoxLayout
+        
+        # Utwórz widget kontenera dla przycisku
+        container = QWidget()
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setSpacing(0)
+        
+        # Przycisk usuwania
+        delete_btn = QPushButton("🗑️")
+        delete_btn.setToolTip(t('environment.delete_button', 'Usuń przycisk'))
+        delete_btn.setMaximumWidth(30)
+        delete_btn.setMinimumHeight(25)
+        delete_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #dc3545;
+                color: white;
+                border: none;
+                border-radius: 3px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #c82333;
+            }
+        """)
+        delete_btn.clicked.connect(lambda: self._on_delete_custom_button(row))
+        
+        layout.addWidget(delete_btn)
+        layout.addStretch()
+        
+        self.buttons_table.setCellWidget(row, 4, container)
+    
+    def _on_delete_custom_button(self, row):
+        """Usuń custom button z tabeli"""
+        from PyQt6.QtWidgets import QMessageBox
+        
+        # Pobierz dane przycisku
+        module_item = self.buttons_table.item(row, 0)
+        if not module_item:
+            return
+        
+        button_label = self.buttons_table.item(row, 1).text() if self.buttons_table.item(row, 1) else "Unknown"
+        
+        # Potwierdzenie usunięcia
+        reply = QMessageBox.question(
+            self,
+            t('environment.delete_confirm_title', 'Potwierdź usunięcie'),
+            t('environment.delete_confirm_message', f'Czy na pewno chcesz usunąć przycisk "{button_label}"?'),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            self.buttons_table.removeRow(row)
+            logger.info(f"Deleted custom button at row {row}: {button_label}")
+            visible_item.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
+            self.buttons_table.setItem(row, 3, visible_item)
+            
+            logger.info(f"Added custom button: {button_data['label']} ({button_data['custom_type']})")
+            
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.information(
+                self,
+                t('custom_button.added_title', 'Przycisk dodany'),
+                t('custom_button.added_message', f'Dodano przycisk "{button_data["label"]}".\n\nNie zapomnij zapisać ustawień!')
+            )
+        logger.info("Custom button dialog requested (placeholder)")
+    
+    def _load_settings(self):
+        """Wczytaj ustawienia z pliku konfiguracyjnego"""
+        settings = load_settings()
+        env_config = settings.get('environment', {})
+        
+        # Odczytaj ustawienia
+        navbar_pos = env_config.get('navbar_position', 'top')
+        taskbar_pos = env_config.get('taskbar_position', 'bottom')
+        taskbar_visible = env_config.get('taskbar_visible', False)
+        toggle_nav_shortcut = env_config.get('shortcut_toggle_nav', 'Ctrl+Shift+N')
+        rows_count = env_config.get('rows_count', 2)
+        buttons_per_row = env_config.get('buttons_per_row', 8)
+        buttons_config = env_config.get('buttons_config', [])
+        
+        # Ustaw radio button na podstawie pozycji
+        if navbar_pos == 'top' and taskbar_pos == 'bottom':
+            # Przyciski góra, Zadania dół - opcja 1
+            self.layout_nav_top_task_bottom.setChecked(True)
+        elif navbar_pos == 'bottom' and taskbar_pos == 'top':
+            # Zadania góra, Przyciski dół - opcja 2
+            self.layout_task_top_nav_bottom.setChecked(True)
+        else:
+            # Domyślnie opcja 1
+            self.layout_nav_top_task_bottom.setChecked(True)
+        
+        # Ustaw checkbox widoczności
+        self.taskbar_visible_check.setChecked(taskbar_visible)
+        
+        # Ustaw skrót klawiszowy
+        self.toggle_nav_shortcut_edit.setText(toggle_nav_shortcut)
+        
+        # Ustaw siatk przyci przycisków
+        self.rows_spinbox.setValue(rows_count)
+        self.buttons_per_row_spinbox.setValue(buttons_per_row)
+        
+        # Wczytaj konfigurację przycisków z pliku (jeśli istnieje)
+        if buttons_config:
+            # Mapa module_id -> config
+            config_map = {btn['id']: btn for btn in buttons_config if 'id' in btn}
+            
+            # Zaktualizuj tabelę na podstawie konfiguracji wbudowanych przycisków
+            for row in range(self.buttons_table.rowCount()):
+                module_item = self.buttons_table.item(row, 0)
+                if not module_item:
+                    continue
+                
+                module_id = module_item.data(Qt.ItemDataRole.UserRole)
+                if module_id in config_map:
+                    config = config_map[module_id]
+                    
+                    # Zaktualizuj etykietę
+                    label_item = self.buttons_table.item(row, 1)
+                    if label_item and not self.builtin_modules[row]['locked']:
+                        label_item.setText(config.get('label', self.builtin_modules[row]['label']))
+                    
+                    # Zaktualizuj opis
+                    description_item = self.buttons_table.item(row, 2)
+                    if description_item:
+                        description_item.setText(config.get('description', self.builtin_modules[row].get('description', '')))
+                    
+                    # Zaktualizuj widoczność
+                    visible_item = self.buttons_table.item(row, 3)
+                    if visible_item and not self.builtin_modules[row]['locked']:
+                        is_visible = config.get('visible', True)
+                        visible_item.setCheckState(Qt.CheckState.Checked if is_visible else Qt.CheckState.Unchecked)
+            
+            # Dodaj custom buttons do tabeli
+            custom_buttons = [btn for btn in buttons_config if btn.get('is_custom', False)]
+            for custom_btn in custom_buttons:
+                row = self.buttons_table.rowCount()
+                self.buttons_table.insertRow(row)
+                
+                from PyQt6.QtWidgets import QTableWidgetItem
+                
+                # Kolumna 0: Nazwa modułu
+                module_item = QTableWidgetItem(f"[Custom] {custom_btn['label']}")
+                module_item.setFlags(module_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                module_item.setData(Qt.ItemDataRole.UserRole, custom_btn['id'])
+                # Zapisz pełne dane custom przycisku
+                module_item.setData(Qt.ItemDataRole.UserRole + 1, custom_btn)
+                self.buttons_table.setItem(row, 0, module_item)
+                
+                # Kolumna 1: Tekst przycisku
+                label_item = QTableWidgetItem(custom_btn['label'])
+                self.buttons_table.setItem(row, 1, label_item)
+                
+                # Kolumna 2: Opis
+                description_item = QTableWidgetItem(custom_btn.get('description', ''))
+                self.buttons_table.setItem(row, 2, description_item)
+                
+                # Kolumna 3: Widoczność (wyśrodkowana)
+                visible_item = QTableWidgetItem()
+                visible_item.setCheckState(Qt.CheckState.Checked if custom_btn.get('visible', True) else Qt.CheckState.Unchecked)
+                visible_item.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
+                visible_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                self.buttons_table.setItem(row, 3, visible_item)
+                
+                # Kolumna 4: Przycisk usuwania
+                self._add_delete_button(row)
+                
+                logger.debug(f"Loaded custom button: {custom_btn['label']}")
+        
+        logger.info("Environment settings loaded")
+    
+    def _save_settings(self):
+        """Zapisz ustawienia do pliku"""
+        settings = load_settings()
+        
+        # Mapuj wybrany radio button na konfigurację
+        checked_id = self.layout_button_group.checkedId()
+        taskbar_visible = self.taskbar_visible_check.isChecked()
+        toggle_nav_shortcut = self.toggle_nav_shortcut_edit.text().strip() or 'Ctrl+Shift+N'
+        rows_count = self.rows_spinbox.value()
+        buttons_per_row = self.buttons_per_row_spinbox.value()
+        
+        # Zbierz konfigurację przycisków z tabeli
+        buttons_config = []
+        for row in range(self.buttons_table.rowCount()):
+            module_item = self.buttons_table.item(row, 0)
+            label_item = self.buttons_table.item(row, 1)
+            description_item = self.buttons_table.item(row, 2)
+            visible_item = self.buttons_table.item(row, 3)
+            
+            if module_item and label_item and description_item and visible_item:
+                module_id = module_item.data(Qt.ItemDataRole.UserRole)
+                label = label_item.text()
+                description = description_item.text()
+                visible = visible_item.checkState() == Qt.CheckState.Checked
+                
+                # Sprawdź czy to custom button (ma dodatkowe dane)
+                custom_data = module_item.data(Qt.ItemDataRole.UserRole + 1)
+                
+                if custom_data:
+                    # Custom button - zachowaj wszystkie dane
+                    button_config = {
+                        'id': module_id,
+                        'label': label,
+                        'description': description,
+                        'visible': visible,
+                        'is_custom': True,
+                        'custom_type': custom_data.get('custom_type'),
+                        'custom_path': custom_data.get('custom_path')
+                    }
+                else:
+                    # Wbudowany button
+                    button_config = {
+                        'id': module_id,
+                        'label': label,
+                        'description': description,
+                        'visible': visible,
+                        'is_custom': False
+                    }
+                
+                buttons_config.append(button_config)
+        
+        if checked_id == 1:
+            # Przyciski góra, Zadania dół
+            env_config = {
+                'navbar_position': 'top',
+                'taskbar_position': 'bottom',
+                'taskbar_visible': taskbar_visible,
+                'shortcut_toggle_nav': toggle_nav_shortcut,
+                'rows_count': rows_count,
+                'buttons_per_row': buttons_per_row,
+                'buttons_config': buttons_config
+            }
+        elif checked_id == 2:
+            # Zadania góra, Przyciski dół
+            env_config = {
+                'navbar_position': 'bottom',
+                'taskbar_position': 'top',
+                'taskbar_visible': taskbar_visible,
+                'shortcut_toggle_nav': toggle_nav_shortcut,
+                'rows_count': rows_count,
+                'buttons_per_row': buttons_per_row,
+                'buttons_config': buttons_config
+            }
+        else:
+            # Domyślnie opcja 1
+            env_config = {
+                'navbar_position': 'top',
+                'taskbar_position': 'bottom',
+                'taskbar_visible': taskbar_visible,
+                'shortcut_toggle_nav': toggle_nav_shortcut,
+                'rows_count': rows_count,
+                'buttons_per_row': buttons_per_row,
+                'buttons_config': buttons_config
+            }
+        
+        settings['environment'] = env_config
+        save_settings(settings)
+        
+        # Emituj sygnał o zmianie
+        self.settings_changed.emit({'environment': env_config})
+        
+        logger.info(f"Environment settings saved: {env_config}")
+        
+        # Pokaż komunikat
+        QMessageBox.information(
+            self,
+            t('environment.saved_title', 'Zapisano'),
+            t('environment.saved_message', 'Ustawienia środowiska zostały zapisane.')
+        )
+    
+    def _reset_to_defaults(self):
+        """Przywróć domyślne ustawienia"""
+        reply = QMessageBox.question(
+            self,
+            t('environment.reset_title', 'Przywróć domyślne'),
+            t('environment.reset_message', 'Czy na pewno chcesz przywrócić domyślne ustawienia środowiska?'),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            # Domyślnie: Przyciski góra, Zadania dół, widoczny, skrót Ctrl+Shift+N
+            self.layout_nav_top_task_bottom.setChecked(True)
+            self.taskbar_visible_check.setChecked(True)
+            self.toggle_nav_shortcut_edit.setText('Ctrl+Shift+N')
+            self.rows_spinbox.setValue(2)
+            self.buttons_per_row_spinbox.setValue(8)
+            
+            # Przywróć domyślne etykiety i widoczność przycisków
+            for row, module in enumerate(self.builtin_modules):
+                label_item = self.buttons_table.item(row, 1)
+                description_item = self.buttons_table.item(row, 2)
+                visible_item = self.buttons_table.item(row, 3)
+                
+                if label_item and not module['locked']:
+                    label_item.setText(module['label'])
+                
+                if description_item and not module['locked']:
+                    description_item.setText(module.get('description', ''))
+                
+                if visible_item and not module['locked']:
+                    visible_item.setCheckState(Qt.CheckState.Checked if module['visible'] else Qt.CheckState.Unchecked)
+            
+            # Zapisz
+            self._save_settings()
+            
+            logger.info("Environment settings reset to defaults")
+    
+    def update_translations(self):
+        """Odśwież tłumaczenia"""
+        # TODO: Zaimplementuj pełne odświeżanie wszystkich tekstów
+        # Na razie tylko podstawowe elementy z fallbackami są już zaimplementowane w _setup_ui()
+        logger.debug("Environment tab translations updated")
+
+
 class SettingsView(QWidget):
     """Główny widok ustawień z kartami"""
     
@@ -749,6 +1382,7 @@ class SettingsView(QWidget):
         self.tab_ai = AISettingsTab()
         self.tab_assistant = AssistantSettingsTab()
         self.tab_email = EmailSettingsCard()
+        self.tab_environment = EnvironmentSettingsTab()  # NOWA KARTA
         
         self.tabs.addTab(self.tab_general, "Ogólne")
         
@@ -760,11 +1394,22 @@ class SettingsView(QWidget):
         self.tabs.addTab(self.tab_assistant, "Asystent")  # NOWA KARTA
         self.tabs.addTab(self.tab_ai, "AI")
         self.tabs.addTab(self.tab_email, "Konta E-mail")  # EMAIL ACCOUNTS
+        self.tabs.addTab(self.tab_environment, "Środowisko")  # ENVIRONMENT
         self.tabs.addTab(self._create_placeholder_tab("O aplikacji"), "O aplikacji")
         
         layout.addWidget(self.tabs)
         
+        # Połącz sygnał zmiany ustawień Environment
+        if hasattr(self.tab_environment, 'settings_changed'):
+            self.tab_environment.settings_changed.connect(self._on_environment_changed)
+        
         logger.info("Settings view initialized")
+    
+    def _on_environment_changed(self, changes: dict):
+        """Przekaż zmiany environment do main_window przez tab_general"""
+        if hasattr(self.tab_general, 'settings_changed'):
+            self.tab_general.settings_changed.emit(changes)
+            logger.info(f"Environment settings propagated to main window: {changes}")
     
     def _create_placeholder_tab(self, name: str) -> QWidget:
         """Utwórz placeholder dla karty"""
@@ -792,11 +1437,13 @@ class SettingsView(QWidget):
         self.tabs.setTabText(5, t('settings.assistant', 'Asystent'))
         self.tabs.setTabText(6, t('settings.ai'))
         self.tabs.setTabText(7, t('settings.email_accounts'))
-        self.tabs.setTabText(8, t('settings.about'))
+        self.tabs.setTabText(8, t('settings.environment', 'Środowisko'))
+        self.tabs.setTabText(9, t('settings.about'))
         
         # Odśwież karty
         self.tab_general.update_translations()
         self.tab_assistant.update_translations()
         self.tab_ai.update_translations()
+        self.tab_environment.update_translations()
         
         logger.info("Settings view translations updated")

@@ -1,6 +1,7 @@
 """
 Main Window - Główne okno aplikacji
 """
+import subprocess
 from pathlib import Path
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -24,7 +25,10 @@ from .task_config_dialog import TaskConfigDialog
 from .kanban_view import KanBanView
 from .task_bar import TaskBar
 from .quick_task_bar import QuickTaskDialog
+from .navigation_bar import NavigationBar
 from ..Modules.habbit_tracker_module import HabbitTrackerView
+from .pro_app_view import ProAppView
+from ..Modules.pro_app.module_viewer import ModuleViewer
 
 
 class CustomTitleBar(QWidget):
@@ -34,7 +38,6 @@ class CustomTitleBar(QWidget):
     logout_requested = pyqtSignal()
     settings_tab_requested = pyqtSignal(int)  # index karty w ustawieniach
     help_requested = pyqtSignal()
-    toggle_nav_requested = pyqtSignal()  # nowy signal do rozwijania nawigacji
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -49,7 +52,7 @@ class CustomTitleBar(QWidget):
         layout.setContentsMargins(5, 5, 5, 5)
         layout.setSpacing(10)
         
-        # === LEWA STRONA: Użytkownik + Motyw + Rozwiń nawigację ===
+        # === LEWA STRONA: Użytkownik + Motyw ===
         left_layout = QHBoxLayout()
         left_layout.setSpacing(5)
         
@@ -67,14 +70,6 @@ class CustomTitleBar(QWidget):
         self.theme_btn.setObjectName("titleBarThemeButton")
         self.theme_btn.setToolTip("Zmień motyw")
         left_layout.addWidget(self.theme_btn)
-        
-        # Przycisk rozwijania/zwijania nawigacji
-        self.nav_toggle_btn = QPushButton("▼")
-        self.nav_toggle_btn.setFixedSize(35, 35)
-        self.nav_toggle_btn.setObjectName("navToggleButton")
-        self.nav_toggle_btn.setToolTip(t('nav.show_more'))
-        self.nav_toggle_btn.clicked.connect(self._on_nav_toggle)
-        left_layout.addWidget(self.nav_toggle_btn)
         
         layout.addLayout(left_layout)
         
@@ -175,19 +170,6 @@ class CustomTitleBar(QWidget):
         # Pokaż menu pod przyciskiem
         menu.exec(self.user_btn.mapToGlobal(self.user_btn.rect().bottomLeft()))
     
-    def _on_nav_toggle(self):
-        """Przełącz widoczność drugiego rzędu nawigacji"""
-        self.toggle_nav_requested.emit()
-    
-    def update_nav_toggle_button(self, is_visible: bool):
-        """Zaktualizuj ikonę przycisku nawigacji"""
-        if is_visible:
-            self.nav_toggle_btn.setText("▲")
-            self.nav_toggle_btn.setToolTip(t('nav.hide_more'))
-        else:
-            self.nav_toggle_btn.setText("▼")
-            self.nav_toggle_btn.setToolTip(t('nav.show_more'))
-    
     def _on_minimize(self):
         """Minimalizuj okno"""
         if self.parent_window:
@@ -249,134 +231,6 @@ class CustomTitleBar(QWidget):
             # Sprawdź obecny stan z NavigationBar jeśli dostępny
             tooltip = t('nav.hide_more') if self.nav_toggle_btn.text() == "▲" else t('nav.show_more')
             self.nav_toggle_btn.setToolTip(tooltip)
-
-
-class NavigationBar(QWidget):
-    """Górny pasek nawigacyjny z przyciskami zmiany widoków"""
-    
-    view_changed = pyqtSignal(str)  # Signal emitowany przy zmianie widoku
-    second_row_toggled = pyqtSignal(bool)  # Signal emitowany przy zmianie widoczności drugiego rzędu
-    
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.second_row_visible = False
-        self._setup_ui()
-    
-    def _setup_ui(self):
-        """Konfiguracja interfejsu paska nawigacyjnego"""
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
-        
-        # ========== PIERWSZY RZĄD ==========
-        first_row_container = QWidget()
-        first_row_layout = QHBoxLayout(first_row_container)
-        first_row_layout.setContentsMargins(0, 0, 0, 0)
-        first_row_layout.setSpacing(2)
-        
-        # Lista przycisków nawigacyjnych - klucze dla i18n
-        self.nav_keys = [
-            'tasks',
-            'kanban', 
-            'pomodoro',
-            'habit_tracker',
-            'notes',
-            'callcryptor',
-            'alarms',
-            'hotkey',
-        ]
-        
-        self.buttons = {}
-        
-        for key in self.nav_keys:
-            btn = QPushButton(t(f'nav.{key}'))  # Użyj tłumaczenia od razu
-            btn.setCheckable(True)
-            btn.setMinimumHeight(40)
-            btn.setObjectName("navButton")
-            btn.clicked.connect(lambda checked, k=key: self._on_button_clicked(k))
-            first_row_layout.addWidget(btn, stretch=1)  # Równomierne rozciąganie
-            self.buttons[key] = btn
-        
-        main_layout.addWidget(first_row_container)
-        
-        # ========== DRUGI RZĄD (ukryty domyślnie) ==========
-        self.second_row_container = QWidget()
-        second_row_layout = QHBoxLayout(self.second_row_container)
-        second_row_layout.setContentsMargins(0, 2, 0, 0)  # Mały margines góra
-        second_row_layout.setSpacing(2)
-        
-        # 8 pustych przycisków w drugim rzędzie
-        self.second_row_buttons = {}
-        self.second_row_keys = []
-        
-        for i in range(8):
-            key = f'custom_{i+1}'
-            self.second_row_keys.append(key)
-            btn = QPushButton(f"Blank {i+1}")  # Domyślna nazwa
-            btn.setCheckable(True)
-            btn.setMinimumHeight(40)
-            btn.setObjectName("navButton")
-            btn.clicked.connect(lambda checked, k=key: self._on_button_clicked(k))
-            second_row_layout.addWidget(btn, stretch=1)
-            self.second_row_buttons[key] = btn
-        
-        # Domyślnie ukryj drugi rząd
-        self.second_row_container.setVisible(False)
-        main_layout.addWidget(self.second_row_container)
-        
-        # Domyślnie zaznacz pierwszy przycisk
-        self.buttons['tasks'].setChecked(True)
-    
-    def toggle_second_row(self):
-        """Przełącz widoczność drugiego rzędu przycisków (publiczna metoda)"""
-        self.second_row_visible = not self.second_row_visible
-        self.second_row_container.setVisible(self.second_row_visible)
-        
-        # Emituj signal z nowym stanem
-        self.second_row_toggled.emit(self.second_row_visible)
-        
-        logger.info(f"Second navigation row {'shown' if self.second_row_visible else 'hidden'}")
-        
-        return self.second_row_visible
-    
-    def _on_button_clicked(self, view_name: str):
-        """Obsługa kliknięcia przycisku nawigacyjnego"""
-        # Odznacz wszystkie przyciski z pierwszego rzędu
-        for btn in self.buttons.values():
-            btn.setChecked(False)
-        
-        # Odznacz wszystkie przyciski z drugiego rzędu
-        for btn in self.second_row_buttons.values():
-            btn.setChecked(False)
-        
-        # Zaznacz kliknięty przycisk
-        if view_name in self.buttons:
-            self.buttons[view_name].setChecked(True)
-        elif view_name in self.second_row_buttons:
-            self.second_row_buttons[view_name].setChecked(True)
-        
-        # Emituj signal zmiany widoku
-        self.view_changed.emit(view_name)
-        logger.info(f"View changed to: {view_name}")
-    
-    def update_translations(self):
-        """Odśwież tłumaczenia przycisków nawigacji"""
-        translations = {
-            'tasks': t('nav.tasks'),
-            'kanban': t('nav.kanban'),
-            'pomodoro': t('nav.pomodoro'),
-            'habit_tracker': t('nav.habit_tracker'),
-            'notes': t('nav.notes'),
-            'callcryptor': t('nav.callcryptor'),
-            'alarms': t('nav.alarms'),
-            'hotkey': t('nav.hotkey'),
-        }
-        
-        for key, btn in self.buttons.items():
-            if key in translations:
-                btn.setText(translations[key])
-        
-        logger.info("Navigation bar translations updated")
 
 
 class ManagementBar(QWidget):
@@ -488,6 +342,10 @@ class MainWindow(QMainWindow):
         self.user_data = None  # Dane zalogowanego użytkownika
         self.on_token_refreshed = on_token_refreshed  # Callback dla odświeżonych tokenów
         self._quick_add_shortcut: QShortcut | None = None
+        self._toggle_nav_shortcut: QShortcut | None = None
+        
+        # Słownik przechowujący custom module viewers
+        self.custom_module_views = {}
         
         # Inicjalizacja asystenta głosowego
         self._assistant_core = None
@@ -584,6 +442,78 @@ class MainWindow(QMainWindow):
         # NIE nadpisuj języka - używamy zapisanego w user_settings.json
         # Język jest już ustawiony w main.py przed utworzeniem okna
         # theme = user_data.get('theme', 'light')
+    
+    def _apply_layout_configuration(self):
+        """
+        Zastosuj konfigurację układu z user_settings.json
+        - Pozycja NavigationBar (top/bottom)
+        - Pozycja TaskBar (top/bottom)
+        - Widoczność TaskBar
+        - Konfiguracja przycisków NavigationBar
+        """
+        from ..core.config import load_settings
+        
+        settings = load_settings()
+        logger.debug(f"Loaded settings: {settings}")
+        
+        env_config = settings.get('environment', {})
+        logger.debug(f"Environment config: {env_config}")
+        
+        # Pobierz konfigurację
+        navbar_position = env_config.get('navbar_position', 'top')  # 'top' lub 'bottom'
+        taskbar_position = env_config.get('taskbar_position', 'bottom')  # 'top' lub 'bottom'
+        taskbar_visible = env_config.get('taskbar_visible', False)  # True/False
+        
+        logger.info(f"Applying layout: navbar={navbar_position}, taskbar={taskbar_position}, taskbar_visible={taskbar_visible}")
+        logger.debug(f"TaskBar widget exists: {self.quick_input is not None}")
+        logger.debug(f"TaskBar current parent: {self.quick_input.parent() if self.quick_input else 'None'}")
+        logger.debug(f"TaskBar current visibility: {self.quick_input.isVisible() if self.quick_input else 'None'}")
+        
+        # Wyczyść oba layouty - TYLKO removeWidget, NIE setParent(None)
+        while self.top_section_layout.count():
+            item = self.top_section_layout.takeAt(0)
+            if item.widget():
+                widget = item.widget()
+                # NIE usuwaj parenta - tylko wyjmij z layoutu
+                widget.hide()
+        
+        while self.bottom_section_layout.count():
+            item = self.bottom_section_layout.takeAt(0)
+            if item.widget():
+                widget = item.widget()
+                widget.hide()
+        
+        # Umieść NavigationBar według konfiguracji
+        if navbar_position == 'top':
+            self.top_section_layout.addWidget(self.navigation_bar)
+        else:  # bottom
+            self.bottom_section_layout.addWidget(self.navigation_bar)
+        
+        self.navigation_bar.show()
+        
+        # Umieść TaskBar według konfiguracji
+        if taskbar_visible:
+            if taskbar_position == 'top':
+                self.top_section_layout.addWidget(self.quick_input)
+            else:  # bottom
+                self.bottom_section_layout.addWidget(self.quick_input)
+            self.quick_input.show()
+            logger.info(f"TaskBar added to {taskbar_position} section and made visible")
+        else:
+            # Ukryj TaskBar
+            self.quick_input.hide()
+            logger.info("TaskBar hidden (taskbar_visible=False)")
+        
+        # Pokaż/ukryj kontenery w zależności od zawartości
+        top_has_widgets = self.top_section_layout.count() > 0
+        bottom_has_widgets = self.bottom_section_layout.count() > 0
+        
+        self.top_section_container.setVisible(top_has_widgets)
+        self.bottom_section_container.setVisible(bottom_has_widgets)
+        
+        logger.info(f"Layout applied: top_section has {self.top_section_layout.count()} widgets (visible={top_has_widgets}), "
+                   f"bottom_section has {self.bottom_section_layout.count()} widgets (visible={bottom_has_widgets})")
+        logger.info("Layout configuration applied successfully")
     
     def _logout(self):
         """Wyloguj użytkownika"""
@@ -787,6 +717,8 @@ class MainWindow(QMainWindow):
     
     def _setup_ui(self):
         """Konfiguracja interfejsu użytkownika"""
+        from ..core.config import load_settings
+        
         # Centralny widget
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -805,7 +737,6 @@ class MainWindow(QMainWindow):
         self.title_bar.settings_tab_requested.connect(self._open_settings_tab)
         self.title_bar.help_requested.connect(self._show_help)
         self.title_bar.theme_btn.clicked.connect(self._on_theme_toggle)
-        self.title_bar.toggle_nav_requested.connect(self._on_nav_toggle)  # Nowe połączenie
         
         # Separator
         separator0 = QFrame()
@@ -813,9 +744,17 @@ class MainWindow(QMainWindow):
         separator0.setFrameShadow(QFrame.Shadow.Sunken)
         main_layout.addWidget(separator0)
         
-        # 1. Sekcja górna - Nawigacja
+        # ========== TOP SECTION CONTAINER ==========
+        # Może zawierać NavigationBar lub TaskBar (konfigurowalne)
+        self.top_section_container = QWidget()
+        self.top_section_layout = QVBoxLayout(self.top_section_container)
+        self.top_section_layout.setContentsMargins(0, 0, 0, 0)
+        self.top_section_layout.setSpacing(0)
+        
+        # Stwórz NavigationBar (zostanie dodany do layoutu przez _apply_layout_configuration())
         self.navigation_bar = NavigationBar()
-        main_layout.addWidget(self.navigation_bar)
+        
+        main_layout.addWidget(self.top_section_container)
         
         # Separator
         separator1 = QFrame()
@@ -933,6 +872,17 @@ class MainWindow(QMainWindow):
             self.habit_view = None
             self.habit_db = None
         
+        # Widok Pro-App
+        try:
+            self.pro_app_view = ProAppView(parent=self)
+            self.content_stack.addWidget(self.pro_app_view)
+            logger.info("ProAppView initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize ProAppView: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            self.pro_app_view = None
+        
         main_layout.addWidget(self.content_stack, stretch=1)
         
         # Separator
@@ -941,11 +891,27 @@ class MainWindow(QMainWindow):
         separator2.setFrameShadow(QFrame.Shadow.Sunken)
         main_layout.addWidget(separator2)
         
-        # 3. Sekcja dolna - Szybkie wprowadzanie
+        # ========== BOTTOM SECTION CONTAINER ==========
+        # Może zawierać TaskBar lub NavigationBar (konfigurowalne)
+        self.bottom_section_container = QWidget()
+        self.bottom_section_layout = QVBoxLayout(self.bottom_section_container)
+        self.bottom_section_layout.setContentsMargins(0, 0, 0, 0)
+        self.bottom_section_layout.setSpacing(0)
+        
+        # Stwórz TaskBar (będzie dodany do layoutu przez _apply_layout_configuration())
         task_logic_ref = getattr(self, 'task_logic', None)
         local_db_ref = getattr(self, 'task_local_db', None)
-        self.quick_input = TaskBar(task_logic=task_logic_ref, local_db=local_db_ref)
-        main_layout.addWidget(self.quick_input)
+        self.quick_input = TaskBar(
+            parent=self,  # WAŻNE: Ustaw parent aby widget był częścią hierarchii okna
+            task_logic=task_logic_ref,
+            local_db=local_db_ref
+        )
+        
+        # Początkowy stan - ukryty, zostanie skonfigurowany przez _apply_layout_configuration()
+        self.quick_input.setVisible(False)
+        self.bottom_section_container.setVisible(False)
+        
+        main_layout.addWidget(self.bottom_section_container)
 
         try:
             self.quick_task_dialog = QuickTaskDialog(
@@ -961,18 +927,34 @@ class MainWindow(QMainWindow):
 
         self._install_quick_add_shortcut(config.SHORTCUT_QUICK_ADD)
         
+        # Zainstaluj skrót dla toggle navigation (z environment settings)
+        settings = load_settings()
+        env_config = settings.get('environment', {})
+        toggle_nav_shortcut = env_config.get('shortcut_toggle_nav', 'Ctrl+Shift+N')
+        self._install_toggle_nav_shortcut(toggle_nav_shortcut)
+        
         logger.info("Main window UI setup completed")
-
+        
+        # Zastosuj konfigurację layoutu z settings
+        QTimer.singleShot(100, self._apply_layout_configuration)
+        
         QTimer.singleShot(0, self._select_default_view)
     
     def _connect_signals(self):
         """Połączenie sygnałów i slotów"""
         self.navigation_bar.view_changed.connect(self._on_view_changed)
         self.navigation_bar.second_row_toggled.connect(self._on_nav_row_toggled)  # Nowe połączenie
-        self.quick_input.task_added.connect(self._on_task_added)
-        self.quick_input.note_requested.connect(self._on_quick_note_requested)
+        
+        # TaskBar signals - tylko jeśli TaskBar istnieje
+        if hasattr(self, 'quick_input') and self.quick_input:
+            self.quick_input.task_added.connect(self._on_task_added)
+            self.quick_input.note_requested.connect(self._on_quick_note_requested)
+        
         if hasattr(self.settings_view, 'tab_general'):
             self.settings_view.tab_general.settings_changed.connect(self._on_settings_updated)
+        
+        if hasattr(self.settings_view, 'tab_environment'):
+            self.settings_view.tab_environment.settings_changed.connect(self._on_settings_updated)
         
         # Połącz sygnał zmiany języka
         get_i18n().language_changed.connect(self._on_language_changed)
@@ -995,6 +977,31 @@ class MainWindow(QMainWindow):
             self._quick_add_shortcut.setKey(sequence)
         logger.info(f"[MainWindow] Quick add shortcut set to: {sequence.toString()}")
 
+    def _install_toggle_nav_shortcut(self, shortcut_text: str) -> None:
+        """Zainstaluj skrót klawiszowy dla toggle drugiego rzędu nawigacji"""
+        sequence_text = (shortcut_text or "").strip()
+        if not sequence_text:
+            return
+
+        sequence = QKeySequence(sequence_text)
+        if sequence == QKeySequence():
+            logger.warning(f"[MainWindow] Ignoring invalid toggle nav shortcut: '{shortcut_text}'")
+            return
+
+        if self._toggle_nav_shortcut is None:
+            self._toggle_nav_shortcut = QShortcut(sequence, self)
+            self._toggle_nav_shortcut.setContext(Qt.ShortcutContext.ApplicationShortcut)
+            self._toggle_nav_shortcut.activated.connect(self._on_toggle_nav_shortcut)
+        else:
+            self._toggle_nav_shortcut.setKey(sequence)
+        logger.info(f"[MainWindow] Toggle navigation shortcut set to: {sequence.toString()}")
+    
+    def _on_toggle_nav_shortcut(self) -> None:
+        """Obsługa skrótu klawiszowego toggle navigation"""
+        if hasattr(self, 'navigation_bar') and self.navigation_bar:
+            self.navigation_bar.toggle_second_row()
+            logger.info("[MainWindow] Toggle navigation triggered by shortcut")
+    
     def _show_quick_add_dialog(self) -> None:
         if not getattr(self, 'quick_task_dialog', None):
             logger.warning("[MainWindow] QuickTaskDialog is not available")
@@ -1011,9 +1018,28 @@ class MainWindow(QMainWindow):
     def _on_settings_updated(self, changes: dict) -> None:
         if not isinstance(changes, dict):
             return
+        
+        # Obsługa zmiany skrótu klawiszowego
         shortcut = changes.get('shortcut_quick_add')
         if shortcut is not None:
             self._install_quick_add_shortcut(shortcut)
+        
+        # Obsługa zmiany environment settings
+        if 'environment' in changes:
+            logger.info("Environment settings changed, applying new layout...")
+            
+            # Przebuduj NavigationBar z nowej konfiguracji
+            if hasattr(self, 'navigation_bar') and self.navigation_bar:
+                logger.info("Rebuilding NavigationBar from updated configuration...")
+                self.navigation_bar.rebuild_from_config()
+            
+            self._apply_layout_configuration()
+            
+            # Zaktualizuj skrót toggle navigation jeśli się zmienił
+            env_config = changes.get('environment', {})
+            toggle_nav_shortcut = env_config.get('shortcut_toggle_nav')
+            if toggle_nav_shortcut:
+                self._install_toggle_nav_shortcut(toggle_nav_shortcut)
 
     def _select_default_view(self) -> None:
         """Ustaw domyślny widok na listę zadań po starcie aplikacji."""
@@ -1024,14 +1050,9 @@ class MainWindow(QMainWindow):
         except Exception as exc:  # pragma: no cover - log only
             logger.error(f"[MainWindow] Failed to select default view: {exc}")
     
-    def _on_nav_toggle(self):
-        """Obsługa kliknięcia przycisku rozwijania nawigacji"""
-        is_visible = self.navigation_bar.toggle_second_row()
-        self.title_bar.update_nav_toggle_button(is_visible)
-    
     def _on_nav_row_toggled(self, is_visible: bool):
-        """Obsługa zmiany widoczności drugiego rzędu (z NavigationBar)"""
-        self.title_bar.update_nav_toggle_button(is_visible)
+        """Obsługa zmiany widoczności drugiego rzędu (z NavigationBar) - placeholder dla przyszłych funkcji"""
+        logger.info(f"Second navigation row toggled: {is_visible}")
     
     def _on_view_changed(self, view_name: str):
         """Obsługa zmiany widoku"""
@@ -1040,56 +1061,181 @@ class MainWindow(QMainWindow):
         # Przełącz widok w zależności od wybranego przycisku
         if view_name == 'settings':
             self.content_stack.setCurrentWidget(self.settings_view)
-            self.quick_input.setVisible(False)  # Ukryj quick input tylko w ustawieniach
+            # Ukryj bottom section (TaskBar) w ustawieniach - nie ma sensu dodawać zadań w settings
+            if hasattr(self, 'bottom_section_container'):
+                self.bottom_section_container.setVisible(False)
         elif view_name == 'alarms':
             self.content_stack.setCurrentWidget(self.alarms_view)
-            self.quick_input.setVisible(True)  # Pokaż quick input w alarmach
+            # TaskBar visibility będzie kontrolowana z settings
         elif view_name == 'pomodoro':
             self.content_stack.setCurrentWidget(self.pomodoro_view)
-            self.quick_input.setVisible(True)  # Pokaż quick input w pomodoro
+            # TaskBar visibility będzie kontrolowana z settings
         elif view_name == 'notes':
             self.content_stack.setCurrentWidget(self.notes_view)
-            self.quick_input.setVisible(True)  # Pokaż quick input w notatkach
+            # TaskBar visibility będzie kontrolowana z settings
         elif view_name == 'callcryptor':
             if hasattr(self, 'callcryptor_view') and self.callcryptor_view:
                 self.content_stack.setCurrentWidget(self.callcryptor_view)
-                self.quick_input.setVisible(True)  # Pokaż quick input w CallCryptor
             else:
                 logger.warning("CallCryptorView not initialized")
                 self.content_stack.setCurrentWidget(self.main_content)
-                self.quick_input.setVisible(True)
         elif view_name == 'tasks':
             if hasattr(self, 'task_view') and self.task_view:
                 self.content_stack.setCurrentWidget(self.task_view)
-                self.quick_input.setVisible(True)
             else:
                 logger.warning("TaskView not initialized")
                 self.content_stack.setCurrentWidget(self.main_content)
-                self.quick_input.setVisible(True)
         elif view_name == 'kanban':
             if hasattr(self, 'kanban_view') and self.kanban_view:
                 self.content_stack.setCurrentWidget(self.kanban_view)
-                self.quick_input.setVisible(True)
                 # Odśwież tablicę KanBan przy każdym wejściu
                 self.kanban_view.refresh_board()
             else:
                 logger.warning("KanBanView not initialized")
                 self.content_stack.setCurrentWidget(self.main_content)
-                self.quick_input.setVisible(True)
         elif view_name == 'habit_tracker':
             if hasattr(self, 'habit_view') and self.habit_view:
                 self.content_stack.setCurrentWidget(self.habit_view)
-                self.quick_input.setVisible(True)
                 # Odśwież widok nawyków przy każdym wejściu
                 self.habit_view.refresh_table()
             else:
                 logger.warning("HabbitTrackerView not initialized")
                 self.content_stack.setCurrentWidget(self.main_content)
-                self.quick_input.setVisible(True)
+        elif view_name == 'proapp':
+            if hasattr(self, 'pro_app_view') and self.pro_app_view:
+                self.content_stack.setCurrentWidget(self.pro_app_view)
+            else:
+                logger.warning("ProAppView not initialized")
+                self.content_stack.setCurrentWidget(self.main_content)
+        elif view_name.startswith('custom_'):
+            # Obsługa custom buttons
+            self._handle_custom_button(view_name)
         else:
             self.content_stack.setCurrentWidget(self.main_content)
-            self.quick_input.setVisible(True)  # Pokaż quick input w innych widokach
-            # TODO: W przyszłości tutaj będziemy ładować odpowiednie moduły
+    
+    def _handle_custom_button(self, button_id: str):
+        """Obsługa custom buttons (python_module lub external_app)"""
+        from ..core.config import load_settings
+        
+        # Wczytaj konfigurację custom buttons
+        settings = load_settings()
+        env_config = settings.get('environment', {})
+        buttons_config = env_config.get('buttons_config', [])
+        
+        # Znajdź odpowiedni custom button
+        custom_button = None
+        for btn in buttons_config:
+            if btn.get('id') == button_id and btn.get('is_custom', False):
+                custom_button = btn
+                break
+        
+        if not custom_button:
+            logger.warning(f"Custom button not found: {button_id}")
+            self.content_stack.setCurrentWidget(self.main_content)
+            return
+        
+        custom_type = custom_button.get('custom_type')
+        custom_path = custom_button.get('custom_path')
+        
+        if not custom_path:
+            logger.warning(f"Custom button {button_id} has no path defined")
+            self.content_stack.setCurrentWidget(self.main_content)
+            return
+        
+        if custom_type == 'python_module':
+            # Obsługa modułu Python (.pro)
+            self._load_python_module(button_id, custom_path)
+        elif custom_type == 'external_app':
+            # Obsługa aplikacji zewnętrznej
+            self._launch_external_app(custom_path)
+        else:
+            logger.warning(f"Unknown custom_type: {custom_type}")
+            self.content_stack.setCurrentWidget(self.main_content)
+    
+    def _load_python_module(self, button_id: str, module_path: str):
+        """Ładuje moduł Python (.pro) w ModuleViewer"""
+        from PyQt6.QtWidgets import QMessageBox
+        
+        # Sprawdź czy viewer dla tego modułu już istnieje
+        if button_id in self.custom_module_views:
+            viewer = self.custom_module_views[button_id]
+            self.content_stack.setCurrentWidget(viewer)
+            logger.info(f"Switched to existing module viewer: {button_id}")
+            return
+        
+        # Utwórz nowy ModuleViewer
+        try:
+            viewer = ModuleViewer(parent=self)
+            
+            # Załaduj moduł
+            success = viewer.load_module(module_path)
+            
+            if success:
+                # Dodaj do content_stack i zapisz referencję
+                self.content_stack.addWidget(viewer)
+                self.custom_module_views[button_id] = viewer
+                self.content_stack.setCurrentWidget(viewer)
+                logger.info(f"Loaded custom module: {button_id} from {module_path}")
+            else:
+                # Błąd ładowania - pokaż komunikat
+                logger.error(f"Failed to load module from {module_path}")
+                QMessageBox.critical(
+                    self,
+                    t('custom_module.error_title', 'Błąd ładowania modułu'),
+                    t('custom_module.error_message', f'Nie udało się załadować modułu z pliku:\n{module_path}')
+                )
+                self.content_stack.setCurrentWidget(self.main_content)
+        except Exception as e:
+            logger.error(f"Error creating ModuleViewer for {button_id}: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            QMessageBox.critical(
+                self,
+                t('custom_module.error_title', 'Błąd'),
+                t('custom_module.error_exception', f'Wystąpił błąd podczas ładowania modułu:\n{str(e)}')
+            )
+            self.content_stack.setCurrentWidget(self.main_content)
+    
+    def _launch_external_app(self, app_path: str):
+        """Uruchamia aplikację zewnętrzną (.exe, .bat, etc.)"""
+        from PyQt6.QtWidgets import QMessageBox
+        
+        try:
+            # Uruchom proces w tle bez blokowania aplikacji
+            subprocess.Popen(app_path, shell=True)
+            logger.info(f"Launched external app: {app_path}")
+            
+            # Pozostań na obecnym widoku
+            # Opcjonalnie możesz pokazać powiadomienie
+            QMessageBox.information(
+                self,
+                t('external_app.launched_title', 'Aplikacja uruchomiona'),
+                t('external_app.launched_message', f'Uruchomiono:\n{app_path}'),
+                QMessageBox.StandardButton.Ok
+            )
+        except FileNotFoundError:
+            logger.error(f"External app not found: {app_path}")
+            QMessageBox.critical(
+                self,
+                t('external_app.not_found_title', 'Nie znaleziono pliku'),
+                t('external_app.not_found_message', f'Nie można znaleźć aplikacji:\n{app_path}')
+            )
+        except PermissionError:
+            logger.error(f"Permission denied for external app: {app_path}")
+            QMessageBox.critical(
+                self,
+                t('external_app.permission_title', 'Brak uprawnień'),
+                t('external_app.permission_message', f'Brak uprawnień do uruchomienia:\n{app_path}')
+            )
+        except Exception as e:
+            logger.error(f"Error launching external app {app_path}: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            QMessageBox.critical(
+                self,
+                t('external_app.error_title', 'Błąd'),
+                t('external_app.error_message', f'Nie udało się uruchomić aplikacji:\n{str(e)}')
+            )
     
     def _on_task_added(self, payload: dict):
         """Obsługuje dodanie zadania z paska szybkiego wprowadzania."""
@@ -1189,9 +1335,14 @@ class MainWindow(QMainWindow):
         self.navigation_bar.update_translations()
         self.main_content.management_bar.update_translations()
         self.main_content.data_area.update_translations()
-        self.quick_input.update_translations()
+        
+        # TaskBar - tylko jeśli istnieje
+        if hasattr(self, 'quick_input') and self.quick_input:
+            self.quick_input.update_translations()
+        
         self.settings_view.update_translations()
         self.alarms_view.update_translations()
+        
         if getattr(self, 'quick_task_dialog', None):
             self.quick_task_dialog.update_translations()
         

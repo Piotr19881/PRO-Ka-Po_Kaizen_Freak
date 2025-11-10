@@ -614,3 +614,28 @@ QPushButton#closeButton:hover {
 QPushButton#closeButton:pressed {
     background-color: #c50e1f;
 }
+
+/* === QTableWidget Checkboxes === */
+QTableWidget::indicator {
+    width: 18px;
+    height: 18px;
+    border-radius: 3px;
+    border: 2px solid #4a4a4a;
+    background-color: #2a2a2a;
+}
+
+QTableWidget::indicator:checked {
+    background-color: #14ffec;
+    border-color: #14ffec;
+    image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTgiIGhlaWdodD0iMTgiIHZpZXdCb3g9IjAgMCAxOCAxOCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cGF0aCBkPSJNNiAxMC4yTDMuNCA3LjZMMiA5bDQgNCA4LTgtMS40LTEuNHoiIGZpbGw9IiMwMDAiLz4KPC9zdmc+);
+}
+
+QTableWidget::indicator:hover {
+    border-color: #14ffec;
+}
+
+QTableWidget::indicator:disabled {
+    background-color: #1a1a1a;
+    border-color: #333333;
+}
+

@@ -23,5 +23,115 @@
         "last_sync_at": "2025-11-10T10:35:56.286822",
         "dont_show_warning": false,
         "exclude_tags": []
+    },
+    "environment": {
+        "navbar_position": "top",
+        "taskbar_position": "bottom",
+        "taskbar_visible": true,
+        "shortcut_toggle_nav": "Ctrl+Shift+N",
+        "rows_count": 2,
+        "buttons_per_row": 5,
+        "buttons_config": [
+            {
+                "id": "tasks",
+                "label": "Zadania",
+                "description": "Główny widok zadań i projektów",
+                "visible": true,
+                "is_custom": false
+            },
+            {
+                "id": "kanban",
+                "label": "Kanban",
+                "description": "Tablica Kanban do zarządzania przepływem pracy",
+                "visible": true,
+                "is_custom": false
+            },
+            {
+                "id": "pomodoro",
+                "label": "Pomodoro",
+                "description": "Timer Pomodoro do produktywnej pracy",
+                "visible": true,
+                "is_custom": false
+            },
+            {
+                "id": "habit_tracker",
+                "label": "Habit Tracker",
+                "description": "Śledzenie nawyków i rutyn dziennych",
+                "visible": true,
+                "is_custom": false
+            },
+            {
+                "id": "notes",
+                "label": "Notatki",
+                "description": "Notatki i dokumenty",
+                "visible": true,
+                "is_custom": false
+            },
+            {
+                "id": "callcryptor",
+                "label": "CallCryptor",
+                "description": "Szyfrowanie połączeń i komunikacji",
+                "visible": true,
+                "is_custom": false
+            },
+            {
+                "id": "alarms",
+                "label": "Alarmy",
+                "description": "Alarmy i przypomnienia",
+                "visible": true,
+                "is_custom": false
+            },
+            {
+                "id": "fastkey",
+                "label": "FastKey",
+                "description": "Szybkie skróty klawiszowe",
+                "visible": true,
+                "is_custom": false
+            },
+            {
+                "id": "promail",
+                "label": "Pro-Mail",
+                "description": "Zaawansowane zarządzanie pocztą",
+                "visible": false,
+                "is_custom": false
+            },
+            {
+                "id": "pfile",
+                "label": "P-File",
+                "description": "Menedżer plików i dokumentów",
+                "visible": false,
+                "is_custom": false
+            },
+            {
+                "id": "pweb",
+                "label": "P-Web",
+                "description": "Przeglądarka i narzędzia webowe",
+                "visible": false,
+                "is_custom": false
+            },
+            {
+                "id": "quickboard",
+                "label": "QuickBoard",
+                "description": "Szybka tablica notatek",
+                "visible": false,
+                "is_custom": false
+            },
+            {
+                "id": "proapp",
+                "label": "Pro-App",
+                "description": "Zarządzanie aplikacjami",
+                "visible": true,
+                "is_custom": false
+            },
+            {
+                "id": "custom_13_test1",
+                "label": "test1",
+                "description": "testowy",
+                "visible": true,
+                "is_custom": true,
+                "custom_type": "python_module",
+                "custom_path": "C:/Users/probu/Desktop/test1.pro"
+            }
+        ]
     }
 }

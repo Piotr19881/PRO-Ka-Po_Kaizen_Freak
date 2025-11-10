@@ -309,12 +309,12 @@ class NoteView(QWidget):
         self.summarize_ai_btn.clicked.connect(self.summarize_with_ai)
         toolbar_layout.addWidget(self.summarize_ai_btn)
         
-    self.voice_input_btn = QPushButton("🎤")
-    self.voice_input_btn.setToolTip(self.i18n.t("notes.tooltip_voice_input", "Włącz dyktowanie (Win + H)"))
-    self.voice_input_btn.setFixedSize(80, 35)
-    self.voice_input_btn.setEnabled(False)
-    self.voice_input_btn.clicked.connect(self.start_voice_input)
-    toolbar_layout.addWidget(self.voice_input_btn)
+        self.voice_input_btn = QPushButton("🎤")
+        self.voice_input_btn.setToolTip(self.i18n.t("notes.tooltip_voice_input", "Włącz dyktowanie (Win + H)"))
+        self.voice_input_btn.setFixedSize(80, 35)
+        self.voice_input_btn.setEnabled(False)
+        self.voice_input_btn.clicked.connect(self.start_voice_input)
+        toolbar_layout.addWidget(self.voice_input_btn)
         
         self.print_btn = QPushButton("🖨")
         self.print_btn.setToolTip(self.i18n.t("notes.tooltip_print", "Drukuj"))

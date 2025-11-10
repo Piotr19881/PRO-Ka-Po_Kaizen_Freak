@@ -214,8 +214,13 @@ def load_settings() -> dict:
                 current_layout = saved_settings['current_layout']
             if 'remember_me' in saved_settings:
                 remember_me = saved_settings['remember_me']
+            
+            # Return all saved settings (including environment)
+            logger.debug(f"Loaded settings from file: {saved_settings}")
+            return saved_settings
         
-        # Return current settings
+        # Return default settings if file doesn't exist
+        logger.warning("Settings file not found, using defaults")
         return {
             'language': config.DEFAULT_LANGUAGE,
             'theme': config.DEFAULT_THEME,
