@@ -6,22 +6,14 @@
     "enable_sound": true,
     "shortcut_quick_add": "Ctrl+N",
     "shortcut_show_main": "Ctrl+Shift+K",
-    "color_scheme_1": "light",
-    "color_scheme_2": "dark",
-    "current_layout": 2,
+    "color_scheme_1": "dark",
+    "color_scheme_2": "light",
+    "current_layout": 1,
     "remember_me": true,
     "theme": "light",
     "custom_sounds": {
         "naval-alarm": "C:/Users/probu/Downloads/naval-alarm.wav"
     },
     "sound_notification": "Beep (domyślny)",
-    "sound_alarm": "Exclamation",
-    "callcryptor_sync": {
-        "enabled": true,
-        "auto_sync_enabled": false,
-        "sync_interval_minutes": 5,
-        "last_sync_at": "2025-11-10T10:35:56.286822",
-        "dont_show_warning": false,
-        "exclude_tags": []
-    }
+    "sound_alarm": "Exclamation"
 }

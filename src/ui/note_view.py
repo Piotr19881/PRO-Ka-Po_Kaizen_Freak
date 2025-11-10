@@ -5,6 +5,8 @@ Zawiera edytor Rich Text z narzędziami formatowania
 
 import re
 import logging
+import platform
+import ctypes
 from datetime import datetime
 from typing import Optional
 from PyQt6.QtWidgets import (
@@ -300,12 +302,19 @@ class NoteView(QWidget):
         # Separator
         toolbar_layout.addWidget(self._create_separator())
         
-        # AI i drukowanie
+    # AI, dyktowanie i drukowanie
         self.summarize_ai_btn = QPushButton("🤖")
         self.summarize_ai_btn.setToolTip(self.i18n.t("notes.tooltip_summarize_ai", "Podsumuj AI"))
         self.summarize_ai_btn.setFixedSize(80, 35)
         self.summarize_ai_btn.clicked.connect(self.summarize_with_ai)
         toolbar_layout.addWidget(self.summarize_ai_btn)
+        
+    self.voice_input_btn = QPushButton("🎤")
+    self.voice_input_btn.setToolTip(self.i18n.t("notes.tooltip_voice_input", "Włącz dyktowanie (Win + H)"))
+    self.voice_input_btn.setFixedSize(80, 35)
+    self.voice_input_btn.setEnabled(False)
+    self.voice_input_btn.clicked.connect(self.start_voice_input)
+    toolbar_layout.addWidget(self.voice_input_btn)
         
         self.print_btn = QPushButton("🖨")
         self.print_btn.setToolTip(self.i18n.t("notes.tooltip_print", "Drukuj"))
@@ -422,6 +431,8 @@ class NoteView(QWidget):
             
             # Włącz edycję
             self.text_editor.setEnabled(True)
+            if hasattr(self, "voice_input_btn"):
+                self.voice_input_btn.setEnabled(True)
     
     def on_title_changed(self):
         """Obsługuje zmianę tytułu - automatyczny zapis"""
@@ -897,6 +908,8 @@ class NoteView(QWidget):
             self.editor_title.setText(self.i18n.t("notes.select_note", "Wybierz notatkę"))
             self.text_editor.clear()
             self.text_editor.setEnabled(False)
+            if hasattr(self, "voice_input_btn"):
+                self.voice_input_btn.setEnabled(False)
         
         self.refresh_tree()
         self.note_deleted.emit(note_id)
@@ -1061,6 +1074,23 @@ class NoteView(QWidget):
         from src.Modules.Note_module.ai_note_connector import execute_ai_summarization
         execute_ai_summarization(self, content, self.current_note_id)
     
+    def start_voice_input(self):
+        """Wstawia znacznik i wywołuje systemowe dyktowanie (Win+H)"""
+        if not self.current_note_id:
+            QMessageBox.warning(
+                self,
+                self.i18n.t("common.warning", "Ostrzeżenie"),
+                self.i18n.t("notes.select_note_first", "Najpierw wybierz notatkę!")
+            )
+            return
+        
+        self.text_editor.setFocus()
+        cursor = self.text_editor.textCursor()
+        marker = self.i18n.t("notes.voice_marker", "🎤 Dyktuj: ")
+        cursor.insertText(marker)
+        self.text_editor.setTextCursor(cursor)
+        self._trigger_voice_typing_shortcut()
+    
     def print_note(self):
         """Drukuje notatkę"""
         if not self.current_note_id:
@@ -1073,6 +1103,41 @@ class NoteView(QWidget):
             document = self.text_editor.document()
             if document:
                 document.print(printer)
+    
+    def _trigger_voice_typing_shortcut(self):
+        """Wyzwala systemowy skrót Win+H dla dyktowania na Windows"""
+        if platform.system().lower() != "windows":
+            QMessageBox.information(
+                self,
+                self.i18n.t("common.information", "Informacja"),
+                self.i18n.t("notes.voice_unsupported", "Dyktowanie Win+H jest dostępne tylko w systemie Windows.")
+            )
+            return
+        
+        try:
+            user32 = ctypes.windll.user32
+            KEYEVENTF_KEYUP = 0x0002
+            VK_LWIN = 0x5B
+            VK_H = 0x48
+            # Przytrzymaj Win, naciśnij H, a następnie zwolnij klawisze
+            user32.keybd_event(VK_LWIN, 0, 0, 0)
+            user32.keybd_event(VK_H, 0, 0, 0)
+            user32.keybd_event(VK_H, 0, KEYEVENTF_KEYUP, 0)
+            user32.keybd_event(VK_LWIN, 0, KEYEVENTF_KEYUP, 0)
+            logger.info("[NOTES] Win+H shortcut triggered for voice input")
+        except AttributeError:
+            QMessageBox.warning(
+                self,
+                self.i18n.t("common.warning", "Ostrzeżenie"),
+                self.i18n.t("notes.voice_unsupported", "Dyktowanie Win+H jest dostępne tylko w systemie Windows.")
+            )
+        except Exception as exc:
+            logger.error(f"[NOTES] Voice typing shortcut failed: {exc}")
+            QMessageBox.warning(
+                self,
+                self.i18n.t("common.warning", "Ostrzeżenie"),
+                self.i18n.t("notes.voice_trigger_failed", "Nie udało się uruchomić dyktowania.")
+            )
     
     # ==============================
     # OBSŁUGA TABEL
@@ -1887,6 +1952,10 @@ class NoteView(QWidget):
         self.highlight_btn.setToolTip(self.i18n.t("notes.tooltip_highlight", "Zakreśl tekst"))
         self.clear_format_btn.setToolTip(self.i18n.t("notes.tooltip_clear_format", "Usuń formatowanie"))
         self.summarize_ai_btn.setToolTip(self.i18n.t("notes.tooltip_summarize_ai", "Podsumuj AI"))
+        if hasattr(self, "voice_input_btn"):
+            self.voice_input_btn.setToolTip(
+                self.i18n.t("notes.tooltip_voice_input", "Włącz dyktowanie (Win + H)")
+            )
         self.print_btn.setToolTip(self.i18n.t("notes.tooltip_print", "Drukuj"))
     
     # =============================================================================
@@ -1974,6 +2043,8 @@ class NoteView(QWidget):
                 self.editor_title.clear()
                 self.text_editor.clear()
                 self.current_note_id = None
+                if hasattr(self, "voice_input_btn"):
+                    self.voice_input_btn.setEnabled(False)
         
         # Odśwież drzewo
         self.refresh_tree()

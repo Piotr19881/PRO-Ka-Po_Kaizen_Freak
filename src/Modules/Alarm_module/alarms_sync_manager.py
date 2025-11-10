@@ -168,14 +168,14 @@ class SyncManager:
                 if item_type == 'alarm':
                     from .alarm_models import Alarm
                     alarm = Alarm.from_dict(item)
-                    self.local_db.save_alarm(alarm, self.user_id)
+                    self.local_db.save_alarm(alarm, self.user_id, enqueue=False)
                     self.local_db.mark_alarm_synced(alarm.id)
                     alarm_count += 1
                     
                 elif item_type == 'timer':
                     from .alarm_models import Timer
                     timer = Timer.from_dict(item)
-                    self.local_db.save_timer(timer, self.user_id)
+                    self.local_db.save_timer(timer, self.user_id, enqueue=False)
                     self.local_db.mark_timer_synced(timer.id)
                     timer_count += 1
             
@@ -443,7 +443,7 @@ class SyncManager:
                 if entity_type == 'alarm':
                     from .alarm_models import Alarm
                     alarm = Alarm.from_dict(winning_data)
-                    self.local_db.save_alarm(alarm, self.user_id)
+                    self.local_db.save_alarm(alarm, self.user_id, enqueue=False)
                     # Zaktualizuj wersję z serwera
                     server_version = winning_data.get('version', 1)
                     self.local_db.update_alarm_version(entity_id, server_version)
@@ -451,7 +451,7 @@ class SyncManager:
                 else:
                     from .alarm_models import Timer
                     timer = Timer.from_dict(winning_data)
-                    self.local_db.save_timer(timer, self.user_id)
+                    self.local_db.save_timer(timer, self.user_id, enqueue=False)
                     # Zaktualizuj wersję z serwera
                     server_version = winning_data.get('version', 1)
                     self.local_db.update_timer_version(entity_id, server_version)

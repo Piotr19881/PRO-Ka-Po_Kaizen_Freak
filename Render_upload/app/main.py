@@ -30,6 +30,7 @@ from .pomodoro_router import router as pomodoro_router
 from .notes_router import router as notes_router
 from .tasks_router import router as tasks_router
 from .habit_router import router as habit_router
+from .recordings_router import router as recordings_router
 
 # Inicjalizacja FastAPI
 app = FastAPI(
@@ -56,8 +57,10 @@ app.include_router(pomodoro_router)
 app.include_router(notes_router)
 app.include_router(tasks_router)
 app.include_router(habit_router)
+app.include_router(recordings_router)
 
 logger.info("🚀 HABIT TRACKER ROUTER został zarejestrowany w aplikacji FastAPI!")
+logger.info("📨 CALLCRYPTOR RECORDINGS ROUTER został zarejestrowany w aplikacji FastAPI!")
 logger.info("📍 HABIT TRACKER: Dostępne endpointy:")
 logger.info("   - GET    /api/habits/columns")
 logger.info("   - POST   /api/habits/columns") 

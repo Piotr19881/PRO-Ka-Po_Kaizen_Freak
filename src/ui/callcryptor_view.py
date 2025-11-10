@@ -59,6 +59,10 @@ class CallCryptorView(QWidget):
         self.user_id = None
         self.current_source_id = None
         
+        # Sync infrastructure
+        self.api_client = None
+        self.sync_manager = None
+        
         # Queue mode state
         self.queue_mode_active = False
         self.selected_items = {
@@ -76,19 +80,144 @@ class CallCryptorView(QWidget):
         Ustaw dane użytkownika i zainicjalizuj bazę danych.
         
         Args:
-            user_data: {'id': str, 'email': str, ...}
+            user_data: {'id': str, 'email': str, 'access_token': str, 'refresh_token': str, ...}
         """
         self.user_id = user_data.get('id')
+        self.user_data = user_data  # Zapisz user_data dla sync infrastructure
         
         # Inicjalizuj bazę danych
         from ..core.config import config
         db_path = config.DATA_DIR / "callcryptor.db"
         self.db_manager = CallCryptorDatabase(str(db_path))
         
+        # Inicjalizuj API client i sync manager
+        self._init_sync_infrastructure(config)
+        
         logger.info(f"[CallCryptor] Initialized for user: {self.user_id}")
         
         # Załaduj źródła
         self._load_sources()
+    
+    def _init_sync_infrastructure(self, config):
+        """Inicjalizuj API client i sync manager"""
+        try:
+            logger.info("[CallCryptor] Starting sync infrastructure initialization...")
+            from ..Modules.CallCryptor_module.recording_api_client import RecordingsAPIClient
+            from ..Modules.CallCryptor_module.recordings_sync_manager import RecordingsSyncManager
+            
+            # Pobierz tokeny z user_data (przekazane w set_user_data)
+            auth_token = None
+            refresh_token = None
+            
+            if hasattr(self, 'user_data') and self.user_data:
+                auth_token = self.user_data.get('access_token')
+                refresh_token = self.user_data.get('refresh_token')
+            
+            logger.debug(f"[CallCryptor] Auth token present: {bool(auth_token)}")
+            logger.debug(f"[CallCryptor] Refresh token present: {bool(refresh_token)}")
+            
+            # API Base URL z config
+            api_base_url = getattr(config, 'API_BASE_URL', 'http://localhost:8000')
+            logger.info(f"[CallCryptor] API Base URL: {api_base_url}")
+            
+            # Inicjalizuj API client
+            logger.debug("[CallCryptor] Creating RecordingsAPIClient...")
+            self.api_client = RecordingsAPIClient(
+                base_url=api_base_url,
+                auth_token=auth_token,
+                refresh_token=refresh_token,
+                on_token_refreshed=self._on_token_refreshed
+            )
+            logger.info("[CallCryptor] API client created successfully")
+            
+            # Inicjalizuj sync manager
+            settings_path = Path(config.BASE_DIR) / "user_settings.json"
+            logger.debug(f"[CallCryptor] Settings path: {settings_path}")
+            logger.debug(f"[CallCryptor] User ID: {self.user_id}")
+            logger.debug(f"[CallCryptor] DB manager: {self.db_manager}")
+            
+            logger.debug("[CallCryptor] Creating RecordingsSyncManager...")
+            self.sync_manager = RecordingsSyncManager(
+                db_manager=self.db_manager,
+                api_client=self.api_client,
+                user_id=self.user_id,
+                config_path=settings_path,
+                on_sync_complete=self._on_sync_complete
+            )
+            logger.info("[CallCryptor] Sync manager created successfully")
+            
+            # Zaktualizuj kolor przycisku sync
+            self._update_sync_button_state()
+            
+            logger.info("[CallCryptor] Sync infrastructure initialized successfully!")
+            
+        except Exception as e:
+            logger.error(f"[CallCryptor] Error initializing sync: {e}")
+            import traceback
+            logger.error(f"[CallCryptor] Traceback: {traceback.format_exc()}")
+            # Sync opcjonalna - nie blokuj reszty funkcjonalności
+    
+    def _on_token_refreshed(self, access_token: str, refresh_token: str):
+        """Callback po odświeżeniu tokena"""
+        try:
+            # Zaktualizuj user_data z nowymi tokenami
+            if hasattr(self, 'user_data') and self.user_data:
+                self.user_data['access_token'] = access_token
+                self.user_data['refresh_token'] = refresh_token
+                logger.debug("[CallCryptor] Tokens updated in user_data")
+            
+            # Zapisz do pliku tokens.json (kompatybilność z innymi modułami)
+            from ..core.config import config
+            tokens_file = config.DATA_DIR / "tokens.json"
+            try:
+                import json
+                tokens_data = {}
+                if tokens_file.exists():
+                    with open(tokens_file, 'r', encoding='utf-8') as f:
+                        tokens_data = json.load(f)
+                
+                tokens_data['access_token'] = access_token
+                tokens_data['refresh_token'] = refresh_token
+                
+                with open(tokens_file, 'w', encoding='utf-8') as f:
+                    json.dump(tokens_data, f, indent=4)
+                
+                logger.info("[CallCryptor] Tokens saved to tokens.json")
+            except Exception as e:
+                logger.error(f"[CallCryptor] Error saving tokens: {e}")
+                
+        except Exception as e:
+            logger.error(f"[CallCryptor] Error in token refresh callback: {e}")
+    
+    def _on_sync_complete(self, success: bool, message: str):
+        """Callback po zakończeniu synchronizacji"""
+        try:
+            if success:
+                logger.success(f"[CallCryptor] Sync complete: {message}")
+                # Opcjonalnie: odśwież listę nagrań
+                # self._load_recordings()
+            else:
+                logger.error(f"[CallCryptor] Sync failed: {message}")
+                # Opcjonalnie: pokaż notyfikację użytkownikowi
+        except Exception as e:
+            logger.error(f"[CallCryptor] Error in sync complete callback: {e}")
+    
+    def _update_sync_button_state(self):
+        """Zaktualizuj kolor przycisku sync według stanu"""
+        if not self.sync_manager:
+            return
+        
+        try:
+            if self.sync_manager.sync_enabled:
+                # Zielony - sync włączona
+                self.sync_btn.setStyleSheet("background-color: #4CAF50; color: white; font-size: 16px;")
+                self.sync_btn.setToolTip(t('callcryptor.sync.enabled_tooltip'))
+            else:
+                # Pomarańczowy - sync wyłączona
+                self.sync_btn.setStyleSheet("background-color: #FF8C00; color: white; font-size: 16px;")
+                self.sync_btn.setToolTip(t('callcryptor.sync.disabled_tooltip'))
+        except Exception as e:
+            logger.error(f"[CallCryptor] Error updating sync button: {e}")
     
     def _setup_ui(self):
         """Konfiguracja interfejsu użytkownika"""
@@ -186,6 +315,15 @@ class CallCryptorView(QWidget):
         self.tags_btn.setMaximumWidth(45)
         self.tags_btn.clicked.connect(self._edit_tags)
         toolbar_layout.addWidget(self.tags_btn)
+        
+        # Przycisk synchronizacji - pomarańczowy (OFF) / zielony (ON)
+        self.sync_btn = QPushButton("📨")
+        self.sync_btn.setToolTip(t('callcryptor.sync.disabled_tooltip'))
+        self.sync_btn.setMaximumWidth(45)
+        self.sync_btn.clicked.connect(self._on_sync_clicked)
+        # Domyślnie pomarańczowy (sync wyłączona)
+        self.sync_btn.setStyleSheet("background-color: #FF8C00; color: white; font-size: 16px;")
+        toolbar_layout.addWidget(self.sync_btn)
         
         toolbar_layout.addStretch()
         
@@ -321,21 +459,6 @@ class CallCryptorView(QWidget):
         # Pobierz źródła z bazy
         sources = self.db_manager.get_all_sources(self.user_id, active_only=True)
         
-        for source in sources:
-            # Format: Nazwa (typ) - liczba nagrań
-            source_type = "📁" if source['source_type'] == 'folder' else "📧"
-            display_text = f"{source_type} {source['source_name']} ({source['recordings_count']})"
-            self.source_combo.addItem(display_text, source['id'])
-        
-        # Przywróć poprzedni wybór jeśli istnieje
-        if previous_source_id:
-            for i in range(self.source_combo.count()):
-                if self.source_combo.itemData(i) == previous_source_id:
-                    self.source_combo.setCurrentIndex(i)
-                    break
-        
-        logger.debug(f"[CallCryptor] Loaded {len(sources)} sources")
-        
         # Załaduj tagi do filtra
         self._load_tags_filter()
     
@@ -428,14 +551,12 @@ class CallCryptorView(QWidget):
                                      list(recordings_folder.glob('*.[oO][gG][gG]'))
                         
                         if len(audio_files) > 0:
-                            logger.info(f"[CallCryptor] Found {len(audio_files)} audio files in Nagrania folder, auto-scanning...")
                             self._scan_recordings_folder_silently(recordings_source_id, recordings_folder)
                 return
             
             # Utwórz folder fizycznie jeśli nie istnieje
             if not recordings_folder.exists():
                 recordings_folder.mkdir(parents=True, exist_ok=True)
-                logger.info(f"[CallCryptor] Created recordings folder: {recordings_folder}")
             
             # Dodaj źródło do bazy danych
             source_data = {
@@ -449,7 +570,6 @@ class CallCryptorView(QWidget):
             }
             
             source_id = self.db_manager.add_source(source_data, self.user_id)
-            logger.info(f"[CallCryptor] Created system recordings folder source: {source_id}")
             
             # Automatycznie zeskanuj folder jeśli zawiera pliki
             audio_files = list(recordings_folder.glob('*.[wW][aA][vV]')) + \
@@ -458,7 +578,6 @@ class CallCryptorView(QWidget):
                          list(recordings_folder.glob('*.[oO][gG][gG]'))
             
             if len(audio_files) > 0:
-                logger.info(f"[CallCryptor] Found {len(audio_files)} audio files in new Nagrania folder, auto-scanning...")
                 self._scan_recordings_folder_silently(source_id, recordings_folder)
             
         except Exception as e:
@@ -485,9 +604,8 @@ class CallCryptorView(QWidget):
             )
             
             if results:
-                logger.info(f"[CallCryptor] Auto-scan of Nagrania folder completed: "
-                           f"{results.get('added', 0)} added, {results.get('updated', 0)} updated, "
-                           f"{results.get('skipped', 0)} skipped")
+                logger.info(f"[CallCryptor] Auto-scan completed: "
+                           f"{results.get('added', 0)} added, {results.get('updated', 0)} updated")
             
         except Exception as e:
             logger.error(f"[CallCryptor] Error auto-scanning Nagrania folder: {e}")
@@ -550,8 +668,6 @@ class CallCryptorView(QWidget):
         
         # Aktualizuj licznik
         self._update_count_label(len(recordings))
-        
-        logger.debug(f"[CallCryptor] Table populated with {len(recordings)} recordings")
     
     def _on_recording_selected(self):
         """Obsługa wyboru nagrania"""
@@ -1051,6 +1167,114 @@ class CallCryptorView(QWidget):
                 self,
                 t('error.general'),
                 t('callcryptor.error.tag_manager_failed').format(error=str(e))
+            )
+    
+    def _on_sync_clicked(self):
+        """Obsługa kliknięcia przycisku synchronizacji"""
+        try:
+            from .callcryptor_dialogs import SyncConsentDialog, SyncStatusDialog
+            
+            if not self.sync_manager:
+                QMessageBox.warning(
+                    self,
+                    t('callcryptor.sync.title'),
+                    "Sync manager not initialized"
+                )
+                return
+            
+            if not self.sync_manager.sync_enabled:
+                # Sync wyłączona - pokazuj dialog zgody
+                dialog = SyncConsentDialog(self)
+                
+                if dialog.exec():
+                    # Użytkownik zgodził się
+                    auto_sync = dialog.auto_sync_enabled
+                    dont_show = dialog.dont_show_again
+                    
+                    # Włącz synchronizację
+                    self.sync_manager.enable_sync(auto_sync=auto_sync)
+                    
+                    # Zaktualizuj kolor przycisku na zielony
+                    self._update_sync_button_state()
+                    
+                    # Uruchom pierwszą synchronizację
+                    logger.info("[CallCryptor] Starting initial sync...")
+                    success = self.sync_manager.sync_now()
+                    
+                    if success:
+                        QMessageBox.information(
+                            self,
+                            t('callcryptor.sync.title'),
+                            f"Synchronizacja włączona!\nAuto-sync: {'TAK' if auto_sync else 'NIE'}"
+                        )
+                    else:
+                        QMessageBox.warning(
+                            self,
+                            t('callcryptor.sync.title'),
+                            "Synchronizacja włączona, ale wystąpił błąd podczas pierwszej synchronizacji"
+                        )
+            else:
+                # Sync włączona - pokazuj dialog statusu
+                stats = self.sync_manager.get_stats()
+                
+                # Pobierz dodatkowo statystyki z API
+                if self.api_client:
+                    response = self.api_client.get_sync_stats()
+                    if response.success and response.data and isinstance(response.data, dict):
+                        stats.update(response.data)
+                
+                dialog = SyncStatusDialog(stats, self)
+                
+                if dialog.exec():
+                    # Użytkownik kliknął "Synchronizuj teraz"
+                    disable = dialog.disable_sync
+                    auto_sync_changed = dialog.auto_sync_checkbox.isChecked() != self.sync_manager.auto_sync_enabled
+                    
+                    if disable:
+                        # Wyłącz synchronizację
+                        self.sync_manager.disable_sync()
+                        self._update_sync_button_state()
+                        
+                        QMessageBox.information(
+                            self,
+                            t('callcryptor.sync.title'),
+                            "Synchronizacja wyłączona"
+                        )
+                    else:
+                        # Zaktualizuj auto-sync jeśli zmieniono
+                        if auto_sync_changed:
+                            new_auto_sync = dialog.auto_sync_checkbox.isChecked()
+                            self.sync_manager.auto_sync_enabled = new_auto_sync
+                            self.sync_manager._save_settings()
+                            
+                            if new_auto_sync and not self.sync_manager.is_auto_sync_running():
+                                self.sync_manager.start_auto_sync()
+                            elif not new_auto_sync and self.sync_manager.is_auto_sync_running():
+                                self.sync_manager.stop_auto_sync()
+                        
+                        # Uruchom synchronizację
+                        logger.info("[CallCryptor] Manual sync triggered...")
+                        success = self.sync_manager.sync_now()
+                        
+                        if success:
+                            QMessageBox.information(
+                                self,
+                                t('callcryptor.sync.title'),
+                                "Synchronizacja zakończona pomyślnie!"
+                            )
+                        else:
+                            QMessageBox.warning(
+                                self,
+                                t('callcryptor.sync.title'),
+                                "Wystąpił błąd podczas synchronizacji"
+                            )
+                    
+        except Exception as e:
+            logger.error(f"[CallCryptor] Error handling sync button: {e}")
+            QMessageBox.critical(
+                self,
+                t('error.general'),
+                f"Błąd synchronizacji: {str(e)}"
             )
     
     def _format_duration(self, seconds: int) -> str:
@@ -1788,8 +2012,6 @@ class CallCryptorView(QWidget):
             header.setSectionResizeMode(7, QHeaderView.ResizeMode.Fixed)  # Summarize checkbox
             self.recordings_table.setColumnWidth(6, 80)  # 80px dla checkboxa transkrypcji
             self.recordings_table.setColumnWidth(7, 80)  # 80px dla checkboxa podsumowania
-            
-            logger.info("[CallCryptor] Queue mode activated - button should be orange")
         else:
             # Dezaktywuj tryb kolejki
             self.queue_btn.setText("👥")
@@ -1810,8 +2032,6 @@ class CallCryptorView(QWidget):
             header = self.recordings_table.horizontalHeader()
             header.setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)  # Transcribe
             header.setSectionResizeMode(7, QHeaderView.ResizeMode.ResizeToContents)  # AI Summary
-            
-            logger.info("[CallCryptor] Queue mode deactivated - button should be normal")
         
         # Przeładuj tabelę z nowymi kolumnami
         self._refresh_table()
@@ -2071,8 +2291,10 @@ class CallCryptorView(QWidget):
         Args:
             recordings: Lista nagrań do wyświetlenia
         """
-        logger.info(f"[CallCryptor] _populate_table called with {len(recordings)} recordings, queue_mode_active={self.queue_mode_active}")
         self.recordings_table.setRowCount(len(recordings))
+        
+        # Pobierz dostępne tagi RAZ przed pętlą (optymalizacja)
+        available_tags = self._get_available_tags()
         
         for row, recording in enumerate(recordings):
             # Przycisk Ulubione (Gwiazdka) - KOLUMNA 0
@@ -2155,9 +2377,7 @@ class CallCryptorView(QWidget):
             tag_combo.setMinimumHeight(35)
             tag_combo.addItem("-- Brak tagu --", None)
             
-            # Pobierz wszystkie dostępne tagi z dialogu (na razie przykładowe)
-            available_tags = self._get_available_tags()
-            
+            # Użyj wcześniej pobranych tagów (optymalizacja)
             for tag_name, tag_color in available_tags.items():
                 tag_combo.addItem(f"🏷️ {tag_name}", tag_name)
             
@@ -2385,7 +2605,6 @@ class CallCryptorView(QWidget):
             self.selected_items['transcribe'].add(recording_id)
         else:
             self.selected_items['transcribe'].discard(recording_id)
-        logger.debug(f"[CallCryptor] Transcribe selection changed: {len(self.selected_items['transcribe'])} files")
     
     def _on_summarize_checkbox_changed(self, recording_id: str, state: int):
         """Obsługa zmiany checkboxa podsumowania"""
@@ -2393,7 +2612,6 @@ class CallCryptorView(QWidget):
             self.selected_items['summarize'].add(recording_id)
         else:
             self.selected_items['summarize'].discard(recording_id)
-        logger.debug(f"[CallCryptor] Summarize selection changed: {len(self.selected_items['summarize'])} files")
     
     def update_translations(self):
         """Odśwież tłumaczenia"""

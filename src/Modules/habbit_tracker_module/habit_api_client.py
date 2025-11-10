@@ -42,6 +42,20 @@ class ConflictError(Exception):
         self.server_version = server_version
 
 
+TYPE_MAPPING: Dict[str, str] = {
+    'checkbox': 'checkbox',
+    'licznik': 'counter',
+    'counter': 'counter',
+    'skala': 'scale',
+    'scale': 'scale',
+    'czas trwania': 'duration',
+    'duration': 'duration',
+    'tekst': 'text',
+    'text': 'text',
+    'time': 'time'
+}
+
+
 class HabitAPIClient:
     """
     Klient API dla synchronizacji habit trackera.
@@ -213,30 +227,8 @@ class HabitAPIClient:
             ConflictError: Jeśli wersja na serwerze jest nowsza
         """
         try:
-            # Mapowanie habit_type (polski -> angielski) dla API
-            type_mapping = {
-                'Checkbox': 'checkbox',
-                'Licznik': 'counter',
-                'Skala': 'scale',
-                'Czas trwania': 'duration',
-                'Tekst': 'text',
-                'time': 'time',  # już angielskie
-                'scale': 'scale',
-                'checkbox': 'checkbox',
-                'counter': 'counter',
-                'duration': 'duration',
-                'text': 'text'
-            }
-            
-            # Przygotuj payload z transformacją pól
-            payload = {
-                'id': column_data.get('id'),
-                'name': column_data.get('name'),
-                'type': type_mapping.get(column_data.get('habit_type'), 'text'),  # habit_type -> type
-                'scale_max': column_data.get('scale_max') or 10,  # None -> 10 dla scale
-                'version': column_data.get('version', 1),
-                'user_id': user_id
-            }
+            payload = self._normalise_column_payload(column_data)
+            payload['user_id'] = user_id
             
             # Konwersja datetime do ISO string
             for field in ['created_at', 'updated_at']:
@@ -246,7 +238,6 @@ class HabitAPIClient:
                     payload[field] = column_data[field]
             
             logger.debug(f"Syncing habit column {column_data.get('id')} to server")
-            logger.debug(f"📤 [HABIT API] Payload for column: {payload}")
             
             response = self._request_with_retry(
                 'POST',
@@ -301,32 +292,16 @@ class HabitAPIClient:
             ConflictError: Jeśli wersja na serwerze jest nowsza
         """
         try:
-            # Przygotuj payload z transformacją pól (column_id -> habit_id, record_date -> date)
-            payload = {
-                'id': record_data.get('id'),
-                'habit_id': record_data.get('column_id'),  # column_id -> habit_id
-                'date': record_data.get('record_date'),    # record_date -> date
-                'value': record_data.get('value'),
-                'notes': record_data.get('notes', ''),
-                'version': record_data.get('version', 1),
-                'user_id': user_id
-            }
+            payload = self._normalise_record_payload(record_data)
+            payload['user_id'] = user_id
+            payload['notes'] = record_data.get('notes', '')
             
             # Konwersja datetime/date do ISO string
             for field in ['created_at', 'updated_at']:
                 if field in record_data and isinstance(record_data[field], datetime):
                     payload[field] = record_data[field].isoformat()
-                elif field in record_data:
-                    payload[field] = record_data[field]
-            
-            if isinstance(payload['date'], date):
-                payload['date'] = payload['date'].isoformat()
-            elif isinstance(payload['date'], str) and payload['date']:
-                # Już string, pozostaw bez zmian
-                pass
             
             logger.debug(f"Syncing habit record {record_data.get('id')} to server")
-            logger.debug(f"📤 [HABIT API] Payload for record: {payload}")
             
             response = self._request_with_retry(
                 'POST',
@@ -414,11 +389,11 @@ class HabitAPIClient:
             APIResponse z listą rekordów
         """
         try:
-            params = {'user_id': user_id}
+            params: Dict[str, Any] = {'user_id': user_id}
             if year is not None:
-                params['year'] = year
+                params['year'] = str(year)
             if month is not None:
-                params['month'] = month
+                params['month'] = str(month)
             
             logger.debug(f"Fetching habit records for user {user_id}, year={year}, month={month}")
             
@@ -451,10 +426,10 @@ class HabitAPIClient:
             APIResponse z danymi miesięcznymi
         """
         try:
-            params = {
+            params: Dict[str, Any] = {
                 'user_id': user_id,
-                'year': year,
-                'month': month
+                'year': str(year),
+                'month': str(month)
             }
             
             logger.debug(f"Fetching monthly habit data for user {user_id}, {year}-{month:02d}")
@@ -547,6 +522,76 @@ class HabitAPIClient:
     # BULK SYNCHRONIZACJA
     # =========================================================================
     
+    @staticmethod
+    def _normalise_column_payload(column: Dict[str, Any]) -> Dict[str, Any]:
+        """Przygotuj dane kolumny do wysłania w bulk sync."""
+        raw_type = column.get('type') or column.get('habit_type')
+        normalised_type = TYPE_MAPPING.get(str(raw_type).lower(), 'text') if raw_type else 'text'
+
+        def _normalise_scale(value: Any) -> int:
+            try:
+                if value is None or str(value).strip() == '':
+                    return 1 if normalised_type in {'checkbox', 'text'} else 10
+                int_value = int(value)
+                return max(1, min(100, int_value))
+            except (TypeError, ValueError):
+                return 10
+
+        def _normalise_position(value: Any) -> int:
+            try:
+                return max(0, int(value))
+            except (TypeError, ValueError):
+                return 0
+
+        def _normalise_version(value: Any) -> int:
+            try:
+                return max(1, int(value))
+            except (TypeError, ValueError):
+                return 1
+
+        payload = {
+            'id': column.get('id'),
+            'name': column.get('name'),
+            'type': normalised_type,
+            'position': _normalise_position(column.get('position')),
+            'scale_max': _normalise_scale(column.get('scale_max')),
+            'version': _normalise_version(column.get('version'))
+        }
+
+        return payload
+
+    @staticmethod
+    def _normalise_record_payload(record: Dict[str, Any]) -> Dict[str, Any]:
+        """Przygotuj dane rekordu do wysłania w bulk sync."""
+
+        def _extract_date(value: Any) -> str:
+            if isinstance(value, date):
+                return value.isoformat()
+            if isinstance(value, datetime):
+                return value.date().isoformat()
+            if isinstance(value, str):
+                try:
+                    return date.fromisoformat(value.split('T')[0].split(' ')[0]).isoformat()
+                except ValueError:
+                    return value[:10]
+            return datetime.utcnow().date().isoformat()
+
+        def _normalise_version(value: Any) -> int:
+            try:
+                return max(1, int(value))
+            except (TypeError, ValueError):
+                return 1
+
+        payload = {
+            'id': record.get('id'),
+            'habit_id': record.get('habit_id') or record.get('column_id'),
+            'date': _extract_date(record.get('date') or record.get('record_date')),
+            'value': record.get('value'),
+            'version': _normalise_version(record.get('version'))
+        }
+
+        return payload
+
     def bulk_sync(
         self, 
         user_id: str,
@@ -567,31 +612,13 @@ class HabitAPIClient:
             APIResponse z danymi do aktualizacji lokalnej
         """
         try:
-            payload = {'user_id': user_id}
+            payload: Dict[str, Any] = {'user_id': user_id}
             
             if columns is not None:
-                # Konwersja datetime do ISO string dla kolumn
-                processed_columns = []
-                for column in columns:
-                    col_copy = column.copy()
-                    for field in ['created_at', 'updated_at']:
-                        if field in col_copy and isinstance(col_copy[field], datetime):
-                            col_copy[field] = col_copy[field].isoformat()
-                    processed_columns.append(col_copy)
-                payload['columns'] = processed_columns
+                payload['columns'] = [self._normalise_column_payload(column) for column in columns]
             
             if records is not None:
-                # Konwersja datetime/date do ISO string dla rekordów
-                processed_records = []
-                for record in records:
-                    rec_copy = record.copy()
-                    for field in ['created_at', 'updated_at']:
-                        if field in rec_copy and isinstance(rec_copy[field], datetime):
-                            rec_copy[field] = rec_copy[field].isoformat()
-                    if 'record_date' in rec_copy and isinstance(rec_copy['record_date'], date):
-                        rec_copy['record_date'] = rec_copy['record_date'].isoformat()
-                    processed_records.append(rec_copy)
-                payload['records'] = processed_records
+                payload['records'] = [self._normalise_record_payload(record) for record in records]
             
             if last_sync is not None:
                 payload['last_sync'] = last_sync.isoformat()

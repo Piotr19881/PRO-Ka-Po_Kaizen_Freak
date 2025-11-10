@@ -110,7 +110,7 @@ class LocalDatabase:
     # OPERACJE NA ALARMACH
     # =========================================================================
     
-    def save_alarm(self, alarm: Alarm, user_id: Optional[str] = None) -> bool:
+    def save_alarm(self, alarm: Alarm, user_id: Optional[str] = None, *, enqueue: bool = True) -> bool:
         """
         Zapisz alarm do lokalnej bazy (unified table)
         
@@ -128,13 +128,16 @@ class LocalDatabase:
                 now = datetime.now().isoformat()
                 version = getattr(alarm, 'version', 1)
                 
+                needs_sync_flag = 1 if enqueue else 0
+                synced_at_value = None if enqueue else now
+
                 cursor.execute("""
                     INSERT OR REPLACE INTO alarms_timers 
                     (id, user_id, type, label, enabled, 
                      alarm_time, recurrence, days, 
                      play_sound, show_popup, custom_sound, 
-                     created_at, updated_at, version, needs_sync)
-                    VALUES (?, ?, 'alarm', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                     created_at, updated_at, synced_at, version, needs_sync)
+                    VALUES (?, ?, 'alarm', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     alarm.id,
                     user_id,
@@ -148,22 +151,25 @@ class LocalDatabase:
                     alarm.custom_sound,
                     alarm.created_at.isoformat() if alarm.created_at else now,
                     now,
-                    version
+                    synced_at_value,
+                    version,
+                    needs_sync_flag
                 ))
                 
-                # Dodaj do kolejki synchronizacji
-                self._add_to_sync_queue(conn, 'alarm', alarm.id, 'upsert', {
-                    'id': alarm.id,
-                    'type': 'alarm',
-                    'label': alarm.label,
-                    'enabled': alarm.enabled,
-                    'alarm_time': alarm.time.strftime('%H:%M'),
-                    'recurrence': alarm.recurrence.value,
-                    'days': alarm.days,
-                    'play_sound': alarm.play_sound,
-                    'show_popup': alarm.show_popup,
-                    'custom_sound': alarm.custom_sound
-                })
+                if enqueue:
+                    # Dodaj do kolejki synchronizacji tylko dla zmian lokalnych
+                    self._add_to_sync_queue(conn, 'alarm', alarm.id, 'upsert', {
+                        'id': alarm.id,
+                        'type': 'alarm',
+                        'label': alarm.label,
+                        'enabled': alarm.enabled,
+                        'alarm_time': alarm.time.strftime('%H:%M'),
+                        'recurrence': alarm.recurrence.value,
+                        'days': alarm.days,
+                        'play_sound': alarm.play_sound,
+                        'show_popup': alarm.show_popup,
+                        'custom_sound': alarm.custom_sound
+                    })
                 
                 conn.commit()
                 logger.debug(f"Alarm saved locally: {alarm.id}")
@@ -305,7 +311,7 @@ class LocalDatabase:
     # OPERACJE NA TIMERACH
     # =========================================================================
     
-    def save_timer(self, timer: Timer, user_id: Optional[str] = None) -> bool:
+    def save_timer(self, timer: Timer, user_id: Optional[str] = None, *, enqueue: bool = True) -> bool:
         """
         Zapisz timer do lokalnej bazy (unified table)
         
@@ -323,13 +329,16 @@ class LocalDatabase:
                 now = datetime.now().isoformat()
                 version = getattr(timer, 'version', 1)
                 
+                needs_sync_flag = 1 if enqueue else 0
+                synced_at_value = None if enqueue else now
+
                 cursor.execute("""
                     INSERT OR REPLACE INTO alarms_timers 
                     (id, user_id, type, label, enabled, 
                      duration, remaining, repeat, started_at,
                      play_sound, show_popup, custom_sound, 
-                     created_at, updated_at, version, needs_sync)
-                    VALUES (?, ?, 'timer', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                     created_at, updated_at, synced_at, version, needs_sync)
+                    VALUES (?, ?, 'timer', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     timer.id,
                     user_id,
@@ -344,23 +353,26 @@ class LocalDatabase:
                     timer.custom_sound,
                     timer.created_at.isoformat() if timer.created_at else now,
                     now,
-                    version
+                    synced_at_value,
+                    version,
+                    needs_sync_flag
                 ))
                 
-                # Dodaj do kolejki synchronizacji
-                self._add_to_sync_queue(conn, 'timer', timer.id, 'upsert', {
-                    'id': timer.id,
-                    'type': 'timer',
-                    'label': timer.label,
-                    'enabled': timer.enabled,
-                    'duration': timer.duration,
-                    'remaining': timer.remaining,
-                    'repeat': timer.repeat,
-                    'started_at': timer.started_at.isoformat() if timer.started_at else None,
-                    'play_sound': timer.play_sound,
-                    'show_popup': timer.show_popup,
-                    'custom_sound': timer.custom_sound
-                })
+                if enqueue:
+                    # Dodaj do kolejki synchronizacji dla zmian lokalnych
+                    self._add_to_sync_queue(conn, 'timer', timer.id, 'upsert', {
+                        'id': timer.id,
+                        'type': 'timer',
+                        'label': timer.label,
+                        'enabled': timer.enabled,
+                        'duration': timer.duration,
+                        'remaining': timer.remaining,
+                        'repeat': timer.repeat,
+                        'started_at': timer.started_at.isoformat() if timer.started_at else None,
+                        'play_sound': timer.play_sound,
+                        'show_popup': timer.show_popup,
+                        'custom_sound': timer.custom_sound
+                    })
                 
                 conn.commit()
                 logger.debug(f"Timer saved locally: {timer.id}")
@@ -625,7 +637,7 @@ class LocalDatabase:
     # OPERACJE MASOWE
     # =========================================================================
     
-    def bulk_import_alarms(self, alarms: List[Alarm], user_id: Optional[str] = None) -> int:
+    def bulk_import_alarms(self, alarms: List[Alarm], user_id: Optional[str] = None, *, enqueue: bool = False) -> int:
         """
         Import wielu alarmów naraz (np. podczas synchronizacji)
         
@@ -634,11 +646,11 @@ class LocalDatabase:
         """
         count = 0
         for alarm in alarms:
-            if self.save_alarm(alarm, user_id):
+            if self.save_alarm(alarm, user_id, enqueue=enqueue):
                 count += 1
         return count
     
-    def bulk_import_timers(self, timers: List[Timer], user_id: Optional[str] = None) -> int:
+    def bulk_import_timers(self, timers: List[Timer], user_id: Optional[str] = None, *, enqueue: bool = False) -> int:
         """
         Import wielu timerów naraz (np. podczas synchronizacji)
         
@@ -647,7 +659,7 @@ class LocalDatabase:
         """
         count = 0
         for timer in timers:
-            if self.save_timer(timer, user_id):
+            if self.save_timer(timer, user_id, enqueue=enqueue):
                 count += 1
         return count
     

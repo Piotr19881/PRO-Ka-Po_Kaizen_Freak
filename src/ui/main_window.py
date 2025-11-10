@@ -3,7 +3,7 @@ Main Window - Główne okno aplikacji
 """
 from pathlib import Path
 from PyQt6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QStackedWidget, QFrame,
     QLineEdit, QTableWidget, QMenu
 )
@@ -756,6 +756,34 @@ class MainWindow(QMainWindow):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         # Włącz cień dla okna (Windows 10/11)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
+        self._center_on_screen()
+
+    def _center_on_screen(self):
+        """Ustawienie okna na środku bieżącego ekranu."""
+        screen = self.screen()
+        if not screen and self.windowHandle():
+            screen = self.windowHandle().screen()
+        if not screen:
+            screen = QApplication.primaryScreen()
+        if not screen:
+            return
+
+        available = screen.availableGeometry()
+        frame = self.frameGeometry()
+        frame.moveCenter(available.center())
+
+        x_min = available.left()
+        y_min = available.top()
+        x_max = x_min + max(0, available.width() - frame.width())
+        y_max = y_min + max(0, available.height() - frame.height())
+        target_x = max(x_min, min(frame.left(), x_max))
+        target_y = max(y_min, min(frame.top(), y_max))
+        self.move(int(target_x), int(target_y))
+
+    def showEvent(self, event):
+        """Pilnuj, aby przy starcie okno było w pełni widoczne."""
+        super().showEvent(event)
+        QTimer.singleShot(0, self._center_on_screen)
     
     def _setup_ui(self):
         """Konfiguracja interfejsu użytkownika"""

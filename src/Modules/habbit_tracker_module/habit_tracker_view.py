@@ -76,6 +76,8 @@ class HabbitTrackerView(QWidget):
                     sync_interval=30,  # synchronizacja co 30 sekund
                     max_retries=3
                 )
+                if hasattr(self.db_manager, "set_sync_trigger"):
+                    self.db_manager.set_sync_trigger(self._handle_local_sync_trigger)
                 # NIE uruchamiaj jeszcze - wymaga user_id (zostanie uruchomiony w set_user_data)
                 logger.info("[HABIT] 🔄 Sync manager utworzony - oczekuje na user_id")
             except Exception as e:
@@ -147,6 +149,14 @@ class HabbitTrackerView(QWidget):
             import traceback
             logger.error(traceback.format_exc())
         
+    def _handle_local_sync_trigger(self, entity_type: str, action: str) -> None:
+        """Zgłoszono operację wymagającą synchronizacji - obudź worker."""
+        if not self.sync_manager:
+            return
+
+        reason = f"{entity_type}:{action}"
+        self.sync_manager.request_immediate_sync(reason=reason)
+
     def setup_ui(self):
         """Tworzy interfejs użytkownika"""
         layout = QVBoxLayout(self)
@@ -206,7 +216,16 @@ class HabbitTrackerView(QWidget):
         self.refresh_btn.setToolTip(t("habit.refresh", "Odśwież tabelę"))
         # Dodajemy do układu (drugi element od lewej)
         toolbar_main_layout.addWidget(self.refresh_btn)
-        
+
+        # ========== PRZYCISK WYMUŚ SYNC ==========
+        self.force_sync_btn = QPushButton("♻️")
+        self.force_sync_btn.setMinimumSize(40, 35)
+        self.force_sync_btn.setMaximumSize(40, 35)
+        self.force_sync_btn.setStyleSheet("padding: 2px;")
+        self.force_sync_btn.setToolTip(t("habit.force_sync", "Wymuś pełną synchronizację"))
+        self.force_sync_btn.clicked.connect(self.on_force_resync_clicked)
+        toolbar_main_layout.addWidget(self.force_sync_btn)
+
         # ========== SEPARATOR (odstęp) ==========
         # Dodajemy 20px pustej przestrzeni jako separator wizualny między grupami przycisków
         toolbar_main_layout.addSpacing(20)
@@ -1152,6 +1171,56 @@ class HabbitTrackerView(QWidget):
         # Bezpośrednio otwórz dialog edycji dla wybranej daty
         self.open_cell_edit_dialog(habit, selected_date)
         
+    def on_force_resync_clicked(self):
+        """Wymuś pełną synchronizację danych habit trackera."""
+
+        if not self.sync_manager:
+            QMessageBox.warning(
+                self,
+                t("habit.sync_unavailable", "Synchronizacja"),
+                t("habit.sync_unavailable_msg", "Synchronizacja nie jest dostępna."),
+            )
+            return
+
+        if not self.user_id:
+            QMessageBox.warning(
+                self,
+                t("habit.sync_no_user", "Synchronizacja"),
+                t("habit.sync_no_user_msg", "Brak informacji o użytkowniku."),
+            )
+            return
+
+        confirm = QMessageBox.question(
+            self,
+            t("habit.force_sync", "Wymuś pełną synchronizację"),
+            t(
+                "habit.force_sync_confirm",
+                "Czy na pewno chcesz wymusić pełną synchronizację danych habit trackera?",
+            ),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+
+        if confirm != QMessageBox.StandardButton.Yes:
+            return
+
+        success = self.sync_manager.force_full_resync()
+
+        if success:
+            self.load_habits()
+            self.refresh_table()
+            QMessageBox.information(
+                self,
+                t("habit.force_sync", "Wymuś pełną synchronizację"),
+                t("habit.force_sync_success", "Pełna synchronizacja zakończona powodzeniem."),
+            )
+        else:
+            QMessageBox.warning(
+                self,
+                t("habit.force_sync", "Wymuś pełną synchronizację"),
+                t("habit.force_sync_failed", "Nie udało się wykonać pełnej synchronizacji."),
+            )
+
     def on_add_habit_clicked(self):
         """Obsługuje dodawanie nowego nawyku"""
         dialog = AddHabbitDialog(self)

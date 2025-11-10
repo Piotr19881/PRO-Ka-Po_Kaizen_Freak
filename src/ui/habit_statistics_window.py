@@ -9,21 +9,21 @@ from PyQt6.QtWidgets import (
     QHeaderView, QWidget, QScrollArea, QCheckBox
 )
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QPainter, QFont
+from PyQt6.QtGui import QPainter, QFont, QColor, QBrush
 from PyQt6.QtPrintSupport import QPrinter, QPrintDialog
 from datetime import datetime, date
 from typing import List, Dict, Any, Optional
 from loguru import logger
 
-# Opcjonalny import matplotlib
+# Opcjonalny import matplotlib (wspiera PyQt6)
 try:
-    import matplotlib.pyplot as plt
-    from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+    from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
     from matplotlib.figure import Figure
+    import matplotlib.dates as mdates
     MATPLOTLIB_AVAILABLE = True
-except ImportError:
+except Exception as exc:  # ImportError lub brak backendu Qt
     MATPLOTLIB_AVAILABLE = False
-    logger.warning("[HABIT STATS] Matplotlib not available - charts will be limited")
+    logger.warning("[HABIT STATS] Matplotlib not available - charts will be limited (%s)", exc)
 
 # Opcjonalny import numpy i scipy dla analiz statystycznych
 try:
@@ -490,21 +490,41 @@ class HabitStatisticsWindow(QDialog):
         
         fig = Figure(figsize=(8, 5))
         canvas = FigureCanvas(fig)
+        canvas.setMinimumHeight(360)
         ax = fig.add_subplot(111)
-        
-        # Przykładowe dane - tutaj trzeba będzie pobrać rzeczywiste dane z bazy
+
+        has_series = False
         for habit in self.selected_habits:
-            # Pobierz dane dla każdego nawyku
             dates, values = self.get_habit_timeline_data(habit)
+            if not dates:
+                continue
+
+            if all(value == 0 for value in values):
+                # Jeśli wszystkie wartości są zerowe, spróbuj wykazać brak danych
+                continue
+
             ax.plot(dates, values, marker='o', label=habit['name'])
-        
+            has_series = True
+
+        if not has_series:
+            label = QLabel(t("habit.stats.no_chart_data", "Brak danych do narysowania wykresu liniowego w wybranym okresie."))
+            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            label.setStyleSheet("font-size: 14px; color: gray; padding: 40px;")
+            self.content_layout.addWidget(label)
+            return
+
         ax.set_xlabel(t("habit.stats.date", "Data"))
         ax.set_ylabel(t("habit.stats.value", "Wartość"))
         ax.set_title(t("habit.stats.timeline", "Wykres czasowy nawyków"))
         ax.legend()
         ax.grid(True, alpha=0.3)
+
+        # Formatowanie osi X z datami
+        ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
+        fig.autofmt_xdate(rotation=30)
         fig.tight_layout()
-        
+
+        canvas.draw()
         self.content_layout.addWidget(canvas)
     
     def generate_bar_chart(self):
@@ -516,20 +536,29 @@ class HabitStatisticsWindow(QDialog):
             self.content_layout.addWidget(label)
             return
         
-        fig = Figure(figsize=(8, 5))
-        canvas = FigureCanvas(fig)
-        ax = fig.add_subplot(111)
-        
         habit_names = [h['name'] for h in self.selected_habits]
         values = [self.calculate_habit_sum(h) for h in self.selected_habits]
-        
+
+        if not any(value != 0 for value in values):
+            label = QLabel(t("habit.stats.no_bar_data", "Brak wyników do porównania w wybranym okresie."))
+            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            label.setStyleSheet("font-size: 14px; color: gray; padding: 40px;")
+            self.content_layout.addWidget(label)
+            return
+
+        fig = Figure(figsize=(8, 5))
+        canvas = FigureCanvas(fig)
+        canvas.setMinimumHeight(340)
+        ax = fig.add_subplot(111)
+
         ax.bar(habit_names, values, color='skyblue')
         ax.set_xlabel(t("habit.stats.habit_name", "Nazwa nawyku"))
         ax.set_ylabel(t("habit.stats.total_sum", "Suma"))
         ax.set_title(t("habit.stats.comparison", "Porównanie nawyków"))
         ax.grid(True, alpha=0.3, axis='y')
         fig.tight_layout()
-        
+
+        canvas.draw()
         self.content_layout.addWidget(canvas)
     
     def generate_detailed_table(self):

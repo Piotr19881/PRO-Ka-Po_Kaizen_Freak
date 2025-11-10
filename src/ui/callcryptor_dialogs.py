@@ -38,7 +38,6 @@ class AddSourceDialog(QDialog):
         self.theme_manager = get_theme_manager()
         self.email_db = None
         self.user_id = None
-        self.email_db = None
         
         # Pobierz user_id z parent (CallCryptorView)
         if parent and hasattr(parent, 'user_id'):
@@ -699,6 +698,308 @@ class EmailDateRangeDialog(QDialog):
             }}
             QPushButton:hover {{
                 background-color: {colors.get('accent_hover', '#1976D2')};
+            }}
+        """
+        self.setStyleSheet(style)
+
+
+# ============================================================================
+# SYNC DIALOGS
+# ============================================================================
+
+class SyncConsentDialog(QDialog):
+    """
+    Dialog zgody na synchronizację CallCryptor
+    Pokazywany przy pierwszym włączeniu sync (privacy-first)
+    """
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.theme_manager = get_theme_manager()
+        self.auto_sync_enabled = False
+        self.dont_show_again = False
+        
+        self.setWindowTitle(t('callcryptor.sync.title'))
+        self.setMinimumWidth(600)
+        self.setMinimumHeight(500)
+        
+        self._init_ui()
+        self._apply_theme()
+        
+    def _init_ui(self):
+        """Inicjalizacja interfejsu"""
+        layout = QVBoxLayout(self)
+        layout.setSpacing(15)
+        
+        # Nagłówek z emoji
+        header_layout = QHBoxLayout()
+        header_icon = QLabel("📨")
+        header_icon.setFont(QFont("Segoe UI Emoji", 32))
+        header_layout.addWidget(header_icon)
+        
+        header_text = QLabel(t('callcryptor.sync.consent_header'))
+        header_text.setFont(QFont("Arial", 14, QFont.Weight.Bold))
+        header_text.setWordWrap(True)
+        header_layout.addWidget(header_text, 1)
+        layout.addLayout(header_layout)
+        
+        # Separator
+        layout.addSpacing(10)
+        
+        # Ostrzeżenie o prywatności
+        warning_group = QGroupBox("⚠️ " + t('callcryptor.sync.privacy_warning_title'))
+        warning_layout = QVBoxLayout(warning_group)
+        
+        warning_text = QLabel(t('callcryptor.sync.privacy_warning_text'))
+        warning_text.setWordWrap(True)
+        warning_text.setStyleSheet("padding: 10px; background-color: rgba(255, 140, 0, 0.1); border-radius: 4px;")
+        warning_layout.addWidget(warning_text)
+        
+        layout.addWidget(warning_group)
+        
+        # Co BĘDZIE synchronizowane
+        sync_yes_group = QGroupBox("✅ " + t('callcryptor.sync.will_sync'))
+        sync_yes_layout = QVBoxLayout(sync_yes_group)
+        
+        sync_yes_items = [
+            t('callcryptor.sync.will_sync_metadata'),
+            t('callcryptor.sync.will_sync_transcriptions'),
+            t('callcryptor.sync.will_sync_tags'),
+            t('callcryptor.sync.will_sync_links')
+        ]
+        
+        for item in sync_yes_items:
+            label = QLabel(f"  • {item}")
+            label.setWordWrap(True)
+            sync_yes_layout.addWidget(label)
+        
+        layout.addWidget(sync_yes_group)
+        
+        # Co NIE będzie synchronizowane
+        sync_no_group = QGroupBox("❌ " + t('callcryptor.sync.wont_sync'))
+        sync_no_layout = QVBoxLayout(sync_no_group)
+        
+        sync_no_items = [
+            t('callcryptor.sync.wont_sync_audio'),
+            t('callcryptor.sync.wont_sync_passwords')
+        ]
+        
+        for item in sync_no_items:
+            label = QLabel(f"  • {item}")
+            label.setWordWrap(True)
+            label.setStyleSheet("color: #D32F2F; font-weight: bold;")
+            sync_no_layout.addWidget(label)
+        
+        layout.addWidget(sync_no_group)
+        
+        # Opcje
+        layout.addSpacing(10)
+        
+        self.auto_sync_checkbox = QCheckBox(t('callcryptor.sync.enable_auto_sync'))
+        self.auto_sync_checkbox.setToolTip(t('callcryptor.sync.auto_sync_tooltip'))
+        layout.addWidget(self.auto_sync_checkbox)
+        
+        self.dont_show_checkbox = QCheckBox(t('callcryptor.sync.dont_show_again'))
+        layout.addWidget(self.dont_show_checkbox)
+        
+        layout.addStretch()
+        
+        # Przyciski
+        buttons_layout = QHBoxLayout()
+        buttons_layout.addStretch()
+        
+        cancel_btn = QPushButton(t('common.cancel'))
+        cancel_btn.setMinimumWidth(120)
+        cancel_btn.clicked.connect(self.reject)
+        buttons_layout.addWidget(cancel_btn)
+        
+        sync_once_btn = QPushButton(t('callcryptor.sync.sync_once'))
+        sync_once_btn.setMinimumWidth(150)
+        sync_once_btn.clicked.connect(self._sync_once)
+        sync_once_btn.setStyleSheet("background-color: #FFA000;")
+        buttons_layout.addWidget(sync_once_btn)
+        
+        enable_btn = QPushButton(t('callcryptor.sync.enable_sync'))
+        enable_btn.setMinimumWidth(150)
+        enable_btn.clicked.connect(self._enable_sync)
+        enable_btn.setStyleSheet("background-color: #4CAF50;")
+        buttons_layout.addWidget(enable_btn)
+        
+        layout.addLayout(buttons_layout)
+    
+    def _sync_once(self):
+        """Synchronizuj raz bez włączania auto-sync"""
+        self.auto_sync_enabled = False
+        self.dont_show_again = self.dont_show_checkbox.isChecked()
+        self.accept()
+    
+    def _enable_sync(self):
+        """Włącz synchronizację"""
+        self.auto_sync_enabled = self.auto_sync_checkbox.isChecked()
+        self.dont_show_again = self.dont_show_checkbox.isChecked()
+        self.accept()
+    
+    def _apply_theme(self):
+        """Zastosuj motyw"""
+        if not self.theme_manager or not self.theme_manager.current_theme:
+            return
+        
+        colors = self.theme_manager.get_current_colors()
+        
+        style = f"""
+            QDialog {{
+                background-color: {colors.get('background_primary', '#FFFFFF')};
+                color: {colors.get('text_primary', '#000000')};
+            }}
+            QGroupBox {{
+                border: 2px solid {colors.get('border_primary', '#E0E0E0')};
+                border-radius: 8px;
+                margin-top: 12px;
+                padding-top: 15px;
+                font-weight: bold;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 15px;
+                padding: 0 10px;
+            }}
+            QPushButton {{
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 10px 20px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                opacity: 0.9;
+            }}
+        """
+        self.setStyleSheet(style)
+
+
+class SyncStatusDialog(QDialog):
+    """
+    Dialog statusu synchronizacji
+    Pokazywany gdy sync jest już włączona
+    """
+    
+    def __init__(self, sync_stats: dict, parent=None):
+        super().__init__(parent)
+        self.theme_manager = get_theme_manager()
+        self.sync_stats = sync_stats
+        self.disable_sync = False
+        
+        self.setWindowTitle(t('callcryptor.sync.title'))
+        self.setMinimumWidth(500)
+        self.setMinimumHeight(400)
+        
+        self._init_ui()
+        self._apply_theme()
+    
+    def _init_ui(self):
+        """Inicjalizacja interfejsu"""
+        layout = QVBoxLayout(self)
+        layout.setSpacing(15)
+        
+        # Nagłówek
+        header_layout = QHBoxLayout()
+        header_icon = QLabel("📨")
+        header_icon.setFont(QFont("Segoe UI Emoji", 32))
+        header_layout.addWidget(header_icon)
+        
+        header_text = QLabel(t('callcryptor.sync.status_header'))
+        header_text.setFont(QFont("Arial", 14, QFont.Weight.Bold))
+        header_layout.addWidget(header_text, 1)
+        layout.addLayout(header_layout)
+        
+        # Status
+        status_group = QGroupBox(t('callcryptor.sync.status'))
+        status_layout = QFormLayout(status_group)
+        
+        status_label = QLabel("✅ " + t('callcryptor.sync.enabled'))
+        status_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
+        status_layout.addRow(t('callcryptor.sync.state'), status_label)
+        
+        last_sync = self.sync_stats.get('last_sync_at', None)
+        if last_sync:
+            last_sync_label = QLabel(str(last_sync))
+        else:
+            last_sync_label = QLabel(t('callcryptor.sync.never'))
+            last_sync_label.setStyleSheet("color: #999;")
+        status_layout.addRow(t('callcryptor.sync.last_sync'), last_sync_label)
+        
+        layout.addWidget(status_group)
+        
+        # Statystyki
+        stats_group = QGroupBox(t('callcryptor.sync.statistics'))
+        stats_layout = QFormLayout(stats_group)
+        
+        total_recordings = self.sync_stats.get('total_recordings', 0)
+        synced_recordings = total_recordings  # TODO: track synced vs unsynced
+        pending = self.sync_stats.get('pending_uploads', 0)
+        
+        stats_layout.addRow(t('callcryptor.sync.total_recordings'), QLabel(str(total_recordings)))
+        stats_layout.addRow(t('callcryptor.sync.synced_recordings'), QLabel(str(synced_recordings)))
+        stats_layout.addRow(t('callcryptor.sync.pending_sync'), QLabel(str(pending)))
+        
+        layout.addWidget(stats_group)
+        
+        # Opcje
+        self.auto_sync_checkbox = QCheckBox(t('callcryptor.sync.auto_sync_every_5min'))
+        self.auto_sync_checkbox.setChecked(self.sync_stats.get('auto_sync_enabled', False))
+        layout.addWidget(self.auto_sync_checkbox)
+        
+        self.disable_sync_checkbox = QCheckBox(t('callcryptor.sync.disable_sync'))
+        self.disable_sync_checkbox.setToolTip(t('callcryptor.sync.disable_sync_tooltip'))
+        layout.addWidget(self.disable_sync_checkbox)
+        
+        layout.addStretch()
+        
+        # Przyciski
+        buttons_layout = QHBoxLayout()
+        buttons_layout.addStretch()
+        
+        close_btn = QPushButton(t('common.close'))
+        close_btn.setMinimumWidth(120)
+        close_btn.clicked.connect(self.reject)
+        buttons_layout.addWidget(close_btn)
+        
+        sync_now_btn = QPushButton(t('callcryptor.sync.sync_now'))
+        sync_now_btn.setMinimumWidth(150)
+        sync_now_btn.clicked.connect(self._sync_now)
+        sync_now_btn.setStyleSheet("background-color: #4CAF50; color: white;")
+        buttons_layout.addWidget(sync_now_btn)
+        
+        layout.addLayout(buttons_layout)
+    
+    def _sync_now(self):
+        """Rozpocznij synchronizację"""
+        self.disable_sync = self.disable_sync_checkbox.isChecked()
+        self.accept()
+    
+    def _apply_theme(self):
+        """Zastosuj motyw"""
+        if not self.theme_manager or not self.theme_manager.current_theme:
+            return
+        
+        colors = self.theme_manager.get_current_colors()
+        
+        style = f"""
+            QDialog {{
+                background-color: {colors.get('background_primary', '#FFFFFF')};
+                color: {colors.get('text_primary', '#000000')};
+            }}
+            QGroupBox {{
+                border: 2px solid {colors.get('border_primary', '#E0E0E0')};
+                border-radius: 8px;
+                margin-top: 12px;
+                padding-top: 15px;
+                font-weight: bold;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 15px;
+                padding: 0 10px;
             }}
         """
         self.setStyleSheet(style)

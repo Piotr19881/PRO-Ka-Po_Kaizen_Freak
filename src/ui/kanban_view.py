@@ -6,8 +6,8 @@ from PyQt6.QtWidgets import (
     QCheckBox, QComboBox, QSpinBox, QScrollArea, QFrame,
     QMessageBox, QGroupBox, QToolButton, QMenu
 )
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QFont, QAction
+from PyQt6.QtCore import Qt, pyqtSignal, QEvent, QObject
+from PyQt6.QtGui import QFont, QAction, QMouseEvent
 from loguru import logger
 from typing import Optional, Dict, Any, List, Callable, Tuple
 from datetime import datetime
@@ -15,6 +15,7 @@ from ..utils.i18n_manager import t, get_i18n
 from ..utils import get_theme_manager
 from ..Modules.task_module.kanban_context_menu import KanbanContextMenu
 from .kanban_log_dialog import KanbanLogDialog
+from .ui_task_simple_dialogs import TaskEditDialog
 
 
 class KanBanView(QWidget):
@@ -1049,7 +1050,12 @@ class KanBanView(QWidget):
 
         task_payload = dict(task)
         task_payload['column_type'] = 'todo'
+        task_payload.setdefault('task_id', task_id)
+        if full_task:
+            task_payload.setdefault('full_task', full_task)
+            task_payload.setdefault('title', full_task.get('title', task.get('title')))
         self._attach_card_context_menu(card, task_payload)
+        self._register_card_double_click(card, task_payload)
         return card
 
     def _build_in_progress_card(self, task: Dict[str, Any]) -> QFrame:
@@ -1128,7 +1134,12 @@ class KanBanView(QWidget):
 
         task_payload = dict(task)
         task_payload['column_type'] = 'in_progress'
+        task_payload.setdefault('task_id', task_id)
+        if full_task:
+            task_payload.setdefault('full_task', full_task)
+            task_payload.setdefault('title', full_task.get('title', task.get('title')))
         self._attach_card_context_menu(card, task_payload)
+        self._register_card_double_click(card, task_payload)
 
         return card
 
@@ -1162,7 +1173,12 @@ class KanBanView(QWidget):
 
         task_payload = dict(task)
         task_payload['column_type'] = 'done'
+        task_payload.setdefault('task_id', task_id)
+        if full_task:
+            task_payload.setdefault('full_task', full_task)
+            task_payload.setdefault('title', full_task.get('title', task.get('title')))
         self._attach_card_context_menu(card, task_payload)
+        self._register_card_double_click(card, task_payload)
 
         return card
 
@@ -1183,7 +1199,12 @@ class KanBanView(QWidget):
 
         task_payload = dict(task)
         task_payload.setdefault('column_type', column_type)
+        task_payload.setdefault('task_id', task_id)
+        if task.get('full_task'):
+            task_payload.setdefault('full_task', task.get('full_task'))
+            task_payload.setdefault('title', task.get('full_task').get('title', task.get('title')))
         self._attach_card_context_menu(card, task_payload)
+        self._register_card_double_click(card, task_payload)
 
         return card
 
@@ -1195,6 +1216,30 @@ class KanBanView(QWidget):
             lambda pos, frame=card, data=dict(task_data): self._show_card_context_menu(frame, pos, data)
         )
 
+    def _register_card_double_click(self, card: QFrame, task_data: Dict[str, Any]) -> None:
+        """Podłącz obsługę podwójnego kliknięcia do karty zadania."""
+        if not card:
+            return
+
+        payload = dict(task_data or {})
+        if 'task_id' not in payload or not payload.get('task_id'):
+            payload['task_id'] = card.property('task_id')
+
+        full_task = payload.get('full_task') if isinstance(payload.get('full_task'), dict) else None
+        if not payload.get('title'):
+            if full_task:
+                payload['title'] = full_task.get('title', '')
+            else:
+                payload['title'] = task_data.get('title', '') if isinstance(task_data, dict) else ''
+
+        card.setProperty('task_payload', payload)
+        card.installEventFilter(self)
+        for child in card.findChildren(QWidget):
+            if isinstance(child, (QPushButton, QToolButton, QCheckBox)):
+                continue
+            child.setProperty('task_card_ref', card)
+            child.installEventFilter(self)
+
     def _show_card_context_menu(self, card: QFrame, pos, task_data: Dict[str, Any]) -> None:
         if not self.context_menu:
             return
@@ -1205,6 +1250,101 @@ class KanBanView(QWidget):
         if 'task_id' not in payload or not payload['task_id']:
             payload['task_id'] = card.property('task_id')
         self.context_menu.show_menu(card, global_pos, payload)
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # type: ignore[override]
+        target_card: Optional[QFrame] = None
+        if isinstance(watched, QFrame):
+            target_card = watched
+        elif isinstance(watched, QWidget):
+            parent_card = watched.property('task_card_ref') if hasattr(watched, 'property') else None
+            if isinstance(parent_card, QFrame):
+                target_card = parent_card
+
+        if target_card and event and event.type() == QEvent.Type.MouseButtonDblClick:
+            if isinstance(event, QMouseEvent) and event.button() == Qt.MouseButton.LeftButton:
+                payload = target_card.property('task_payload') or {}
+                self._handle_card_double_click(target_card, payload if isinstance(payload, dict) else {})
+                return True
+        return super().eventFilter(watched, event)
+
+    def _handle_card_double_click(self, card: QFrame, task_payload: Dict[str, Any]) -> None:
+        """Obsłuż edycję zadania po podwójnym kliknięciu."""
+        if not task_payload:
+            logger.debug("[KanBanView] Double-click ignored: empty task payload")
+            return
+
+        task_id = (
+            task_payload.get('task_id')
+            or task_payload.get('id')
+            or (task_payload.get('full_task') or {}).get('id')
+        )
+
+        if not task_id:
+            logger.warning("[KanBanView] Cannot edit task without valid task_id")
+            return
+
+        current_title = task_payload.get('title')
+        if not current_title and isinstance(task_payload.get('full_task'), dict):
+            current_title = task_payload['full_task'].get('title', '')
+        current_title = current_title or ''
+
+        accepted, new_title = TaskEditDialog.prompt(self, task_title=current_title)
+        if not accepted:
+            return
+
+        new_title = (new_title or '').strip()
+        if not new_title:
+            QMessageBox.warning(
+                self,
+                t('kanban.edit.validation_title', 'Nieprawidłowa treść'),
+                t('kanban.edit.validation_message', 'Treść zadania nie może być pusta.'),
+            )
+            return
+
+        if new_title == current_title.strip():
+            logger.debug("[KanBanView] Task title unchanged; skipping update")
+            return
+
+        if not self.db:
+            QMessageBox.warning(
+                self,
+                t('kanban.edit.db_missing_title', 'Baza niedostępna'),
+                t('kanban.edit.db_missing_message', 'Lokalna baza zadań jest niedostępna.'),
+            )
+            return
+
+        try:
+            update_success = self.db.update_task(task_id, title=new_title)
+        except Exception as exc:
+            logger.error(f"[KanBanView] Failed to update task {task_id}: {exc}")
+            QMessageBox.critical(
+                self,
+                t('kanban.edit.update_error_title', 'Błąd aktualizacji'),
+                t('kanban.edit.update_error_message', 'Nie udało się zapisać zmian zadania.'),
+            )
+            return
+
+        if not update_success:
+            logger.error(f"[KanBanView] Database declined task update for {task_id}")
+            QMessageBox.warning(
+                self,
+                t('kanban.edit.update_failed_title', 'Aktualizacja nie powiodła się'),
+                t('kanban.edit.update_failed_message', 'Nie udało się zaktualizować zadania.'),
+            )
+            return
+
+        if self.task_logic and hasattr(self.task_logic, 'update_task'):
+            try:
+                self.task_logic.update_task(task_id, {'title': new_title})
+            except Exception as exc:
+                logger.debug(f"[KanBanView] task_logic update_task raised: {exc}")
+
+        card_payload = dict(task_payload)
+        card_payload['title'] = new_title
+        card.setProperty('task_payload', card_payload)
+
+        logger.info(f"[KanBanView] Task {task_id} title updated via double-click")
+        self.refresh_board()
 
     def _create_note_button(self, task_data: Dict[str, Any]) -> Optional[QPushButton]:
         task_id = task_data.get('id') if isinstance(task_data, dict) else None

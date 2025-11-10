@@ -68,6 +68,7 @@ class HabitSyncManager:
         # Threading
         self._worker_thread: Optional[Thread] = None
         self._stop_event = Event()
+        self._sync_now_event = Event()
         self._lock = Lock()
         self._is_running = False
         
@@ -99,6 +100,7 @@ class HabitSyncManager:
             raise ValueError("user_id must be set before starting habit sync worker")
         
         self._stop_event.clear()
+        self._sync_now_event.clear()
         self._is_running = True
         self._worker_thread = Thread(target=self._worker_loop, daemon=True, name="HabitSyncWorker")
         self._worker_thread.start()
@@ -118,6 +120,7 @@ class HabitSyncManager:
         
         logger.info("Stopping habit sync worker...")
         self._stop_event.set()
+        self._sync_now_event.set()
         self._is_running = False
         
         if wait and self._worker_thread:
@@ -126,6 +129,20 @@ class HabitSyncManager:
                 logger.warning("Habit sync worker did not stop within timeout")
             else:
                 logger.info("Habit sync worker stopped")
+
+    def request_immediate_sync(self, reason: str = "manual"):
+        """
+        Obudź worker aby wykonać synchronizację jak najszybciej.
+
+        Args:
+            reason: Kontekst zdarzenia uruchamiającego synchronizację (logi)
+        """
+        if not self._is_running:
+            logger.debug(f"[HABIT SYNC] Immediate sync requested ({reason}) but worker is not running")
+            return
+
+        logger.debug(f"[HABIT SYNC] Immediate sync requested ({reason})")
+        self._sync_now_event.set()
     
     def is_running(self) -> bool:
         """Sprawdź czy worker działa"""
@@ -246,15 +263,27 @@ class HabitSyncManager:
                 else:
                     logger.debug("📡 [HABIT SYNC] Network not available, skipping sync")
                 
-                # Czekaj przed następnym cyklem
-                logger.debug(f"⏱️  [HABIT SYNC] Waiting {self.sync_interval}s before next cycle...")
-                self._stop_event.wait(timeout=self.sync_interval)
+                # Czekaj przed następnym cyklem lub do czasu otrzymania sygnału natychmiastowej synchronizacji
+                logger.debug(f"⏱️  [HABIT SYNC] Waiting up to {self.sync_interval}s before next cycle...")
+                wait_deadline = datetime.utcnow() + timedelta(seconds=self.sync_interval)
+                while not self._stop_event.is_set():
+                    remaining = (wait_deadline - datetime.utcnow()).total_seconds()
+                    if remaining <= 0:
+                        break
+
+                    triggered = self._sync_now_event.wait(timeout=min(1.0, max(0.05, remaining)))
+                    if triggered:
+                        logger.debug("⚡ [HABIT SYNC] Immediate sync trigger received - resuming now")
+                        self._sync_now_event.clear()
+                        break
                 
             except Exception as e:
                 logger.error(f"❌ [HABIT SYNC] Error in worker loop: {e}")
                 self.error_count += 1
                 # Czekaj przed retry
-                self._stop_event.wait(timeout=min(self.sync_interval, 10))
+                wait_timeout = min(self.sync_interval, 10)
+                logger.debug(f"⏳ [HABIT SYNC] Cooling down for {wait_timeout}s due to error")
+                self._stop_event.wait(timeout=wait_timeout)
         
         logger.info("🛑 [HABIT SYNC] Worker loop exited")
     
@@ -265,8 +294,20 @@ class HabitSyncManager:
         Pobiera items z sync_queue i synchronizuje z serwerem.
         WAŻNE: Najpierw synchronizuje kolumny, potem rekordy (foreign key dependency).
         """
+        if not self.user_id:
+            logger.error("[HABIT SYNC] Cannot execute sync cycle without user_id")
+            return
+
+        user_id = self.user_id
+
         with self._lock:
             try:
+                requeue_stats = self.habit_db.requeue_unsynced_items()
+                if requeue_stats.get('columns') or requeue_stats.get('records'):
+                    logger.debug(
+                        f"📥 [HABIT SYNC] Requeued {requeue_stats['columns']} columns and {requeue_stats['records']} records"
+                    )
+
                 # Pobierz kolejkę sync (dla habit trackera)
                 queue = self.habit_db.get_sync_queue(limit=20)
                 
@@ -331,6 +372,11 @@ class HabitSyncManager:
         
         logger.debug(f"Syncing habit {entity_type} {entity_id} ({action})")
         
+        if not self.user_id:
+            logger.error("[HABIT SYNC] Skipping sync item because user_id is not set")
+            self.habit_db.remove_from_sync_queue(queue_item['id'])
+            return False
+
         try:
             # Pobierz dane z lokalnej bazy
             if entity_type == 'habit_column':
@@ -385,6 +431,17 @@ class HabitSyncManager:
                 self.habit_db.remove_from_sync_queue(queue_item['id'])
                 return True
             else:
+                if response.status_code == 404 and action == 'delete':
+                    logger.info(
+                        f"Habit {entity_type} {entity_id} already missing on backend; marking as synced and dropping queue entry"
+                    )
+                    if entity_type == 'habit_column':
+                        self.habit_db.mark_column_synced(entity_id)
+                    else:
+                        self.habit_db.mark_record_synced(entity_id)
+                    self.habit_db.remove_from_sync_queue(queue_item['id'])
+                    return True
+
                 logger.error(f"Failed to sync habit {entity_id}: {response.error}")
                 
                 # Zwiększ retry_count
@@ -587,6 +644,7 @@ class HabitSyncManager:
                 logger.success("Full habit sync completed successfully")
                 # Wyczyść kolejkę sync po udanej pełnej synchronizacji
                 self.habit_db.clear_sync_queue()
+                self.habit_db.mark_all_synced()
                 return True
             else:
                 logger.error(f"Full habit sync failed: {response.error}")
@@ -595,6 +653,33 @@ class HabitSyncManager:
         except Exception as e:
             logger.error(f"Error in full habit sync: {e}")
             return False
+
+    def force_full_resync(self) -> bool:
+        """Wymuś pełną synchronizację wszystkich danych habit trackera."""
+
+        if not self.user_id:
+            logger.error("Cannot force habit resync: user_id not set")
+            return False
+
+        with self._lock:
+            try:
+                logger.info("Forcing full habit resync (marking all data unsynced)")
+                marked = self.habit_db.mark_all_for_resync()
+                logger.debug(
+                    f"Marked {marked['columns']} columns and {marked['records']} records for resync"
+                )
+                self.habit_db.requeue_unsynced_items()
+                success = self.full_sync()
+            except Exception as err:
+                logger.error(f"Failed to prepare data for force resync: {err}")
+                return False
+
+        if success:
+            logger.success("Force full habit resync completed")
+        else:
+            logger.error("Force full habit resync failed during bulk sync")
+
+        return success
     
     # =========================================================================
     # STATS & MONITORING

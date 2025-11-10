@@ -6,7 +6,7 @@ import sqlite3
 import json
 import uuid
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Callable
 from datetime import datetime, date
 from loguru import logger
 
@@ -24,6 +24,7 @@ class HabitDatabase:
         """
         self.db_path = db_path
         self.user_id = user_id
+        self._sync_trigger: Optional[Callable[[str, str], None]] = None
         self._init_database()
         logger.info(f"[HABIT DB] Initialized for user {user_id} at {db_path}")
     
@@ -301,7 +302,10 @@ class HabitDatabase:
                 VALUES (?, ?, ?, ?, ?, ?, 1, 0)
             """, (self.user_id, name, habit_type, position, scale_max, remote_id))
             
-            habit_id = cursor.lastrowid
+            last_id = cursor.lastrowid
+            if last_id is None:
+                raise RuntimeError("Failed to retrieve habit column ID after insert")
+            habit_id = int(last_id)
             conn.commit()
             
             # Dodaj do sync queue
@@ -810,7 +814,11 @@ class HabitDatabase:
     # SYNC QUEUE MANAGEMENT
     # =========================================================================
     
-    def add_to_sync_queue(self, entity_type: str, entity_id: str, action: str, data: Optional[Dict] = None):
+    def set_sync_trigger(self, callback: Optional[Callable[[str, str], None]]):
+        """Zarejestruj callback wywoływany po dodaniu elementu do kolejki sync."""
+        self._sync_trigger = callback
+
+    def add_to_sync_queue(self, entity_type: str, entity_id: str, action: str, data: Optional[Dict] = None, *, trigger_sync: bool = True):
         """Dodaj operację do kolejki synchronizacji"""
         
         logger.info(f"🔄 [HABIT DB] SYNC QUEUE: Dodaję {entity_type} {entity_id} action={action}")
@@ -832,6 +840,12 @@ class HabitDatabase:
             
             conn.commit()
             logger.info(f"✅ [HABIT SYNC] Dodano do sync queue: {entity_type} {entity_id} ({action})")
+
+        if trigger_sync and self._sync_trigger:
+            try:
+                self._sync_trigger(entity_type, action)
+            except Exception as exc:
+                logger.error(f"[HABIT DB] Sync trigger callback failed: {exc}")
     
     def get_sync_queue(self, limit: int = 100) -> List[Dict[str, Any]]:
         """Pobierz elementy z kolejki synchronizacji"""
@@ -894,6 +908,126 @@ class HabitDatabase:
             cursor.execute("DELETE FROM sync_queue")
             conn.commit()
             logger.info("[HABIT SYNC] Cleared sync queue")
+
+    def requeue_unsynced_items(self) -> Dict[str, int]:
+        """Ponownie dodaj niezsynchronizowane kolumny i rekordy do kolejki."""
+
+        stats = {'columns': 0, 'records': 0}
+
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+
+            cursor.execute("SELECT entity_type, entity_id FROM sync_queue")
+            queued = {(row[0], row[1]) for row in cursor.fetchall()}
+
+            cursor.execute(
+                """
+                    SELECT id, remote_id, deleted_at
+                    FROM habit_columns
+                    WHERE user_id = ? AND is_synced = 0
+                """,
+                (self.user_id,),
+            )
+
+            for local_id, remote_id, deleted_at in cursor.fetchall():
+                entity_id = str(remote_id or local_id)
+                key = ('habit_column', entity_id)
+                if key in queued:
+                    continue
+
+                action = 'delete' if deleted_at else 'update'
+                self.add_to_sync_queue('habit_column', entity_id, action, trigger_sync=False)
+                queued.add(key)
+                stats['columns'] += 1
+
+            cursor.execute(
+                """
+                    SELECT id, remote_id
+                    FROM habit_records
+                    WHERE user_id = ? AND is_synced = 0
+                """,
+                (self.user_id,),
+            )
+
+            for local_id, remote_id in cursor.fetchall():
+                entity_id = str(remote_id or local_id)
+                key = ('habit_record', entity_id)
+                if key in queued:
+                    continue
+
+                self.add_to_sync_queue('habit_record', entity_id, 'update', trigger_sync=False)
+                queued.add(key)
+                stats['records'] += 1
+
+        if stats['columns'] or stats['records']:
+            logger.info(
+                f"[HABIT SYNC] Requeued {stats['columns']} columns and {stats['records']} records"
+            )
+
+        return stats
+
+    def mark_all_for_resync(self) -> Dict[str, int]:
+        """Ustaw flagę is_synced=0 dla wszystkich lokalnych danych."""
+
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                    UPDATE habit_columns
+                    SET is_synced = 0
+                    WHERE user_id = ? AND deleted_at IS NULL
+                """,
+                (self.user_id,),
+            )
+            columns_marked = cursor.rowcount
+
+            cursor.execute(
+                """
+                    UPDATE habit_records
+                    SET is_synced = 0
+                    WHERE user_id = ?
+                """,
+                (self.user_id,),
+            )
+            records_marked = cursor.rowcount
+
+            conn.commit()
+
+        logger.info(
+            f"[HABIT SYNC] Marked {columns_marked} columns and {records_marked} records for resync"
+        )
+
+        return {'columns': columns_marked, 'records': records_marked}
+
+    def mark_all_synced(self):
+        """Oznacz wszystkie lokalne dane jako zsynchronizowane."""
+
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                    UPDATE habit_columns
+                    SET is_synced = 1, synced_at = CURRENT_TIMESTAMP
+                    WHERE user_id = ? AND deleted_at IS NULL
+                """,
+                (self.user_id,),
+            )
+
+            cursor.execute(
+                """
+                    UPDATE habit_records
+                    SET is_synced = 1, synced_at = CURRENT_TIMESTAMP
+                    WHERE user_id = ?
+                """,
+                (self.user_id,),
+            )
+
+            conn.commit()
+
+        logger.info("[HABIT SYNC] Marked all local habit data as synced")
     
     # =========================================================================
     # GET UNSYNCED ITEMS (analogicznie do Pomodoro)
@@ -958,10 +1092,11 @@ class HabitDatabase:
     def get_column_sync_data(self, column_id: str) -> Optional[Dict[str, Any]]:
         """Pobierz dane kolumny do synchronizacji"""
         with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             
             cursor.execute("""
-                SELECT id, name, type, scale_max, created_at, updated_at, version, remote_id
+                SELECT id, name, type, position, scale_max, created_at, updated_at, version, remote_id
                 FROM habit_columns 
                 WHERE (id = ? OR remote_id = ?) AND user_id = ? AND deleted_at IS NULL
             """, (column_id, column_id, self.user_id))
@@ -970,14 +1105,16 @@ class HabitDatabase:
             if not row:
                 return None
             
+            remote_id = row['remote_id'] or str(row['id'])
             return {
-                'id': row[7] or str(row[0]),  # Use remote_id if available, else local id
-                'name': row[1],
-                'habit_type': row[2],
-                'scale_max': row[3],
-                'created_at': row[4],
-                'updated_at': row[5],
-                'version': row[6]
+                'id': remote_id,
+                'name': row['name'],
+                'habit_type': row['type'],
+                'position': row['position'],
+                'scale_max': row['scale_max'],
+                'created_at': row['created_at'],
+                'updated_at': row['updated_at'],
+                'version': row['version']
             }
     
     def get_record_sync_data(self, record_id: str) -> Optional[Dict[str, Any]]:
