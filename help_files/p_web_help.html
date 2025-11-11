@@ -328,9 +328,27 @@
                 
                 <div class="feature-grid">
                     <div class="feature-card">
-                        <div class="icon">🎨</div>
-                        <h4>Kolorowe Zakładki</h4>
-                        <p>Każda strona ma własny kolor dla łatwej identyfikacji wizualnej</p>
+                        <div class="icon">📂</div>
+                        <h4>Grupy i Organizacja</h4>
+                        <p>Organizuj zakładki w grupy kolorowe z ikonami dla łatwego zarządzania projektami</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <div class="icon">🏷️</div>
+                        <h4>Tagi i Filtrowanie</h4>
+                        <p>Przypisuj tagi do zakładek i szybko filtruj po kategoriach</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <div class="icon">⭐</div>
+                        <h4>Ulubione</h4>
+                        <p>Oznaczaj najważniejsze strony jako ulubione i filtruj widok tylko do nich</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <div class="icon">↔️</div>
+                        <h4>Podzielony Widok</h4>
+                        <p>Otwórz dwie strony jednocześnie obok siebie dla multitaskingu</p>
                     </div>
                     
                     <div class="feature-card">
@@ -398,6 +416,44 @@
             <div class="section">
                 <h2>🚀 Pierwsze Kroki</h2>
                 
+                <h3>Organizacja Drzewa Zakładek</h3>
+                <p>
+                    P-Web V2 oferuje zaawansowaną organizację w postaci drzewa hierarchicznego z grupami, tagami i ulubionymi.
+                </p>
+                
+                <h4>Rozwinięcie Panelu Drzewa</h4>
+                <p>
+                    Kliknij przycisk <strong>"📚 Twoje strony"</strong> aby rozwinąć panel boczny z drzewem zakładek. 
+                    Panel zajmuje maksymalnie 25% szerokości (do 400px) i możesz ręcznie dostosować jego rozmiar przeciągając separator.
+                </p>
+                
+                <h4>Przyciski Zarządzania (Ikony Kompaktowe)</h4>
+                <ul>
+                    <li><strong>📂</strong> - Zarządzaj grupami (twórz, edytuj kolory, usuń)</li>
+                    <li><strong>🏷️</strong> - Zarządzaj tagami (dodaj nowe, usuń istniejące)</li>
+                    <li><strong>⭐</strong> - Filtruj tylko ulubione zakładki (w rozwijanej liście tagów)</li>
+                </ul>
+                
+                <h3>Tworzenie Grup</h3>
+                <ol class="steps">
+                    <li>
+                        <strong>Kliknij ikonę 📂 (Edytuj grupy)</strong><br>
+                        Otworzy się dialog zarządzania grupami
+                    </li>
+                    <li>
+                        <strong>Kliknij "Dodaj grupę"</strong><br>
+                        Wprowadź nazwę grupy (np. "Projekty", "Komunikacja", "Narzędzia Dev")
+                    </li>
+                    <li>
+                        <strong>Wybierz kolor grupy</strong><br>
+                        Kolor będzie widoczny w drzewie i ułatwi identyfikację
+                    </li>
+                    <li>
+                        <strong>Zapisz</strong><br>
+                        Grupa pojawi się w drzewie jako kategoria
+                    </li>
+                </ol>
+                
                 <h3>Dodawanie Nowej Zakładki</h3>
                 <ol class="steps">
                     <li>
@@ -418,29 +474,47 @@
                         Kliknij kolorowy kwadrat i wybierz kolor z palety lub wpisz kod hex
                     </li>
                     <li>
+                        <strong>Przypisz do grupy (opcjonalne)</strong><br>
+                        Wybierz grupę z listy rozwijanej lub zostaw "Bez grupy"
+                    </li>
+                    <li>
+                        <strong>Dodaj tagi (opcjonalne)</strong><br>
+                        Możesz przypisać wiele tagów rozdzielonych przecinkami (np. "praca, pilne, klient")
+                    </li>
+                    <li>
+                        <strong>Oznacz jako ulubione (opcjonalne)</strong><br>
+                        Zaznacz checkbox ⭐ aby dodać stronę do ulubionych
+                    </li>
+                    <li>
                         <strong>Zatwierdź przyciskiem "Dodaj"</strong><br>
-                        Strona zostanie dodana i automatycznie załadowana
+                        Strona zostanie dodana do drzewa i automatycznie załadowana
                     </li>
                 </ol>
                 
-                <h3>Przeglądanie Stron</h3>
+                <h3>Przeglądanie i Filtrowanie Stron</h3>
                 <p>
-                    Użyj listy rozwijanej w górnym pasku, aby przełączać się między zapisanymi stronami. 
-                    Każda pozycja na liście jest oznaczona wybranym kolorem dla łatwej identyfikacji.
+                    W panelu drzewa możesz:
                 </p>
+                <ul>
+                    <li><strong>Wyszukiwać</strong> - wpisz frazę w pole "Szukaj nazwy lub adresu..." aby filtrować zakładki</li>
+                    <li><strong>Filtrować po tagach</strong> - wybierz tag z listy rozwijanej aby pokazać tylko zakładki z tym tagiem</li>
+                    <li><strong>Pokazać tylko ulubione</strong> - wybierz "⭐ Ulubione" z listy rozwijanej tagów</li>
+                    <li><strong>Rozwijać/zwijać grupy</strong> - klikaj na nazwy grup aby pokazać/ukryć zakładki w grupie</li>
+                </ul>
                 
                 <h3>Usuwanie Zakładki</h3>
                 <ol class="steps">
                     <li>
-                        <strong>Kliknij przycisk "Usuń stronę" (🗑️)</strong>
+                        <strong>Wybierz zakładkę w drzewie</strong><br>
+                        Kliknij lewym przyciskiem na zakładkę w panelu bocznym
                     </li>
                     <li>
-                        <strong>Wybierz stronę z listy</strong><br>
-                        Zobaczysz wszystkie zapisane strony z kolorami
+                        <strong>Kliknij przycisk "Usuń stronę" (🗑️)</strong><br>
+                        Lub użyj prawego przycisku myszy → Usuń
                     </li>
                     <li>
                         <strong>Potwierdź usunięcie</strong><br>
-                        Strona zostanie permanentnie usunięta z listy
+                        Strona zostanie permanentnie usunięta z drzewa
                     </li>
                 </ol>
             </div>
@@ -465,27 +539,81 @@
                             <td>Powrót do poprzedniej strony w historii przeglądania</td>
                         </tr>
                         <tr>
-                            <td><strong>🔄 Odśwież</strong></td>
+                            <td><strong>� Twoje strony</strong></td>
+                            <td>Toggle drzewa</td>
+                            <td>Rozwija/zwija panel boczny z drzewem zakładek (max 25% szerokości, do 400px)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>�🔄 Odśwież</strong></td>
                             <td>Przeładuj</td>
                             <td>Odświeża aktualnie wyświetlaną stronę</td>
                         </tr>
                         <tr>
-                            <td><strong>📄 Strona:</strong></td>
-                            <td>Lista zakładek</td>
-                            <td>Rozwijana lista wszystkich zapisanych stron</td>
+                            <td><strong>↔️ Podziel widok</strong></td>
+                            <td>Split-view</td>
+                            <td>Otwiera dialog wyboru strony do wyświetlenia obok obecnej (dwie strony jednocześnie)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>✖️ Zamknij kartę</strong></td>
+                            <td>Zamknij split</td>
+                            <td>Pojawia się po podzieleniu widoku - zamyka podzielony widok i wraca do pojedynczej strony</td>
                         </tr>
                         <tr>
                             <td><strong>➕ Dodaj stronę</strong></td>
                             <td>Nowa zakładka</td>
-                            <td>Otwiera dialog dodawania nowej strony</td>
+                            <td>Otwiera dialog dodawania nowej strony z grupą, tagami i opcją ulubione</td>
                         </tr>
                         <tr>
                             <td><strong>🗑️ Usuń stronę</strong></td>
                             <td>Usuń zakładkę</td>
-                            <td>Otwiera dialog usuwania zapisanych stron</td>
+                            <td>Usuwa aktualnie wybraną zakładkę z drzewa</td>
                         </tr>
                     </tbody>
                 </table>
+                
+                <h3>Podzielony Widok (Split-View)</h3>
+                <p>
+                    Funkcja split-view pozwala otworzyć dwie strony jednocześnie obok siebie - idealne do porównywania dokumentów, 
+                    kopiowania danych między stronami, lub monitorowania dwóch narzędzi na raz.
+                </p>
+                
+                <h4>Jak włączyć podzielony widok?</h4>
+                <ol class="steps">
+                    <li>
+                        <strong>Metoda 1: Przycisk "↔️ Podziel widok"</strong><br>
+                        Kliknij przycisk w pasku narzędzi → wybierz stronę z listy lub wpisz URL ręcznie → otwiera się druga karta
+                    </li>
+                    <li>
+                        <strong>Metoda 2: Menu kontekstowe w drzewie</strong><br>
+                        Kliknij prawym przyciskiem na zakładkę w drzewie → "Otwórz w podzielonym widoku"
+                    </li>
+                    <li>
+                        <strong>Metoda 3: Menu kontekstowe na stronie</strong><br>
+                        Kliknij prawym na link → "Otwórz w podzielonym widoku"<br>
+                        Lub kliknij prawym w pustym miejscu → "Podziel widok..." → wybierz stronę
+                    </li>
+                </ol>
+                
+                <h4>Zamykanie pojedynczych kart</h4>
+                <p>
+                    Po włączeniu podzielonego widoku, na każdej karcie pojawia się przycisk <strong>✖</strong> w prawym górnym rogu:
+                </p>
+                <ul>
+                    <li><strong>✖ na lewej karcie</strong> - zamyka lewą kartę, przenosi prawą do głównego widoku</li>
+                    <li><strong>✖ na prawej karcie</strong> - zamyka prawą kartę, rozszerza lewą na cały ekran</li>
+                    <li><strong>Przycisk "✖️ Zamknij kartę"</strong> w pasku - zamyka split-view całkowicie</li>
+                </ul>
+                
+                <div class="tip-box">
+                    <h4>💡 Wskazówka: Szybkie Porównywanie</h4>
+                    <p>
+                        Podzielony widok jest idealny do:<br>
+                        • Kopiowania danych między Google Sheets a CRM<br>
+                        • Porównywania dwóch wersji dokumentów (Google Docs)<br>
+                        • Monitorowania dwóch dashboardów analitycznych jednocześnie<br>
+                        • Czatowania na Slacku podczas edycji Notion
+                    </p>
+                </div>
             </div>
             
             <!-- Menu kontekstowe -->
@@ -517,20 +645,51 @@
                             <td>Zawsze</td>
                             <td>Wkleja tekst ze schowka w aktywne pole</td>
                         </tr>
+                    </tbody>
+                </table>
+                
+                <h3>Opcje dla Linków</h3>
+                <table class="shortcut-table">
+                    <thead>
+                        <tr>
+                            <th>Opcja</th>
+                            <th>Kiedy Dostępna</th>
+                            <th>Co Robi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
                         <tr>
                             <td><strong>Kopiuj link</strong></td>
                             <td>Gdy kursor jest nad linkiem</td>
                             <td>Kopiuje adres URL linku do schowka</td>
                         </tr>
                         <tr>
-                            <td><strong>Otwórz link w domyślnej przeglądarce</strong></td>
+                            <td><strong>↔️ Otwórz w podzielonym widoku</strong></td>
                             <td>Gdy kursor jest nad linkiem</td>
-                            <td>Otwiera link w Twojej systemowej przeglądarce (Chrome, Firefox, Edge)</td>
+                            <td>Otwiera link w drugiej karcie (split-view) obok aktualnej strony</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <h3>Opcje dla Strony</h3>
+                <table class="shortcut-table">
+                    <thead>
+                        <tr>
+                            <th>Opcja</th>
+                            <th>Kiedy Dostępna</th>
+                            <th>Co Robi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>↔️ Podziel widok...</strong></td>
+                            <td>Zawsze (kliknięcie w pustym miejscu)</td>
+                            <td>Otwiera dialog wyboru strony do otwarcia w split-view</td>
                         </tr>
                         <tr>
                             <td><strong>Otwórz stronę w domyślnej przeglądarce</strong></td>
                             <td>Zawsze</td>
-                            <td>Otwiera aktualną stronę w systemowej przeglądarce</td>
+                            <td>Otwiera aktualną stronę w systemowej przeglądarce (Chrome, Firefox, Edge)</td>
                         </tr>
                     </tbody>
                 </table>
@@ -546,41 +705,55 @@
                     </thead>
                     <tbody>
                         <tr>
-                            <td><strong>📝 Utwórz notatkę z zaznaczenia</strong></td>
+                            <td><strong>📝 Dodaj notatkę</strong></td>
                             <td>Gdy tekst jest zaznaczony</td>
                             <td>
                                 Tworzy nową notatkę w module Notes:<br>
                                 • Pierwsze 3 słowa = tytuł notatki<br>
                                 • Cała treść = zawartość notatki<br>
+                                • Dodaje źródło (URL i tytuł strony)<br>
                                 • Automatyczne przejście do widoku Notes
                             </td>
                         </tr>
                         <tr>
-                            <td><strong>✅ Utwórz zadanie z zaznaczenia</strong></td>
+                            <td><strong>✅ Dodaj zadanie</strong></td>
                             <td>Gdy tekst jest zaznaczony</td>
                             <td>
-                                Tworzy nowe zadanie w module Tasks:<br>
-                                • Zaznaczony tekst = tytuł zadania<br>
-                                • Data dzisiejsza<br>
-                                • Automatyczne przejście do widoku Tasks
+                                Otwiera pasek szybkiego dodawania zadań (Quick Task Bar):<br>
+                                • Zaznaczony tekst = treść zadania<br>
+                                • Tekst jest gotowy do edycji i rozbudowy<br>
+                                • Możesz dodać priorytet, termin, tagi przed zapisaniem
                             </td>
+                        </tr>
+                        <tr>
+                            <td><strong>⭐ Dodaj do ulubionych / Usuń z ulubionych</strong></td>
+                            <td>Gdy jesteś na stronie z zakładki</td>
+                            <td>Oznacza/odznacza aktualną zakładkę jako ulubioną</td>
                         </tr>
                     </tbody>
                 </table>
                 
+                <h3>Menu Kontekstowe w Drzewie</h3>
+                <p>Kliknij prawym przyciskiem na zakładkę w panelu bocznym, aby:</p>
+                <ul>
+                    <li><strong>Otwórz</strong> - ładuje zakładkę w głównym widoku</li>
+                    <li><strong>↔️ Otwórz w podzielonym widoku</strong> - otwiera w drugiej karcie split-view</li>
+                    <li><strong>⭐ Dodaj/Usuń z ulubionych</strong> - przełącza status ulubionej</li>
+                </ul>
+                
                 <div class="info-box">
                     <h4>💡 Przykład Użycia Integracji</h4>
                     <p>
-                        <strong>Scenariusz:</strong> Czytasz wiadomość w Slacku, kolega pisze: "Proszę sprawdź raport sprzedaży do jutra i dodaj notatkę o kwoartale Q3"
+                        <strong>Scenariusz:</strong> Czytasz wiadomość w Slacku, kolega pisze: "Proszę sprawdź raport sprzedaży do jutra i dodaj notatkę o kwartale Q3"
                     </p>
                     <p>
                         <strong>Rozwiązanie:</strong>
                         <br>1. Zaznacz tekst "sprawdź raport sprzedaży do jutra"
-                        <br>2. Prawy przycisk → "Utwórz zadanie z zaznaczenia"
-                        <br>3. Zadanie utworzone! Ustaw termin na jutro i wracasz do Slacka
-                        <br>4. Zaznacz "dodaj notatkę o kwoartale Q3"
-                        <br>5. Prawy przycisk → "Utwórz notatkę z zaznaczenia"
-                        <br>6. Notatka gotowa! Wszystko zorganizowane bez opuszczania kontekstu
+                        <br>2. Prawy przycisk → "Dodaj zadanie"
+                        <br>3. Quick Task Bar otwiera się z wklejonym tekstem - dodaj termin "jutro", priorytet wysoki, zapisz
+                        <br>4. Zaznacz "dodaj notatkę o kwartale Q3"
+                        <br>5. Prawy przycisk → "Dodaj notatkę"
+                        <br>6. Notatka gotowa w module Notes! Wszystko zorganizowane bez opuszczania kontekstu
                     </p>
                 </div>
             </div>
@@ -589,8 +762,8 @@
             <div class="section">
                 <h2>💎 Wskazówki i Sztuczki</h2>
                 
-                <h3>1. System Kolorów</h3>
-                <p>Stwórz własną legendę kolorów dla lepszej organizacji:</p>
+                <h3>1. System Kolorów dla Grup</h3>
+                <p>Stwórz własną legendę kolorów grup dla lepszej organizacji:</p>
                 <ul>
                     <li><span class="color-indicator" style="background: #4285F4;"></span><strong>Niebieski (#4285F4):</strong> Komunikacja (Slack, Teams, Gmail)</li>
                     <li><span class="color-indicator" style="background: #34A853;"></span><strong>Zielony (#34A853):</strong> Zarządzanie projektami (Asana, Trello)</li>
@@ -600,25 +773,46 @@
                     <li><span class="color-indicator" style="background: #FF6D00;"></span><strong>Pomarańczowy (#FF6D00):</strong> Analityka i raporty</li>
                 </ul>
                 
-                <h3>2. Nazewnictwo Zakładek</h3>
-                <p>Używaj krótkich, opisowych nazw:</p>
+                <h3>2. Wykorzystanie Tagów</h3>
+                <p>Tagi to potężne narzędzie do organizacji międzyprojektowej:</p>
                 <ul>
-                    <li>✅ "Asana - Projekty" zamiast ❌ "https://app.asana.com/0/123456789"</li>
-                    <li>✅ "Gmail Osobisty" i "Gmail Służbowy" zamiast ❌ "Gmail" x2</li>
-                    <li>✅ "Docs - Raporty" zamiast ❌ "Folder z raportami kwartalnymi"</li>
+                    <li><strong>Tagi projektów:</strong> "projekt-A", "projekt-B", "projekt-C" - szybko filtruj narzędzia dla konkretnego projektu</li>
+                    <li><strong>Tagi priorytetów:</strong> "pilne", "ważne", "rutyna" - oznaczaj zakładki według pilności</li>
+                    <li><strong>Tagi klientów:</strong> "klient-XYZ", "klient-ABC" - grupuj narzędzia per klient</li>
+                    <li><strong>Tagi funkcjonalne:</strong> "raportowanie", "analityka", "komunikacja" - kategorie cross-projektowe</li>
                 </ul>
                 
-                <h3>3. Optymalizacja Workflow</h3>
+                <h3>3. Ulubione - Szybki Dostęp</h3>
                 <p>
-                    <strong>Szybki import z przeglądarki:</strong> Otwórz stronę w Twojej głównej przeglądarce, 
-                    skopiuj URL z paska adresu, wróć do P-Web i dodaj jako nową zakładkę.
-                </p>
-                <p>
-                    <strong>Praca z wieloma kontami:</strong> Możesz dodać tę samą usługę kilka razy z różnymi kolorami 
-                    (np. Gmail Osobisty = niebieski, Gmail Służbowy = czerwony).
+                    Oznacz 5-7 najczęściej używanych stron jako ulubione (⭐), potem w drzewie wybierz z listy tagów 
+                    "⭐ Ulubione" aby zobaczyć tylko te strony. To Twój "quick access panel"!
                 </p>
                 
-                <h3>4. Sesje i Logowanie</h3>
+                <h3>4. Nazewnictwo Zakładek</h3>
+                <p>Używaj krótkich, opisowych nazw z kontekstem:</p>
+                <ul>
+                    <li>✅ "Asana - Projekty Marketing" zamiast ❌ "Asana"</li>
+                    <li>✅ "Gmail Osobisty" i "Gmail Służbowy" zamiast ❌ "Gmail" x2</li>
+                    <li>✅ "Sheets - Budget 2025" zamiast ❌ "Google Sheets"</li>
+                </ul>
+                
+                <h3>5. Optymalizacja Workflow z Split-View</h3>
+                <p><strong>Przykłady idealnych kombinacji split-view:</strong></p>
+                <ul>
+                    <li>📊 <strong>Google Sheets (lewa) + CRM (prawa)</strong> - kopiowanie danych sprzedażowych</li>
+                    <li>💬 <strong>Slack (lewa) + Notion (prawa)</strong> - notowanie pomysłów z czatu</li>
+                    <li>📈 <strong>Analytics Dashboard (lewa) + Google Docs Raport (prawa)</strong> - pisanie raportu z danymi na żywo</li>
+                    <li>🎨 <strong>Figma (lewa) + Asana Task (prawa)</strong> - projektowanie z otwartym brief'em</li>
+                    <li>📧 <strong>Gmail (lewa) + Calendar (prawa)</strong> - planowanie spotkań z maili</li>
+                </ul>
+                
+                <h3>6. Praca z Wieloma Kontami</h3>
+                <p>
+                    Możesz dodać tę samą usługę kilka razy z różnymi grupami i kolorami:<br>
+                    <strong>Gmail Osobisty</strong> (grupa "Osobiste", niebieski) + <strong>Gmail Służbowy</strong> (grupa "Praca", czerwony)
+                </p>
+                
+                <h3>7. Sesje i Logowanie</h3>
                 <p>
                     P-Web zachowuje cookies i cache, więc pozostajesz zalogowany między sesjami aplikacji. 
                     Nie musisz logować się ponownie za każdym razem!
@@ -688,7 +882,26 @@
                 
                 <h3>Ile zakładek mogę dodać?</h3>
                 <p>
-                    Nie ma twardego limitu, ale zalecamy 10-20 najczęściej używanych stron dla najlepszej wydajności i przejrzystości.
+                    Nie ma twardego limitu, ale zalecamy 15-30 zakładek pogrupowanych w 4-6 grup dla najlepszej wydajności i przejrzystości.
+                </p>
+                
+                <h3>Jak działa hierarchia: grupy vs tagi vs ulubione?</h3>
+                <p>
+                    • <strong>Grupy</strong> to główne kategorie (jak foldery) - zakładka może być tylko w jednej grupie<br>
+                    • <strong>Tagi</strong> to etykiety cross-kategoriowe - zakładka może mieć wiele tagów<br>
+                    • <strong>Ulubione</strong> to szybki dostęp - filtr pokazujący tylko oznaczone strony
+                </p>
+                
+                <h3>Czy mogę mieć dwie karty tej samej strony w split-view?</h3>
+                <p>
+                    Tak! Możesz otworzyć tę samą stronę (np. Google Sheets) w obu panelach split-view - 
+                    idealnie do porównywania dwóch arkuszy lub różnych zakładek tego samego dokumentu.
+                </p>
+                
+                <h3>Co się stanie jak zamknę lewą kartę w split-view?</h3>
+                <p>
+                    Jeśli prawa karta zawiera stronę, zostanie przeniesiona do głównego widoku (lewa strona). 
+                    Jeśli prawa była pusta (about:blank), po prostu split-view zostanie wyłączony.
                 </p>
                 
                 <h3>Czy mogę importować zakładki z przeglądarki?</h3>
@@ -698,8 +911,8 @@
                 
                 <h3>Czy P-Web synchronizuje się między urządzeniami?</h3>
                 <p>
-                    Zakładki są przechowywane lokalnie na Twoim komputerze. Jeśli używasz PRO-Ka-Po na wielu urządzeniach, 
-                    możesz skopiować plik <code>data/p_web_bookmarks.json</code> między nimi.
+                    Zakładki są przechowywane lokalnie na Twoim komputerze w pliku <code>data/p_web_bookmarks_v2.json</code>. 
+                    Jeśli używasz PRO-Ka-Po na wielu urządzeniach, możesz skopiować ten plik między nimi.
                 </p>
                 
                 <h3>Czy strony działają normalnie w P-Web?</h3>
@@ -711,7 +924,13 @@
                 <h3>Co się stanie jeśli usunę zakładkę przez pomyłkę?</h3>
                 <p>
                     Zakładka zostanie permanentnie usunięta. Obecnie nie ma funkcji cofania, więc bądź ostrożny. 
-                    Możesz jednak zawsze dodać tę samą stronę ponownie.
+                    Możesz jednak zawsze dodać tę samą stronę ponownie z tymi samymi parametrami.
+                </p>
+                
+                <h3>Czy mogę zmienić rozmiar panelu drzewa?</h3>
+                <p>
+                    Tak! Panel drzewa ma maksymalną szerokość 25% ekranu (do 400px), ale możesz ręcznie dostosować jego rozmiar 
+                    przeciągając separator między drzewem a przeglądarką.
                 </p>
             </div>
             
@@ -770,9 +989,16 @@
                     Wszystkie dane P-Web są przechowywane lokalnie na Twoim komputerze:
                 </p>
                 <ul>
-                    <li><strong>Zakładki:</strong> <code>data/p_web_bookmarks.json</code></li>
+                    <li><strong>Zakładki V2 (nowy format):</strong> <code>data/p_web_bookmarks_v2.json</code></li>
+                    <li><strong>Zakładki V1 (stary format):</strong> <code>data/p_web_bookmarks.json</code> (automatycznie migrowane)</li>
                     <li><strong>Profile przeglądarki (cookies, cache):</strong> <code>data/browser_profile/</code></li>
                 </ul>
+                
+                <h3>Migracja z Wersji 1 do Wersji 2</h3>
+                <p>
+                    Jeśli korzystałeś z P-Web przed wersją 2.0, Twoje zakładki zostaną automatycznie zmigrowane do nowego formatu 
+                    przy pierwszym uruchomieniu. Stare zakładki będą dostępne w grupie "Bez grupy", możesz je później reorganizować.
+                </p>
                 
                 <h3>Bezpieczeństwo</h3>
                 <p>
@@ -804,23 +1030,27 @@
                 </ul>
                 
                 <div class="info-box">
-                    <h4>🌟 Przydatne Funkcje</h4>
+                    <h4>🌟 Nowe w Wersji 2.0</h4>
                     <p>
-                        Czy wiesz, że możesz sugerować nowe funkcje dla P-Web? Oto najbardziej pożądane przez użytkowników:
+                        Właśnie korzystasz z P-Web V2! Nowości to:
                     </p>
                     <ul>
-                        <li>Import/export zakładek</li>
-                        <li>Grupowanie zakładek w foldery</li>
-                        <li>Synchronizacja między urządzeniami</li>
-                        <li>Wyszukiwarka w zakładkach</li>
+                        <li>✅ Drzewo hierarchiczne z grupami kolorowymi</li>
+                        <li>✅ System tagów dla cross-kategoriowego tagowania</li>
+                        <li>✅ Ulubione z szybkim filtrowaniem</li>
+                        <li>✅ Podzielony widok (split-view) do otwierania dwóch stron jednocześnie</li>
+                        <li>✅ Przyciski X do zamykania pojedynczych kart w split-view</li>
+                        <li>✅ Integracja z Quick Task Bar (zamiast bezpośredniego tworzenia zadań)</li>
+                        <li>✅ Kompaktowy interfejs z ikonami (📂🏷️⭐)</li>
+                        <li>✅ Panel drzewa z automatycznym ograniczeniem szerokości (25%, max 400px)</li>
                     </ul>
                 </div>
             </div>
         </div>
         
         <div class="footer">
-            <p><strong>PRO-Ka-Po Kaizen Freak</strong> - Moduł P-Web</p>
-            <p>Wersja dokumentacji: 1.0 | Data: Listopad 2025</p>
+            <p><strong>PRO-Ka-Po Kaizen Freak</strong> - Moduł P-Web V2</p>
+            <p>Wersja dokumentacji: 2.0 | Data: Listopad 2025</p>
             <p>© 2025 PRO-Ka-Po Development Team</p>
         </div>
     </div>

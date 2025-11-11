@@ -893,7 +893,7 @@ class EnvironmentSettingsTab(QWidget):
             {'id': 'promail', 'label': 'Pro-Mail', 'description': 'Zaawansowane zarządzanie pocztą', 'visible': False, 'locked': False},
             {'id': 'pfile', 'label': 'P-File', 'description': 'Menedżer plików i dokumentów', 'visible': False, 'locked': False},
             {'id': 'pweb', 'label': 'P-Web', 'description': 'Przeglądarka i narzędzia webowe', 'visible': False, 'locked': False},
-            {'id': 'quickboard', 'label': 'QuickBoard', 'description': 'Szybka tablica notatek', 'visible': False, 'locked': False},
+            {'id': 'quickboard', 'label': 'QuickBoard', 'description': 'Menedżer historii schowka', 'visible': True, 'locked': False},
             {'id': 'proapp', 'label': 'Pro-App', 'description': 'Zarządzanie aplikacjami', 'visible': False, 'locked': False},
         ]
         

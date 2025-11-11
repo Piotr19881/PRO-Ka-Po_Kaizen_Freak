@@ -29,6 +29,7 @@ from .navigation_bar import NavigationBar
 from ..Modules.habbit_tracker_module import HabbitTrackerView
 from .pro_app_view import ProAppView
 from .p_web_view import PWebView
+from .quickboard_view import QuickBoardView
 from ..Modules.pro_app.module_viewer import ModuleViewer
 
 
@@ -895,6 +896,17 @@ class MainWindow(QMainWindow):
             logger.error(traceback.format_exc())
             self.p_web_view = None
         
+        # Widok QuickBoard
+        try:
+            self.quickboard_view = QuickBoardView(parent=self)
+            self.content_stack.addWidget(self.quickboard_view)
+            logger.info("QuickBoardView initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize QuickBoardView: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            self.quickboard_view = None
+        
         main_layout.addWidget(self.content_stack, stretch=1)
         
         # Separator
@@ -1124,6 +1136,14 @@ class MainWindow(QMainWindow):
                 self.content_stack.setCurrentWidget(self.p_web_view)
             else:
                 logger.warning("PWebView not initialized")
+                self.content_stack.setCurrentWidget(self.main_content)
+        elif view_name == 'quickboard':
+            if hasattr(self, 'quickboard_view') and self.quickboard_view:
+                self.content_stack.setCurrentWidget(self.quickboard_view)
+                # Odśwież statystyki przy każdym wejściu
+                self.quickboard_view.update_stats()
+            else:
+                logger.warning("QuickBoardView not initialized")
                 self.content_stack.setCurrentWidget(self.main_content)
         elif view_name.startswith('custom_'):
             # Obsługa custom buttons
@@ -1729,6 +1749,11 @@ class MainWindow(QMainWindow):
                 if hasattr(self.alarms_view.alarm_manager, 'cleanup'):
                     logger.info("Cleaning up AlarmManager...")
                     self.alarms_view.alarm_manager.cleanup()
+            
+            # Cleanup QuickBoard (zatrzymaj monitoring schowka)
+            if hasattr(self, 'quickboard_view') and self.quickboard_view:
+                logger.info("Cleaning up QuickBoard...")
+                self.quickboard_view.cleanup()
             
             logger.info("Cleanup complete")
             

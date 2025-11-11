@@ -37,8 +37,7 @@ from ..Modules.p_web.p_web_tree_widget import PWebTreeWidget
 from ..Modules.p_web.p_web_context_menu import CustomWebEnginePage
 from ..utils.i18n_manager import t, get_i18n
 from .simple_pweb_dialogs import (
-    GroupManagerDialog, TagManagerDialog, QuickOpenDialog, AddBookmarkDialog,
-    SplitViewSelectDialog
+    GroupManagerDialog, TagManagerDialog, QuickOpenDialog, AddBookmarkDialog
 )
 
 
@@ -126,12 +125,6 @@ class PWebView(QWidget):
         # Separator
         toolbar_layout.addStretch()
         
-        # Przycisk Split View
-        self.btn_split_toggle = QPushButton()
-        self.btn_split_toggle.setObjectName("pweb_split_toggle_button")
-        self.btn_split_toggle.setCheckable(True)
-        toolbar_layout.addWidget(self.btn_split_toggle)
-        
         # Przycisk Dodaj stronę
         self.btn_add = QPushButton()
         self.btn_add.setObjectName("pweb_add_button")
@@ -144,66 +137,27 @@ class PWebView(QWidget):
         
         main_layout.addLayout(toolbar_layout)
         
-        # === Splitter główny: Drzewo | Przeglądarki ===
-        self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
-        self.main_splitter.setObjectName("pweb_main_splitter")
+        # === Splitter: Drzewo | Przeglądarka ===
+        self.splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.splitter.setObjectName("pweb_splitter")
         
         # Widget drzewa
         self.tree_widget = PWebTreeWidget(self.logic, self)
         self.tree_widget.setObjectName("pweb_tree_widget")
-        self.tree_widget.setMaximumWidth(400)  # Maksymalna szerokość 400px
         self.tree_widget.hide()  # Początkowo ukryte
-        self.main_splitter.addWidget(self.tree_widget)
+        self.splitter.addWidget(self.tree_widget)
         
-        # === Splitter przeglądarek: Lewa | Prawa ===
-        self.browser_splitter = QSplitter(Qt.Orientation.Horizontal)
-        self.browser_splitter.setObjectName("pweb_browser_splitter")
-        
-        # Główny widok przeglądarki (lewy)
+        # Widok przeglądarki
         self.web_view = QWebEngineView()
         self.web_view.setObjectName("pweb_web_view")
         self.web_view.setUrl(QUrl("about:blank"))
-        self.browser_splitter.addWidget(self.web_view)
+        self.splitter.addWidget(self.web_view)
         
-        # Dodatkowy widok przeglądarki (prawy) - początkowo ukryty
-        self.web_view_split = QWebEngineView()
-        self.web_view_split.setObjectName("pweb_web_view_split")
-        self.web_view_split.setUrl(QUrl("about:blank"))
-        self.web_view_split.hide()
-        self.browser_splitter.addWidget(self.web_view_split)
+        # Proporcje splittera (25% drzewo, 75% przeglądarka)
+        self.splitter.setStretchFactor(0, 1)
+        self.splitter.setStretchFactor(1, 3)
         
-        # Overlay: przyciski zamykania kart (na obu przeglądarkach)
-        # Tworzymy je jako dzieci widoków przeglądarki, będą pozycjonowane dynamicznie
-        self.btn_close_left = QPushButton("✖", self.web_view)
-        self.btn_close_left.setObjectName("pweb_close_left_button")
-        self.btn_close_left.setFixedSize(28, 28)
-        self.btn_close_left.setVisible(False)
-        self.btn_close_left.setToolTip(t("pweb.split_view_close"))
-        self.btn_close_left.clicked.connect(self._close_left_pane)
-        self.btn_close_left.setStyleSheet("background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 14px;")
-        
-        self.btn_close_right = QPushButton("✖", self.web_view_split)
-        self.btn_close_right.setObjectName("pweb_close_right_button")
-        self.btn_close_right.setFixedSize(28, 28)
-        self.btn_close_right.setVisible(False)
-        self.btn_close_right.setToolTip(t("pweb.split_view_close"))
-        self.btn_close_right.clicked.connect(self._close_right_pane)
-        self.btn_close_right.setStyleSheet("background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 14px;")
-        
-        # Proporcje browser_splitter (50% / 50% gdy widoczne)
-        self.browser_splitter.setStretchFactor(0, 1)
-        self.browser_splitter.setStretchFactor(1, 1)
-        
-        self.main_splitter.addWidget(self.browser_splitter)
-        
-        # Proporcje main_splitter (25% drzewo, 75% przeglądarki)
-        self.main_splitter.setStretchFactor(0, 1)
-        self.main_splitter.setStretchFactor(1, 3)
-        
-        main_layout.addWidget(self.main_splitter)
-        
-        # Stan split view
-        self.split_view_active = False
+        main_layout.addWidget(self.splitter)
         
         # Konfiguruj profil przeglądarki
         self._setup_browser_profile()
@@ -235,15 +189,10 @@ class PWebView(QWidget):
         # Synchronizuj z aktualnym motywem aplikacji
         self._apply_browser_theme()
         
-        # Utwórz własne strony z menu kontekstowym dla obu przeglądarek
+        # Utwórz własną stronę z menu kontekstowym
         if CustomWebEnginePage:
-            # Główna przeglądarka (lewa)
             self.web_page = CustomWebEnginePage(self, self.profile)
             self.web_view.setPage(self.web_page)
-            
-            # Dodatkowa przeglądarka (prawa) - używa tego samego profilu
-            self.web_page_split = CustomWebEnginePage(self, self.profile)
-            self.web_view_split.setPage(self.web_page_split)
     
     def _apply_browser_theme(self):
         """Stosuje motyw aplikacji do przeglądarki"""
@@ -280,7 +229,6 @@ class PWebView(QWidget):
         self.btn_back.clicked.connect(self._go_back)
         self.btn_toggle_tree.clicked.connect(self._toggle_tree)
         self.btn_refresh.clicked.connect(self._refresh_page)
-        self.btn_split_toggle.clicked.connect(self._toggle_split_view)
         self.btn_add.clicked.connect(self._add_bookmark)
         self.btn_delete.clicked.connect(self._delete_bookmark)
         
@@ -289,21 +237,13 @@ class PWebView(QWidget):
         self.tree_widget.edit_groups_requested.connect(self._edit_groups)
         self.tree_widget.edit_tags_requested.connect(self._edit_tags)
         self.tree_widget.toggle_favorite_requested.connect(self._toggle_favorite)
-        self.tree_widget.open_in_split_requested.connect(self._open_bookmark_in_split)
         
-        # Menu kontekstowe głównej przeglądarki
+        # Menu kontekstowe przeglądarki
         if hasattr(self, 'web_page'):
             self.web_page.create_note_requested.connect(self._create_note_from_selection)
             self.web_page.create_task_requested.connect(self._create_task_from_selection)
             self.web_page.toggle_favorite_requested.connect(self._toggle_favorite_from_menu)
-            self.web_page.open_in_split_requested.connect(self._open_url_in_split)
-            self.web_page.open_in_split_prompt_requested.connect(self._on_open_split_prompt)
-        
-        # Menu kontekstowe dodatkowej przeglądarki
-        if hasattr(self, 'web_page_split'):
-            self.web_page_split.create_note_requested.connect(self._create_note_from_selection)
-            self.web_page_split.create_task_requested.connect(self._create_task_from_selection)
-            self.web_page_split.open_in_split_requested.connect(self._open_url_in_split)
+            self.web_page.quick_open_requested.connect(self._quick_open)
     
     # ======================
     # Akcje toolbar
@@ -316,14 +256,6 @@ class PWebView(QWidget):
         if self.tree_visible:
             self.tree_widget.show()
             self.tree_widget.refresh_tree()
-            
-            # Ustaw początkową szerokość na ~25% szerokości okna
-            total_width = self.main_splitter.width()
-            tree_width = int(total_width * 0.25)
-            tree_width = min(tree_width, 400)  # Maksymalnie 400px
-            
-            self.main_splitter.setSizes([tree_width, total_width - tree_width])
-            
             logger.debug("[PWebView] Tree expanded")
         else:
             self.tree_widget.hide()
@@ -341,51 +273,6 @@ class PWebView(QWidget):
         """Odświeża aktualną stronę"""
         self.web_view.reload()
         logger.debug("[PWebView] Page refreshed")
-    
-    def _toggle_split_view(self):
-        """Przełącza podzielony widok - z dialogiem wyboru strony przy włączaniu"""
-        if not self.split_view_active:
-            # Włączanie: pokaż dialog wyboru strony
-            dialog = SplitViewSelectDialog(self.logic, self)
-            if dialog.exec() == dialog.DialogCode.Accepted:
-                url = dialog.get_url()
-                
-                if url:
-                    # Włącz split-view
-                    self.split_view_active = True
-                    self.web_view_split.show()
-                    
-                    # Otwórz wybraną stronę
-                    normalized_url = PWebLogic.normalize_url(url)
-                    self.web_view_split.setUrl(QUrl(normalized_url))
-                    
-                    # Zaktualizuj przycisk
-                    self.btn_split_toggle.setChecked(True)
-                    self.btn_split_toggle.setText(t("pweb.split_view_close"))
-                    
-                    # Pokaż przyciski overlay X
-                    self.btn_close_left.setVisible(True)
-                    self.btn_close_right.setVisible(True)
-                    self.btn_close_left.raise_()
-                    self.btn_close_right.raise_()
-                    QTimer.singleShot(50, self._position_overlay_buttons)
-                    
-                    logger.info(f"[PWebView] Split view enabled with URL: {normalized_url}")
-        else:
-            # Wyłączanie: zamknij split-view
-            self.split_view_active = False
-            self.web_view_split.hide()
-            self.web_view_split.setUrl(QUrl("about:blank"))
-            
-            # Ukryj przyciski overlay X
-            self.btn_close_left.setVisible(False)
-            self.btn_close_right.setVisible(False)
-            
-            # Zaktualizuj przycisk
-            self.btn_split_toggle.setChecked(False)
-            self.btn_split_toggle.setText(t("pweb.split_view_toggle"))
-            
-            logger.debug("[PWebView] Split view disabled")
     
     def _add_bookmark(self):
         """Dodaje nową zakładkę"""
@@ -510,48 +397,6 @@ class PWebView(QWidget):
         if self.current_bookmark:
             self._toggle_favorite(self.current_bookmark)
     
-    def _open_bookmark_in_split(self, bookmark: dict):
-        """Otwiera zakładkę w podzielonym widoku"""
-        # Włącz split view jeśli wyłączony
-        if not self.split_view_active:
-            self.split_view_active = True
-            self.web_view_split.show()
-            self.btn_split_toggle.setChecked(True)
-            self.btn_split_toggle.setText(t("pweb.split_view_close"))
-            
-            # Pokaż przyciski overlay X
-            self.btn_close_left.setVisible(True)
-            self.btn_close_right.setVisible(True)
-            self.btn_close_left.raise_()
-            self.btn_close_right.raise_()
-            QTimer.singleShot(50, self._position_overlay_buttons)
-        
-        # Otwórz zakładkę w prawej przeglądarce
-        url = PWebLogic.normalize_url(bookmark['url'])
-        self.web_view_split.setUrl(QUrl(url))
-        logger.info(f"[PWebView] Opened in split view: {bookmark['name']}")
-    
-    def _open_url_in_split(self, url: str):
-        """Otwiera URL w podzielonym widoku"""
-        # Włącz split view jeśli wyłączony
-        if not self.split_view_active:
-            self.split_view_active = True
-            self.web_view_split.show()
-            self.btn_split_toggle.setChecked(True)
-            self.btn_split_toggle.setText(t("pweb.split_view_close"))
-            
-            # Pokaż przyciski overlay X
-            self.btn_close_left.setVisible(True)
-            self.btn_close_right.setVisible(True)
-            self.btn_close_left.raise_()
-            self.btn_close_right.raise_()
-            QTimer.singleShot(50, self._position_overlay_buttons)
-        
-        # Otwórz URL w prawej przeglądarce
-        normalized_url = PWebLogic.normalize_url(url)
-        self.web_view_split.setUrl(QUrl(normalized_url))
-        logger.info(f"[PWebView] Opened URL in split view: {normalized_url}")
-    
     def _quick_open(self):
         """Szybkie otwarcie URL bez zapisywania"""
         dialog = QuickOpenDialog(self)
@@ -562,22 +407,6 @@ class PWebView(QWidget):
                 normalized_url = PWebLogic.normalize_url(url)
                 self.web_view.setUrl(QUrl(normalized_url))
                 logger.info(f"[PWebView] Quick opened: {normalized_url}")
-    
-    def _on_open_split_prompt(self):
-        """Pokazuje dialog wyboru strony do otwarcia w podzielonym widoku"""
-        dialog = SplitViewSelectDialog(self.logic, self)
-        if dialog.exec() == dialog.DialogCode.Accepted:
-            url = dialog.get_url()
-            
-            if url:
-                # Włącz podzielony widok jeśli nie jest aktywny
-                if not self.split_view_active:
-                    self._toggle_split_view()
-                
-                # Otwórz URL w prawej przeglądarce
-                normalized_url = PWebLogic.normalize_url(url)
-                self.web_view_split.setUrl(QUrl(normalized_url))
-                logger.info(f"[PWebView] Opened URL in split view from prompt: {normalized_url}")
     
     # ======================
     # Integracja z aplikacją
@@ -640,44 +469,47 @@ class PWebView(QWidget):
                               t('pweb.error.note_creation_failed').format(error=str(e)))
     
     def _create_task_from_selection(self, selected_text: str):
-        """Otwiera quick task bar z zaznaczonym tekstem"""
+        """Tworzy zadanie z zaznaczonego tekstu"""
         if not selected_text or not selected_text.strip():
             logger.warning("[PWebView] No text selected for task creation")
             return
         
         # Pobierz główne okno
         main_window = self._get_main_window()
-        if not main_window or not hasattr(main_window, 'quick_task_dialog'):
-            QMessageBox.warning(self, t('pweb.title'), t('pweb.error.no_quick_task'))
+        if not main_window or not hasattr(main_window, 'task_view'):
+            QMessageBox.warning(self, t('pweb.title'), t('pweb.error.no_task_view'))
             return
         
-        # Przygotuj tekst zadania
-        task_text = selected_text.strip()
-        if len(task_text) > 200:
-            task_text = task_text[:197] + "..."
+        # Przygotuj dane zadania
+        task_title = selected_text.strip()
+        if len(task_title) > 100:
+            task_title = task_title[:97] + "..."
+        
+        current_url = self.web_view.url().toString()
+        task_description = f"Źródło: {current_url}"
         
         try:
-            # Otwórz quick task dialog
-            main_window.quick_task_dialog.clear_inputs()
-            main_window.quick_task_dialog.reload_configuration()
+            task_id = main_window.task_view.db.add_task(
+                title=task_title,
+                description=task_description,
+                priority=1,
+                status='todo'
+            )
             
-            # Wstaw tekst do pola zadania
-            main_window.quick_task_dialog.task_bar.task_input.setText(task_text)
+            logger.info(f"[PWebView] Created task {task_id} from selection")
             
-            # Pokaż i aktywuj dialog
-            main_window.quick_task_dialog.show()
-            main_window.quick_task_dialog.raise_()
-            main_window.quick_task_dialog.activateWindow()
+            # Przełącz na widok zadań
+            main_window._on_view_changed("tasks")
             
-            # Ustaw focus na polu zadania
-            main_window.quick_task_dialog.task_bar.task_input.setFocus()
-            main_window.quick_task_dialog.task_bar.task_input.selectAll()
+            # Odśwież
+            QTimer.singleShot(100, main_window.task_view.load_tasks)
             
-            logger.info(f"[PWebView] Opened quick task bar with text: {task_text[:50]}...")
+            QMessageBox.information(self, t('pweb.title'), 
+                                  t('pweb.success.task_created').format(title=task_title))
         except Exception as e:
-            logger.error(f"[PWebView] Error opening quick task bar: {e}")
+            logger.error(f"[PWebView] Error creating task: {e}")
             QMessageBox.warning(self, t('pweb.title'), 
-                              t('pweb.error.quick_task_failed').format(error=str(e)))
+                              t('pweb.error.task_creation_failed').format(error=str(e)))
     
     def _get_main_window(self):
         """Pobiera główne okno aplikacji"""
@@ -690,71 +522,6 @@ class PWebView(QWidget):
         """Wybiera notatkę w drzewie (helper)"""
         main_window.notes_view.refresh_tree()
         main_window.notes_view.select_note_in_tree(str(note_id))
-
-    # ======================
-    # Overlay close buttons (split panes)
-    # ======================
-
-    def _close_right_pane(self):
-        """Zamyka prawą kartę i rozszerza lewą (jeśli była)"""
-        if not self.split_view_active:
-            return
-
-        # Ukryj prawą przeglądarkę
-        try:
-            self.split_view_active = False
-            self.web_view_split.hide()
-            self.web_view_split.setUrl(QUrl("about:blank"))
-            self.btn_close_left.setVisible(False)
-            self.btn_close_right.setVisible(False)
-            self.btn_split_toggle.setChecked(False)
-            self.btn_split_toggle.setText(t("pweb.split_view_toggle"))
-            logger.info("[PWebView] Right split pane closed")
-        except Exception as e:
-            logger.error(f"[PWebView] Error closing right pane: {e}")
-
-    def _close_left_pane(self):
-        """Zamyka lewą kartę: jeśli prawa zawiera stronę, przenosi ją do głównego widoku,
-        następnie zamyka split-view."""
-        if not self.split_view_active:
-            return
-
-        try:
-            # Jeśli prawa zawiera URL, przenieś go do głównego widoku
-            right_url = self.web_view_split.url().toString() if hasattr(self.web_view_split, 'url') else ''
-            if right_url and right_url != 'about:blank':
-                self.web_view.setUrl(QUrl(right_url))
-
-        except Exception as e:
-            logger.debug(f"[PWebView] Could not transfer URL from right pane: {e}")
-
-        # Reuse zamknięcie prawej karty
-        self._close_right_pane()
-
-    def _position_overlay_buttons(self):
-        """Pozycjonuje przyciski X w prawym górnym rogu obu widoków przeglądarki."""
-        try:
-            if hasattr(self, 'btn_close_left') and self.btn_close_left and hasattr(self, 'web_view'):
-                w = self.web_view.width()
-                btn = self.btn_close_left
-                btn.move(max(4, w - btn.width() - 8), 8)
-
-            if hasattr(self, 'btn_close_right') and self.btn_close_right and hasattr(self, 'web_view_split'):
-                w2 = self.web_view_split.width()
-                btn2 = self.btn_close_right
-                btn2.move(max(4, w2 - btn2.width() - 8), 8)
-        except Exception:
-            pass
-
-    def resizeEvent(self, event):
-        """Nadpisz resizeEvent, aby pozycjonować overlay przyciski"""
-        try:
-            super().resizeEvent(event)
-        except Exception:
-            # Dla bezpieczeństwa, jeśli super ma inne sygnatury
-            QWidget.resizeEvent(self, event)
-
-        QTimer.singleShot(0, self._position_overlay_buttons)
     
     # ======================
     # Tłumaczenia
@@ -768,13 +535,6 @@ class PWebView(QWidget):
         self.btn_back.setText(t("pweb.back"))
         self.btn_toggle_tree.setText(t("pweb.toggle_tree"))
         self.btn_refresh.setText(t("pweb.refresh"))
-        
-        # Tekst przycisku split-view w zależności od stanu
-        if self.split_view_active:
-            self.btn_split_toggle.setText(t("pweb.split_view_close"))
-        else:
-            self.btn_split_toggle.setText(t("pweb.split_view_toggle"))
-        
         self.btn_add.setText(t("pweb.add_page"))
         self.btn_delete.setText(t("pweb.delete_page"))
         

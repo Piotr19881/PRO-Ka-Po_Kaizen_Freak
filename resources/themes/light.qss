@@ -398,6 +398,229 @@ QCheckBox::indicator, QRadioButton::indicator {
     height: 18px;
 }
 
+/* === QuickBoard Module === */
+QLabel#quickboardHeaderLabel {
+    background-color: #E3F2FD;
+    border-radius: 6px;
+}
+
+QLabel#quickboardStatusLabel {
+    font-size: 11pt;
+    font-weight: 600;
+    padding: 8px 12px;
+    border-radius: 4px;
+    color: white;
+}
+
+QLabel#quickboardStatusLabel[quickboardState="active"] {
+    background-color: #4CAF50;
+}
+
+QLabel#quickboardStatusLabel[quickboardState="inactive"] {
+    background-color: #f44336;
+}
+
+QPushButton#quickboardToggleMonitorButton {
+    font-size: 11pt;
+    font-weight: 700;
+    padding: 8px 18px;
+    border-radius: 4px;
+    color: white;
+}
+
+QPushButton#quickboardToggleMonitorButton[quickboardState="active"] {
+    background-color: #FF9800;
+}
+
+QPushButton#quickboardToggleMonitorButton[quickboardState="inactive"] {
+    background-color: #4CAF50;
+}
+
+QPushButton[quickboardRole="primary"] {
+    background-color: #2196F3;
+    color: white;
+    padding: 8px 14px;
+    font-weight: 600;
+}
+
+QPushButton[quickboardRole="primary"]:hover {
+    background-color: #1976D2;
+}
+
+QPushButton[quickboardRole="danger"] {
+    background-color: #f44336;
+    color: white;
+    padding: 8px 14px;
+    font-weight: 600;
+}
+
+QPushButton[quickboardRole="danger"]:hover {
+    background-color: #d32f2f;
+}
+
+QPushButton[quickboardRole="neutral"] {
+    background-color: #ECEFF1;
+    color: #212121;
+    padding: 8px 14px;
+    font-weight: 500;
+}
+
+QPushButton[quickboardRole="neutral"]:hover {
+    background-color: #CFD8DC;
+}
+
+QPushButton[quickboardRole="success"] {
+    background-color: #4CAF50;
+    color: white;
+    padding: 8px 14px;
+    font-weight: 600;
+}
+
+QPushButton[quickboardRole="success"]:hover {
+    background-color: #43A047;
+}
+
+QPushButton[quickboardRole="ai"] {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #6a11cb, stop:1 #2575fc);
+    color: white;
+    padding: 10px 16px;
+    font-weight: 600;
+    border-radius: 6px;
+}
+
+QPushButton[quickboardRole="ai"]:hover {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #5a0fb5, stop:1 #1d63e0);
+}
+
+QGroupBox[quickboardPanel="history"],
+QGroupBox[quickboardPanel="preview"] {
+    background-color: #FFFFFF;
+    border: 1px solid #CFD8DC;
+    border-radius: 6px;
+    margin-top: 12px;
+    padding: 12px;
+}
+
+QGroupBox[quickboardPanel="history"]::title,
+QGroupBox[quickboardPanel="preview"]::title {
+    color: #1565C0;
+    padding: 0 8px;
+    subcontrol-origin: margin;
+}
+
+QGroupBox[quickboardPanel="stats"] {
+    background-color: #F1F8E9;
+    border: 1px solid #C5E1A5;
+    border-radius: 6px;
+    margin-top: 12px;
+    padding: 12px;
+}
+
+QGroupBox[quickboardPanel="stats"]::title {
+    color: #33691E;
+    padding: 0 8px;
+    subcontrol-origin: margin;
+}
+
+QGroupBox[quickboardPanel="stats"] QLabel#quickboardStatsLabel {
+    color: #33691E;
+    font-weight: 500;
+}
+
+QListWidget#quickboardHistoryList {
+    background-color: #FAFAFA;
+    border: 1px solid #CFD8DC;
+    border-radius: 6px;
+    padding: 6px;
+}
+
+QListWidget#quickboardHistoryList::item {
+    padding: 8px;
+    border-radius: 4px;
+}
+
+QListWidget#quickboardHistoryList::item:selected {
+    background-color: #BBDEFB;
+    color: #0D47A1;
+}
+
+QListWidget#quickboardHistoryList::item:hover {
+    background-color: #E3F2FD;
+}
+
+QTextEdit#quickboardPreviewText {
+    background-color: #FFFFFF;
+    border: 1px solid #CFD8DC;
+    border-radius: 6px;
+    padding: 8px;
+}
+
+QScrollArea#quickboardImageScroll {
+    background-color: #FFFFFF;
+    border: 1px solid #CFD8DC;
+    border-radius: 6px;
+}
+
+QLabel#quickboardStatusBarLabel {
+    color: #546E7A;
+    padding: 4px 8px;
+}
+
+QTextEdit#quickboardAiDialogContent {
+    background-color: #FFFFFF;
+    border: 1px solid #CFD8DC;
+    border-radius: 6px;
+    padding: 8px;
+}
+
+QPushButton[quickboardRole="prompt"] {
+    background-color: transparent;
+    color: #1565C0;
+    padding: 6px;
+    border: none;
+    font-weight: 500;
+}
+
+QPushButton[quickboardRole="prompt"]:hover {
+    background-color: #E3F2FD;
+}
+
+QPushButton[quickboardPromptAlign="left"] {
+    text-align: left;
+}
+
+QLabel#quickboardInfoLabel {
+    background-color: #E3F2FD;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+QLabel#quickboardAiDialogHeader {
+    background-color: #E3F2FD;
+    border-radius: 6px;
+}
+
+QLabel#quickboardAiDialogInfo {
+    background-color: #FFF9C4;
+    border-radius: 6px;
+}
+
+QLabel#quickboardAiDialogSectionLabel {
+    color: #0D47A1;
+}
+
+QGroupBox#quickboardAiDialogPromptGroup {
+    border: 1px solid #BBDEFB;
+    border-radius: 6px;
+    margin-top: 12px;
+}
+
+QGroupBox#quickboardAiDialogPromptGroup::title {
+    color: #1565C0;
+    padding: 0 6px;
+    subcontrol-origin: margin;
+}
+
 QCheckBox::indicator:unchecked {
     border: 2px solid #BDBDBD;
     background-color: white;

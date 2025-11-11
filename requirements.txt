@@ -2,6 +2,7 @@
 PyQt6==6.6.1
 PyQt6-Qt6==6.6.1
 PyQt6-sip==13.6.0
+PyQt6-WebEngine>=6.6.0
 
 # Database
 SQLAlchemy==2.0.23
@@ -25,6 +26,10 @@ scipy==1.16.1
 
 # HTTP Requests (for AI module)
 requests>=2.31.0
+
+# Clipboard management (QuickBoard module)
+pyperclip>=1.8.2
+keyboard>=0.13.5
 
 # Audio recording
 sounddevice>=0.4.6

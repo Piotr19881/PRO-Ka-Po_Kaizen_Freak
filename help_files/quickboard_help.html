@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pomoc - Moduł QuickBoard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .header .icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+        
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.95;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .section {
+            margin-bottom: 40px;
+        }
+        
+        .section h2 {
+            color: #667eea;
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+        
+        .section h3 {
+            color: #764ba2;
+            font-size: 1.4em;
+            margin-top: 25px;
+            margin-bottom: 15px;
+        }
+        
+        .section p {
+            margin-bottom: 15px;
+            text-align: justify;
+        }
+        
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 25px 0;
+        }
+        
+        .feature-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .feature-card h3 {
+            color: #667eea;
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+        
+        .feature-card .emoji {
+            font-size: 2.5em;
+            display: block;
+            margin-bottom: 10px;
+        }
+        
+        ul, ol {
+            margin: 15px 0;
+            padding-left: 30px;
+        }
+        
+        li {
+            margin-bottom: 10px;
+        }
+        
+        .code {
+            background: #f4f4f4;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+        }
+        
+        .tip {
+            background: #e3f2fd;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        
+        .warning {
+            background: #fff3e0;
+            border-left: 4px solid #ff9800;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        
+        .success {
+            background: #e8f5e9;
+            border-left: 4px solid #4caf50;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        
+        .keyboard-key {
+            display: inline-block;
+            background: #f5f5f5;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            padding: 3px 8px;
+            margin: 0 3px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        
+        table th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+        }
+        
+        table td {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        table tr:hover {
+            background: #f5f5f5;
+        }
+        
+        .footer {
+            background: #f5f5f5;
+            padding: 20px;
+            text-align: center;
+            color: #666;
+            border-top: 3px solid #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="icon">📋</div>
+            <h1>QuickBoard</h1>
+            <p>Inteligentny Menedżer Historii Schowka</p>
+        </div>
+        
+        <div class="content">
+            <!-- Wprowadzenie -->
+            <div class="section">
+                <h2>📖 Co to jest QuickBoard?</h2>
+                <p>
+                    <strong>QuickBoard</strong> to zaawansowany menedżer schowka zintegrowany z aplikacją PRO-Ka-Po. 
+                    Automatycznie zapisuje historię wszystkich elementów skopiowanych do schowka, umożliwiając 
+                    łatwy dostęp do poprzednich kopii tekstu, linków, kodu, obrazów i plików.
+                </p>
+                
+                <div class="success">
+                    <strong>✨ Kluczowe Zalety:</strong>
+                    <ul>
+                        <li>Automatyczne monitorowanie schowka w tle</li>
+                        <li>Historia do 100 ostatnich elementów</li>
+                        <li>Inteligentna kategoryzacja zawartości</li>
+                        <li>Globalny skrót klawiszowy dla szybkiego dostępu</li>
+                        <li>Przypinanie ważnych elementów</li>
+                        <li>Wyszukiwanie i filtrowanie historii</li>
+                        <li>Integracja z AI do analizy zawartości</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Funkcje Główne -->
+            <div class="section">
+                <h2>🎯 Główne Funkcje</h2>
+                
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <span class="emoji">🔄</span>
+                        <h3>Monitoring Automatyczny</h3>
+                        <p>QuickBoard monitoruje schowek systemowy co 300ms i automatycznie zapisuje nowe elementy.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <span class="emoji">📚</span>
+                        <h3>Historia 100 Elementów</h3>
+                        <p>Zachowuje ostatnie 100 skopiowanych elementów z możliwością eksportu całej historii.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <span class="emoji">🏷️</span>
+                        <h3>Kategoryzacja</h3>
+                        <p>Automatyczne rozpoznawanie typu: Tekst, Link, Kod, Email, Obraz, Pliki.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <span class="emoji">⭐</span>
+                        <h3>Przypinanie</h3>
+                        <p>Oznacz gwiazdką ważne elementy, aby zawsze pozostały na górze listy.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <span class="emoji">🔍</span>
+                        <h3>Wyszukiwanie</h3>
+                        <p>Szybko znajdź potrzebną zawartość używając wbudowanej wyszukiwarki.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <span class="emoji">🤖</span>
+                        <h3>Analiza AI</h3>
+                        <p>Twórz notatki AI z analizą skopiowanej zawartości jednym kliknięciem.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Interfejs -->
+            <div class="section">
+                <h2>🖥️ Interfejs Użytkownika</h2>
+                
+                <h3>Panel Lewy - Historia Schowka</h3>
+                <p>Lewa część okna zawiera:</p>
+                <ul>
+                    <li><strong>Pasek wyszukiwania</strong> - Szukaj po zawartości elementów</li>
+                    <li><strong>Filtr kategorii</strong> - Wyświetl tylko wybrane typy elementów</li>
+                    <li><strong>Lista historii</strong> - Wszystkie skopiowane elementy z podglądem</li>
+                    <li><strong>Przyciski akcji</strong>:
+                        <ul>
+                            <li><strong>Kopiuj</strong> - Ponownie kopiuj element do schowka</li>
+                            <li><strong>Przypnij</strong> - Oznacz/odznacz element gwiazdką</li>
+                            <li><strong>Usuń</strong> - Usuń element z historii</li>
+                            <li><strong>Wyczyść wszystko</strong> - Usuń całą historię (z potwierdzeniem)</li>
+                        </ul>
+                    </li>
+                </ul>
+
+                <h3>Panel Prawy - Podgląd i Akcje</h3>
+                <p>Prawa część okna zawiera:</p>
+                <ul>
+                    <li><strong>Podgląd zawartości</strong> - Pełna zawartość zaznaczonego elementu</li>
+                    <li><strong>Przycisk AI</strong> - Twórz notatki z analizą AI (dla tekstów)</li>
+                    <li><strong>Statystyki</strong>:
+                        <ul>
+                            <li>Łączna liczba elementów w historii</li>
+                            <li>Liczba przypiętych elementów</li>
+                            <li>Elementy skopiowane dzisiaj</li>
+                        </ul>
+                    </li>
+                    <li><strong>Eksport/Import</strong> - Zapisz lub wczytaj historię schowka</li>
+                </ul>
+
+                <h3>Pasek Statusu</h3>
+                <p>Górna część okna pokazuje:</p>
+                <ul>
+                    <li><strong>Status monitoringu</strong> - 🟢 WŁĄCZONY lub 🔴 WYŁĄCZONY</li>
+                    <li><strong>Przycisk Start/Pauza</strong> - Wstrzymaj/wznów monitoring schowka</li>
+                </ul>
+            </div>
+
+            <!-- Kategorie -->
+            <div class="section">
+                <h2>🏷️ Kategorie Elementów</h2>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Kategoria</th>
+                            <th>Ikona</th>
+                            <th>Opis</th>
+                            <th>Przykład</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Tekst</strong></td>
+                            <td>📝</td>
+                            <td>Zwykły tekst bez specjalnych formatów</td>
+                            <td>Lorem ipsum dolor sit amet</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Link</strong></td>
+                            <td>🔗</td>
+                            <td>URL zaczynający się od http://, https://, ftp://</td>
+                            <td>https://github.com/example</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Kod</strong></td>
+                            <td>💻</td>
+                            <td>Kod źródłowy zawierający słowa kluczowe (def, class, function)</td>
+                            <td>def hello_world():<br>&nbsp;&nbsp;&nbsp;&nbsp;print("Hello")</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Email</strong></td>
+                            <td>📧</td>
+                            <td>Adres email w formacie nazwa@domena</td>
+                            <td>user@example.com</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Obraz</strong></td>
+                            <td>🖼️</td>
+                            <td>Skopiowany obrazek (screenshot, zdjęcie)</td>
+                            <td>Obrazek 1920x1080 (450 KB)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Pliki</strong></td>
+                            <td>📁</td>
+                            <td>Skopiowane pliki z eksploratora Windows</td>
+                            <td>document.pdf, image.png (2 pliki)</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="tip">
+                    <strong>💡 Wskazówka:</strong> QuickBoard automatycznie rozpoznaje typ zawartości przy kopiowaniu. 
+                    Możesz filtrować historię według kategorii używając rozwijanej listy nad listą elementów.
+                </div>
+            </div>
+
+            <!-- Snippety -->
+            <div class="section">
+                <h2>📌 Snippety z Parametrami</h2>
+                
+                <p>
+                    QuickBoard wspiera <strong>snippety tekstowe z dynamicznymi parametrami</strong>. Pozwala to 
+                    na tworzenie szablonów tekstowych, które można personalizować przy każdym użyciu.
+                </p>
+
+                <h3>Jak Tworzyć Snippety?</h3>
+                <p>Użyj podwójnych nawiasów klamrowych <code>{{nazwa}}</code> do oznaczenia parametrów:</p>
+                
+                <div class="code">
+Witaj {{imię}},<br><br>
+Dziękuję za kontakt w sprawie {{temat}}.<br>
+Odpowiem w ciągu {{czas}} dni roboczych.<br><br>
+Pozdrawiam,<br>
+{{podpis}}
+                </div>
+
+                <h3>Używanie Snippetów</h3>
+                <ol>
+                    <li>Skopiuj tekst zawierający parametry <code>{{nazwa}}</code></li>
+                    <li>QuickBoard automatycznie wykryje snippet</li>
+                    <li>Przy kopiowaniu pojawi się dialog z polami do wypełnienia</li>
+                    <li>Wpisz wartości dla każdego parametru</li>
+                    <li>Kliknij "Zastosuj" - gotowy tekst trafi do schowka</li>
+                </ol>
+
+                <div class="success">
+                    <strong>✅ Gotowe Szablony:</strong> Twórz szablony emaili, odpowiedzi, dokumentów. 
+                    Wszystkie snippety są zapisywane w historii i mogą być wielokrotnie używane.
+                </div>
+            </div>
+
+            <!-- Przypinanie -->
+            <div class="section">
+                <h2>⭐ Przypinanie Elementów</h2>
+                
+                <p>
+                    Funkcja <strong>przypinania</strong> pozwala oznaczyć ważne elementy gwiazdką, 
+                    dzięki czemu zawsze pozostaną na górze listy historii.
+                </p>
+
+                <h3>Jak Przypiąć Element?</h3>
+                <ol>
+                    <li>Zaznacz element na liście historii</li>
+                    <li>Kliknij przycisk <strong>"⭐ Przypnij"</strong></li>
+                    <li>Element otrzyma gwiazdkę i przeniesie się na górę listy</li>
+                </ol>
+
+                <h3>Odpinanieanie</h3>
+                <p>Kliknij ponownie przycisk "Przypnij" na przypiętym elemencie, aby go odpiąć.</p>
+
+                <div class="tip">
+                    <strong>💡 Zastosowania:</strong>
+                    <ul>
+                        <li>Często używane fragmenty kodu</li>
+                        <li>Szablony odpowiedzi</li>
+                        <li>Linki do dokumentacji</li>
+                        <li>Ważne notatki i adresy email</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Wyszukiwanie -->
+            <div class="section">
+                <h2>🔍 Wyszukiwanie i Filtrowanie</h2>
+                
+                <h3>Wyszukiwanie Tekstowe</h3>
+                <p>
+                    Użyj paska wyszukiwania na górze lewego panelu, aby znaleźć elementy zawierające 
+                    konkretne słowa lub frazy. Wyszukiwanie działa w czasie rzeczywistym.
+                </p>
+
+                <h3>Filtrowanie według Kategorii</h3>
+                <p>Lista rozwijana obok wyszukiwarki pozwala filtrować historię:</p>
+                <ul>
+                    <li><strong>Wszystkie</strong> - Pokaż wszystkie elementy</li>
+                    <li><strong>Tekst</strong> - Tylko teksty</li>
+                    <li><strong>Link</strong> - Tylko linki URL</li>
+                    <li><strong>Kod</strong> - Tylko fragmenty kodu</li>
+                    <li><strong>Email</strong> - Tylko adresy email</li>
+                    <li><strong>Obraz</strong> - Tylko obrazy</li>
+                    <li><strong>Pliki</strong> - Tylko pliki</li>
+                    <li><strong>Przypięte</strong> - Tylko przypięte elementy ⭐</li>
+                </ul>
+
+                <div class="tip">
+                    <strong>💡 Kombinacja Filtrów:</strong> Możesz łączyć wyszukiwanie tekstowe z filtrem kategorii, 
+                    np. szukaj "python" tylko w kategorii "Kod".
+                </div>
+            </div>
+
+            <!-- Globalny Skrót -->
+            <div class="section">
+                <h2>⌨️ Globalny Skrót Klawiszowy</h2>
+                
+                <p>
+                    QuickBoard można uruchomić z dowolnego miejsca w systemie używając globalnego skrótu:
+                </p>
+
+                <div class="code" style="text-align: center; font-size: 1.5em;">
+                    <span class="keyboard-key">Ctrl</span> + 
+                    <span class="keyboard-key">Shift</span> + 
+                    <span class="keyboard-key">V</span>
+                </div>
+
+                <h3>Jak Działa?</h3>
+                <ol>
+                    <li>Naciśnij <kbd>Ctrl+Shift+V</kbd> w dowolnym momencie</li>
+                    <li>QuickBoard otworzy się natychmiast</li>
+                    <li>Wybierz element z historii</li>
+                    <li>Kliknij "Kopiuj" lub dwukrotnie kliknij element</li>
+                    <li>Wklej zawartość tam, gdzie potrzebujesz (<kbd>Ctrl+V</kbd>)</li>
+                </ol>
+
+                <div class="warning">
+                    <strong>⚠️ Uwaga:</strong> Globalny skrót działa tylko gdy monitoring schowka jest włączony. 
+                    Jeśli inny program używa tego skrótu, może wystąpić konflikt.
+                </div>
+
+                <h3>Wyłączanie Globalnego Skrótu</h3>
+                <p>
+                    Jeśli nie potrzebujesz globalnego skrótu lub występują konflikty, możesz go wyłączyć 
+                    w ustawieniach QuickBoard (przycisk wstrzymania monitoringu automatycznie wyłącza skrót).
+                </p>
+            </div>
+
+            <!-- Integracja AI -->
+            <div class="section">
+                <h2>🤖 Integracja z AI</h2>
+                
+                <p>
+                    QuickBoard oferuje integrację z modułem AI aplikacji, umożliwiając automatyczne 
+                    tworzenie notatek z analizą skopiowanej zawartości.
+                </p>
+
+                <h3>Jak Używać AI?</h3>
+                <ol>
+                    <li>Zaznacz element tekstowy na liście historii</li>
+                    <li>Kliknij przycisk <strong>"🤖 Utwórz notatkę z analizą AI"</strong></li>
+                    <li>Wybierz typ analizy z dostępnych opcji:
+                        <ul>
+                            <li><strong>Analiza i podsumowanie</strong> - Zwięzłe streszczenie treści</li>
+                            <li><strong>Wyciągnięcie kluczowych informacji</strong> - Najważniejsze punkty</li>
+                            <li><strong>Analiza sentymentu i tonu</strong> - Emocjonalny wydźwięk tekstu</li>
+                            <li><strong>Sugestie działań</strong> - Konkretne kroki do wykonania</li>
+                        </ul>
+                    </li>
+                    <li>AI przeanalizuje zawartość i utworzy notatkę w module Notatek</li>
+                </ol>
+
+                <div class="success">
+                    <strong>✨ Dodatkowe Możliwości:</strong>
+                    <ul>
+                        <li>Analiza plików (dla typu "Pliki" AI podaje szczegóły techniczne)</li>
+                        <li>Automatyczne tagi i kategorie</li>
+                        <li>Zapisanie analizy jako gotowej notatki</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Eksport/Import -->
+            <div class="section">
+                <h2>💾 Eksport i Import Historii</h2>
+                
+                <h3>Eksport Historii</h3>
+                <p>Zapisz całą historię schowka do pliku JSON:</p>
+                <ol>
+                    <li>Kliknij przycisk <strong>"Eksportuj"</strong> w dolnej części prawego panelu</li>
+                    <li>Wybierz lokalizację i nazwę pliku</li>
+                    <li>Plik zostanie zapisany z rozszerzeniem <code>.json</code></li>
+                </ol>
+
+                <h3>Import Historii</h3>
+                <p>Wczytaj wcześniej zapisaną historię:</p>
+                <ol>
+                    <li>Kliknij przycisk <strong>"Importuj"</strong></li>
+                    <li>Wybierz plik JSON z historią</li>
+                    <li>Potwierdź operację</li>
+                    <li>Zaimportowane elementy zostaną dodane do aktualnej historii</li>
+                </ol>
+
+                <div class="tip">
+                    <strong>💡 Zastosowania:</strong>
+                    <ul>
+                        <li>Backup ważnych elementów schowka</li>
+                        <li>Przenoszenie historii między komputerami</li>
+                        <li>Udostępnianie zestawów snippetów zespołowi</li>
+                        <li>Archiwizacja projektów z odpowiednimi fragmentami kodu</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- FAQ -->
+            <div class="section">
+                <h2>❓ Najczęściej Zadawane Pytania (FAQ)</h2>
+                
+                <h3>Ile elementów przechowuje QuickBoard?</h3>
+                <p>
+                    QuickBoard przechowuje <strong>ostatnie 100 elementów</strong>. Po przekroczeniu limitu, 
+                    najstarszy element (nieprzypięty) zostaje automatycznie usunięty. Przypięte elementy 
+                    są chronione przed automatycznym usunięciem.
+                </p>
+
+                <h3>Czy QuickBoard zapisuje hasła i dane wrażliwe?</h3>
+                <p>
+                    QuickBoard zapisuje <strong>wszystko, co skopiujesz do schowka</strong>, włącznie z hasłami. 
+                    Z tego powodu zalecamy:
+                </p>
+                <ul>
+                    <li>Wstrzymanie monitoringu przed kopiowaniem haseł</li>
+                    <li>Używanie menedżera haseł zamiast schowka do haseł</li>
+                    <li>Regularne czyszczenie historii po pracy z danymi wrażliwymi</li>
+                </ul>
+
+                <div class="warning">
+                    <strong>⚠️ Bezpieczeństwo:</strong> Historia schowka jest przechowywana w pliku 
+                    <code>clipboard_history.json</code> w katalogu aplikacji. Nie udostępniaj tego pliku innym.
+                </div>
+
+                <h3>Dlaczego QuickBoard nie zapisuje niektórych kopii?</h3>
+                <p>QuickBoard może nie zapisać elementu z następujących powodów:</p>
+                <ul>
+                    <li><strong>Duplikat</strong> - Element identyczny jak ostatnio skopiowany</li>
+                    <li><strong>Monitoring wyłączony</strong> - Sprawdź status w górnym pasku</li>
+                    <li><strong>Pusty schowek</strong> - Nie ma zawartości do zapisania</li>
+                    <li><strong>Nieobsługiwany format</strong> - Niektóre specjalne formaty nie są wspierane</li>
+                </ul>
+
+                <h3>Jak wyczyścić całą historię?</h3>
+                <p>
+                    Kliknij przycisk <strong>"Wyczyść wszystko"</strong> w lewym panelu. Pojawi się okno 
+                    potwierdzenia - musisz zaakceptować operację. Przypięte elementy zostaną również usunięte.
+                </p>
+
+                <h3>Czy QuickBoard działa w tle?</h3>
+                <p>
+                    Tak! QuickBoard monitoruje schowek <strong>cały czas w tle</strong>, nawet gdy przełączysz 
+                    się na inny moduł aplikacji. Możesz wstrzymać monitoring przyciskiem na górze okna.
+                </p>
+
+                <h3>Co się stanie gdy zamknę aplikację?</h3>
+                <p>
+                    Historia schowka jest <strong>automatycznie zapisywana</strong> przy każdej zmianie. 
+                    Po ponownym uruchomieniu aplikacji, cała historia będzie dostępna.
+                </p>
+            </div>
+
+            <!-- Troubleshooting -->
+            <div class="section">
+                <h2>🔧 Rozwiązywanie Problemów</h2>
+                
+                <h3>Problem: Globalny skrót Ctrl+Shift+V nie działa</h3>
+                <p><strong>Możliwe przyczyny i rozwiązania:</strong></p>
+                <ul>
+                    <li><strong>Monitoring wyłączony</strong> - Włącz monitoring przyciskiem "▶ Uruchom"</li>
+                    <li><strong>Konflikt z innym programem</strong> - Zamknij inne aplikacje używające tego skrótu (np. niektóre IDE)</li>
+                    <li><strong>Brak uprawnień</strong> - Uruchom aplikację jako administrator</li>
+                    <li><strong>Biblioteka keyboard nie zainstalowana</strong> - Sprawdź konsolę, zainstaluj: <code>pip install keyboard</code></li>
+                </ul>
+
+                <h3>Problem: QuickBoard nie zapisuje obrazów</h3>
+                <p><strong>Rozwiązanie:</strong></p>
+                <ul>
+                    <li>Sprawdź czy obraz został faktycznie skopiowany (nie "wytnięty")</li>
+                    <li>Niektóre aplikacje używają specjalnych formatów - spróbuj zapisać obraz i skopiować ponownie</li>
+                    <li>Restart monitoringu może pomóc - wstrzymaj i uruchom ponownie</li>
+                </ul>
+
+                <h3>Problem: Historia jest pusta po restarcie</h3>
+                <p><strong>Rozwiązanie:</strong></p>
+                <ul>
+                    <li>Sprawdź czy plik <code>clipboard_history.json</code> istnieje w katalogu <code>Modules/QuickBoard/</code></li>
+                    <li>Upewnij się, że aplikacja ma prawa zapisu do tego katalogu</li>
+                    <li>Przywróć historię z kopii zapasowej (jeśli robiłeś eksport)</li>
+                </ul>
+
+                <h3>Problem: Aplikacja zwalnia po włączeniu QuickBoard</h3>
+                <p><strong>Rozwiązanie:</strong></p>
+                <ul>
+                    <li>Historia powyżej 100 elementów powinna się automatycznie przycinać</li>
+                    <li>Usuń bardzo duże elementy (obrazy o wysokiej rozdzielczości)</li>
+                    <li>Wyczyść historię i zacznij od nowa</li>
+                    <li>Zwiększ interwał monitoringu w kodzie (domyślnie 300ms)</li>
+                </ul>
+
+                <h3>Problem: Duplikaty nie są filtrowane</h3>
+                <p><strong>Rozwiązanie:</strong></p>
+                <ul>
+                    <li>QuickBoard filtruje tylko <strong>kolejne duplikaty</strong></li>
+                    <li>Jeśli skopiujesz A → B → A, drugie "A" zostanie zapisane (nie jest kolejnym duplikatem)</li>
+                    <li>To zachowanie jest celowe, aby zachować pełną historię działań</li>
+                </ul>
+
+                <div class="tip">
+                    <strong>💡 Dalsza pomoc:</strong> Jeśli problem nie został rozwiązany, sprawdź logi aplikacji 
+                    w katalogu <code>logs/</code> lub skontaktuj się z supportem.
+                </div>
+            </div>
+
+            <!-- Wskazówki -->
+            <div class="section">
+                <h2>💡 Wskazówki i Najlepsze Praktyki</h2>
+                
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <h3>🎯 Organizacja</h3>
+                        <p>Przypinaj często używane elementy gwiazdką. Dzięki temu zawsze będą na górze listy.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <h3>🔒 Bezpieczeństwo</h3>
+                        <p>Wstrzymuj monitoring przed kopiowaniem haseł i danych wrażliwych.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <h3>📦 Backup</h3>
+                        <p>Regularnie eksportuj ważne elementy do pliku JSON jako kopię zapasową.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <h3>🧹 Czyszczenie</h3>
+                        <p>Czyść historię po zakończeniu projektów, aby zachować tylko aktualne elementy.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <h3>🔍 Wyszukiwanie</h3>
+                        <p>Używaj filtrów kategorii + wyszukiwania tekstowego dla precyzyjnych wyników.</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <h3>⚡ Skróty</h3>
+                        <p>Naucz się skrótu Ctrl+Shift+V - znacznie przyspieszy pracę.</p>
+                    </div>
+                </div>
+
+                <h3>Workflow dla Programistów</h3>
+                <ol>
+                    <li>Przypnij często używane fragmenty kodu (imports, boilerplate)</li>
+                    <li>Twórz snippety z parametrami dla powtarzalnych struktur</li>
+                    <li>Używaj filtra "Kod" do szybkiego odnajdywania fragmentów</li>
+                    <li>Eksportuj zestawy snippetów dla różnych projektów</li>
+                    <li>Wykorzystuj AI do analizy skopiowanych fragmentów dokumentacji</li>
+                </ol>
+
+                <h3>Workflow dla Pisarzy/Redaktorów</h3>
+                <ol>
+                    <li>Twórz szablony odpowiedzi email jako snippety</li>
+                    <li>Przypinaj często używane zwroty i cytaty</li>
+                    <li>Używaj AI do analizy sentymentu skopiowanych tekstów</li>
+                    <li>Eksportuj kolekcje cytatów i źródeł</li>
+                    <li>Wyszukuj wcześniej skopiowane referencje</li>
+                </ol>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p><strong>QuickBoard</strong> - Część ekosystemu PRO-Ka-Po | Wersja 1.0</p>
+            <p>© 2025 - Dokumentacja pomocnicza modułu QuickBoard</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -113,7 +113,7 @@
                 "id": "quickboard",
                 "label": "QuickBoard",
                 "description": "Szybka tablica notatek",
-                "visible": false,
+                "visible": true,
                 "is_custom": false
             },
             {
@@ -127,7 +127,7 @@
                 "id": "custom_13_test1",
                 "label": "test1",
                 "description": "testowy",
-                "visible": true,
+                "visible": false,
                 "is_custom": true,
                 "custom_type": "python_module",
                 "custom_path": "C:/Users/probu/Desktop/test1.pro"
