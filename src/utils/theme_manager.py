@@ -502,11 +502,26 @@ class ThemeManager:
                 "bg_secondary": "#2D2D2D",
                 "text_primary": "#FFFFFF",
                 "text_secondary": "#B0B0B0",
+                "text_disabled": "#666666",
                 "accent_primary": "#64B5F6",
                 "accent_hover": "#42A5F5",
                 "accent_pressed": "#2196F3",
                 "border_light": "#404040",
                 "border_dark": "#202020",
+                "border_disabled": "#555555",
+                # Success colors (green)
+                "success_bg": "#4CAF50",
+                "success_hover": "#45A049",
+                # Warning colors (orange/yellow)
+                "warning_bg": "#f39c12",
+                "warning_hover": "#e67e22",
+                # Error colors (red)
+                "error_bg": "#f44336",
+                "error_hover": "#da190b",
+                # Disabled colors
+                "disabled_bg": "#424242",
+                "disabled_text": "#757575",
+                "disabled_border": "#555555",
                 # Kolory dla weekendów (ciemny motyw)
                 "weekend_saturday": "#1B4D3E",  # Ciemny zielony
                 "weekend_sunday": "#4A2C2A",    # Ciemny pomarańczowy/brązowy
@@ -522,11 +537,26 @@ class ThemeManager:
                 "bg_secondary": "#F5F5F5",
                 "text_primary": "#1A1A1A",
                 "text_secondary": "#666666",
+                "text_disabled": "#999999",
                 "accent_primary": "#2196F3",
                 "accent_hover": "#1976D2",
                 "accent_pressed": "#0D47A1",
                 "border_light": "#CCCCCC",
                 "border_dark": "#999999",
+                "border_disabled": "#BDBDBD",
+                # Success colors (green)
+                "success_bg": "#4CAF50",
+                "success_hover": "#45A049",
+                # Warning colors (orange/yellow)
+                "warning_bg": "#f39c12",
+                "warning_hover": "#e67e22",
+                # Error colors (red)
+                "error_bg": "#f44336",
+                "error_hover": "#da190b",
+                # Disabled colors
+                "disabled_bg": "#cccccc",
+                "disabled_text": "#666666",
+                "disabled_border": "#999999",
                 # Kolory dla weekendów (jasny motyw)
                 "weekend_saturday": "#C8FFC8",  # Jasny zielony
                 "weekend_sunday": "#FFC896",    # Jasny pomarańczowy
@@ -536,8 +566,6 @@ class ThemeManager:
                 "checkbox_checked": "#27ae60",
                 "checkbox_checked_hover": "#229954",
             }
-
-
 # Global singleton instance
 _theme_manager_instance: Optional[ThemeManager] = None
 

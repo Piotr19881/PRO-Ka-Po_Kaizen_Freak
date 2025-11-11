@@ -92,7 +92,7 @@
                 "id": "promail",
                 "label": "Pro-Mail",
                 "description": "Zaawansowane zarządzanie pocztą",
-                "visible": false,
+                "visible": true,
                 "is_custom": false
             },
             {

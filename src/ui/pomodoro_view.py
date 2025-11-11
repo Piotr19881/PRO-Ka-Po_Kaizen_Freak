@@ -28,6 +28,7 @@ import winsound
 from loguru import logger
 
 from ..utils.i18n_manager import t
+from ..utils.theme_manager import get_theme_manager
 from ..config import POMODORO_API_BASE_URL  # Configuration
 from ..Modules.Pomodoro_module import (
     PomodoroLogic,
@@ -57,6 +58,9 @@ class PomodoroView(QWidget):
         super().__init__(parent)
         self.user_data = None
         self.current_theme = "light"
+        
+        # Theme manager
+        self.theme_manager = get_theme_manager()
         
         # Callback do zapisu odświeżonych tokenów (przekazany z main.py)
         self.on_token_refreshed_callback = None
@@ -181,13 +185,7 @@ class PomodoroView(QWidget):
         timer_font.setPointSize(120)  # BARDZO duży rozmiar
         timer_font.setBold(True)
         self.timer_display.setFont(timer_font)
-        self.timer_display.setStyleSheet("""
-            color: #FF6B6B; 
-            padding: 40px;
-            background-color: rgba(255, 107, 107, 0.1);
-            border-radius: 15px;
-            font-size: 120pt;
-        """)
+        # Kolor ustawi _update_timer_color()
         self.timer_display.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.timer_display.setMinimumHeight(200)  # Minimum wysokości
         timer_layout.addWidget(self.timer_display, stretch=1)
@@ -199,18 +197,7 @@ class PomodoroView(QWidget):
         self.progress_bar.setTextVisible(True)
         self.progress_bar.setFormat("%p%")
         self.progress_bar.setFixedHeight(20)
-        self.progress_bar.setStyleSheet("""
-            QProgressBar {
-                border: 2px solid #ddd;
-                border-radius: 10px;
-                text-align: center;
-                font-weight: bold;
-            }
-            QProgressBar::chunk {
-                background-color: #FF6B6B;
-                border-radius: 8px;
-            }
-        """)
+        # Styling ustawi _update_progress_bar_color()
         timer_layout.addWidget(self.progress_bar)
         
         layout.addLayout(timer_layout)
@@ -775,15 +762,19 @@ class PomodoroView(QWidget):
         else:
             self.progress_bar.setValue(0)
         
-        # Zmiana koloru zegara w zależności od typu sesji
+        # Zmiana koloru zegara w zależności od typu sesji - używamy kolorów z theme
+        colors = self.theme_manager.get_current_colors() if self.theme_manager else {}
+        
         if self.pomodoro_logic and self.pomodoro_logic.current_session:
             session_type = self.pomodoro_logic.current_session.session_type
             if session_type == SessionType.WORK:
-                color = "#FF6B6B"  # Czerwony dla pracy
+                color = colors.get('error_bg', '#FF6B6B')  # Czerwony dla pracy
             else:
-                color = "#4ECDC4"  # Niebieski dla przerwy
+                color = colors.get('accent_primary', '#4ECDC4')  # Niebieski dla przerwy
         else:
-            color = "#FF6B6B"  # Domyślnie czerwony
+            color = colors.get('error_bg', '#FF6B6B')  # Domyślnie czerwony
+        
+        border_color = colors.get('border_light', '#ddd')
         
         self.timer_display.setStyleSheet(f"""
             color: {color}; 
@@ -797,7 +788,7 @@ class PomodoroView(QWidget):
         # Aktualizuj kolor progress bar
         self.progress_bar.setStyleSheet(f"""
             QProgressBar {{
-                border: 2px solid #ddd;
+                border: 2px solid {border_color};
                 border-radius: 10px;
                 text-align: center;
                 font-weight: bold;
@@ -998,33 +989,37 @@ class PomodoroView(QWidget):
         return t(key)
         
     def _apply_theme(self):
-        """Aplikuje motyw kolorystyczny"""
-        # TODO: Integracja z systemem motywów
-        if self.current_theme == "dark":
-            self.setStyleSheet("""
-                QWidget {
-                    background-color: #1e1e1e;
-                    color: #ffffff;
-                }
-                QGroupBox {
-                    border: 1px solid #444;
-                    border-radius: 5px;
-                    margin-top: 10px;
-                    padding-top: 10px;
-                }
-                QGroupBox::title {
-                    color: #ffffff;
-                }
-            """)
-        else:
-            self.setStyleSheet("""
-                QGroupBox {
-                    border: 1px solid #ddd;
-                    border-radius: 5px;
-                    margin-top: 10px;
-                    padding-top: 10px;
-                }
-            """)
+        """Aplikuje motyw kolorystyczny z ThemeManager"""
+        if not self.theme_manager:
+            return
+        
+        colors = self.theme_manager.get_current_colors()
+        
+        bg_main = colors.get('bg_main', '#FFFFFF')
+        bg_secondary = colors.get('bg_secondary', '#F5F5F5')
+        text_primary = colors.get('text_primary', '#1A1A1A')
+        border_light = colors.get('border_light', '#CCCCCC')
+        
+        self.setStyleSheet(f"""
+            QWidget {{
+                background-color: {bg_main};
+                color: {text_primary};
+            }}
+            QGroupBox {{
+                border: 1px solid {border_light};
+                border-radius: 5px;
+                margin-top: 10px;
+                padding-top: 10px;
+                background-color: {bg_secondary};
+            }}
+            QGroupBox::title {{
+                color: {text_primary};
+            }}
+        """)
+    
+    def apply_theme(self):
+        """Public method dla odświeżenia motywu (wywołane z main_window)"""
+        self._apply_theme()
             
     # ========== PUBLIC METHODS ==========
     
@@ -1363,6 +1358,7 @@ class PomodoroTimerPopup(QWidget):
     def __init__(self, session_title: str, session_type: SessionType, parent=None):
         super().__init__(parent)
         self.session_type = session_type
+        self.theme_manager = get_theme_manager()
         
         # Tytuł okna
         self.setWindowTitle(f"Pomodoro: {session_title}")
@@ -1393,11 +1389,13 @@ class PomodoroTimerPopup(QWidget):
         self.time_display.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.time_display.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         
-        # Kolor w zależności od typu sesji
+        # Kolor w zależności od typu sesji - używamy kolorów z theme
+        colors = self.theme_manager.get_current_colors() if self.theme_manager else {}
+        
         if session_type == SessionType.WORK:
-            color = "#FF6B6B"  # Czerwony dla pracy
+            color = colors.get('error_bg', '#FF6B6B')  # Czerwony dla pracy
         else:
-            color = "#4ECDC4"  # Cyan dla przerwy
+            color = colors.get('accent_primary', '#4ECDC4')  # Cyan dla przerwy
         
         self.time_display.setStyleSheet(f"""
             color: {color};
@@ -1414,11 +1412,15 @@ class PomodoroTimerPopup(QWidget):
         self.progress_bar.setValue(0)
         self.progress_bar.setTextVisible(False)
         self.progress_bar.setFixedHeight(25)
+        
+        border_color = colors.get('border_light', '#ddd')
+        bg_secondary = colors.get('bg_secondary', '#f0f0f0')
+        
         self.progress_bar.setStyleSheet(f"""
             QProgressBar {{
-                border: 2px solid #ddd;
+                border: 2px solid {border_color};
                 border-radius: 5px;
-                background-color: #f0f0f0;
+                background-color: {bg_secondary};
             }}
             QProgressBar::chunk {{
                 background-color: {color};
@@ -1467,6 +1469,14 @@ class PomodoroTimerPopup(QWidget):
     def update_pause_button(self, text: str):
         """Zaktualizuj tekst przycisku pauzy"""
         self.pause_btn.setText(text)
+    
+    def _hex_to_rgb(self, hex_color: str) -> str:
+        """Konwertuje kolor HEX na RGB string"""
+        hex_color = hex_color.lstrip('#')
+        r = int(hex_color[0:2], 16)
+        g = int(hex_color[2:4], 16)
+        b = int(hex_color[4:6], 16)
+        return f"{r}, {g}, {b}"
     
     def _on_pause(self):
         """Obsłuż pauzę"""

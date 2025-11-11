@@ -392,7 +392,7 @@ class KanBanView(QWidget):
             }}
             QPushButton#KanbanLogButton {{
                 background-color: {accent};
-                color: #FFFFFF;
+                color: {self._color('text_primary', '#FFFFFF')};
                 border-radius: 6px;
                 padding: 6px 14px;
                 border: none;
@@ -419,7 +419,7 @@ class KanBanView(QWidget):
                 background-color: {self._color('bg_main', '#FFFFFF')};
                 color: {text_primary};
                 selection-background-color: {self._color('accent_primary', '#2196F3')};
-                selection-color: #FFFFFF;
+                selection-color: {self._color('text_primary', '#FFFFFF')};
             }}
         """
         self.hide_completed_combo.setStyleSheet(combo_style)
@@ -1150,23 +1150,29 @@ class KanBanView(QWidget):
             return self._build_generic_card('done', task)
 
         card, layout = self._create_base_card('done', task_id)
-        card.setStyleSheet("""
-            QFrame {
-                background-color: #F5F5F5;
-                border: 1px solid #E0E0E0;
+        
+        bg_secondary = self._color('bg_secondary', '#F5F5F5')
+        border_light = self._color('border_light', '#E0E0E0')
+        text_secondary = self._color('text_secondary', '#616161')
+        text_muted = self._color('text_disabled', '#757575')
+        
+        card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {bg_secondary};
+                border: 1px solid {border_light};
                 border-radius: 5px;
                 padding: 10px;
-            }
+            }}
         """)
 
         title_label = QLabel(task.get('title', t('kanban.card.no_title')))
         title_label.setWordWrap(True)
-        title_label.setStyleSheet("color: #616161; text-decoration: line-through; font-style: italic;")
+        title_label.setStyleSheet(f"color: {text_secondary}; text-decoration: line-through; font-style: italic;")
         layout.addWidget(title_label)
 
         completion_raw = task.get('completion_date') or full_task.get('completion_date')
         completion_label = QLabel(t('kanban.card.completed_at').format(self._format_datetime(completion_raw)))
-        completion_label.setStyleSheet("color: #757575; font-size: 11px;")
+        completion_label.setStyleSheet(f"color: {text_muted}; font-size: 11px;")
         layout.addWidget(completion_label)
 
         layout.addStretch()
@@ -1355,35 +1361,42 @@ class KanBanView(QWidget):
         btn.setFixedSize(32, 28)
 
         note_id = task_data.get('note_id')
+        
+        success_bg = self._color('success_bg', '#4CAF50')
+        success_hover = self._color('success_hover', '#45A049')
+        accent_primary = self._color('accent_primary', '#2196F3')
+        accent_hover = self._color('accent_hover', '#1976D2')
+        accent_pressed = self._color('accent_pressed', '#0D47A1')
+        
         if note_id:
-            btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #4CAF50;
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {success_bg};
                     color: white;
                     border: none;
                     border-radius: 4px;
                     font-size: 14px;
-                }
-                QPushButton:hover {
-                    background-color: #45A049;
-                }
+                }}
+                QPushButton:hover {{
+                    background-color: {success_hover};
+                }}
             """)
             btn.setToolTip(t('tasks.note.open'))
         else:
-            btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #2196F3;
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {accent_primary};
                     color: white;
                     border: none;
                     border-radius: 4px;
                     font-size: 14px;
-                }
-                QPushButton:hover {
-                    background-color: #1976D2;
-                }
-                QPushButton:pressed {
-                    background-color: #0D47A1;
-                }
+                }}
+                QPushButton:hover {{
+                    background-color: {accent_hover};
+                }}
+                QPushButton:pressed {{
+                    background-color: {accent_pressed};
+                }}
             """)
             btn.setToolTip(t('tasks.note.create'))
 

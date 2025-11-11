@@ -784,10 +784,13 @@ class SyncConsentDialog(QDialog):
             t('callcryptor.sync.wont_sync_passwords')
         ]
         
+        colors = self.theme_manager.get_current_colors() if self.theme_manager else {}
+        error_color = colors.get('error_bg', '#D32F2F')
+        
         for item in sync_no_items:
             label = QLabel(f"  • {item}")
             label.setWordWrap(True)
-            label.setStyleSheet("color: #D32F2F; font-weight: bold;")
+            label.setStyleSheet(f"color: {error_color}; font-weight: bold;")
             sync_no_layout.addWidget(label)
         
         layout.addWidget(sync_no_group)
@@ -813,16 +816,20 @@ class SyncConsentDialog(QDialog):
         cancel_btn.clicked.connect(self.reject)
         buttons_layout.addWidget(cancel_btn)
         
+        colors = self.theme_manager.get_current_colors() if self.theme_manager else {}
+        warning_bg = colors.get('warning_bg', '#FFA000')
+        success_bg = colors.get('success_bg', '#4CAF50')
+        
         sync_once_btn = QPushButton(t('callcryptor.sync.sync_once'))
         sync_once_btn.setMinimumWidth(150)
         sync_once_btn.clicked.connect(self._sync_once)
-        sync_once_btn.setStyleSheet("background-color: #FFA000;")
+        sync_once_btn.setStyleSheet(f"background-color: {warning_bg};")
         buttons_layout.addWidget(sync_once_btn)
         
         enable_btn = QPushButton(t('callcryptor.sync.enable_sync'))
         enable_btn.setMinimumWidth(150)
         enable_btn.clicked.connect(self._enable_sync)
-        enable_btn.setStyleSheet("background-color: #4CAF50;")
+        enable_btn.setStyleSheet(f"background-color: {success_bg};")
         buttons_layout.addWidget(enable_btn)
         
         layout.addLayout(buttons_layout)
@@ -1003,3 +1010,5 @@ class SyncStatusDialog(QDialog):
             }}
         """
         self.setStyleSheet(style)
+
+

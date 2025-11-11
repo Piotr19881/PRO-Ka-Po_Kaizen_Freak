@@ -16,6 +16,8 @@ from typing import List, Dict, Optional
 from loguru import logger
 import json
 
+from ..utils.theme_manager import get_theme_manager
+
 
 class TagManagerDialog(QDialog):
     """Dialog zarządzania tagami"""
@@ -35,6 +37,7 @@ class TagManagerDialog(QDialog):
         self.db_manager = db_manager
         self.user_id = user_id
         self.current_tags = {}  # {tag_name: color}
+        self.theme_manager = get_theme_manager()
         
         self.setWindowTitle("🏷️ Zarządzanie tagami")
         self.setMinimumWidth(600)
@@ -126,17 +129,20 @@ class TagManagerDialog(QDialog):
         self.add_tag_btn = QPushButton("➕ Dodaj tag")
         self.add_tag_btn.clicked.connect(self._add_tag)
         self.add_tag_btn.setMinimumHeight(35)
-        self.add_tag_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #4CAF50;
+        colors = self.theme_manager.get_current_colors() if self.theme_manager else {}
+        success_bg = colors.get('success_bg', '#4CAF50')
+        success_hover = colors.get('success_hover', '#45a049')
+        self.add_tag_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {success_bg};
                 color: white;
                 border: none;
                 border-radius: 4px;
                 font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #45a049;
-            }
+            }}
+            QPushButton:hover {{
+                background-color: {success_hover};
+            }}
         """)
         right_panel.addWidget(self.add_tag_btn)
         
@@ -178,20 +184,24 @@ class TagManagerDialog(QDialog):
         self.save_edit_btn.setEnabled(False)
         self.save_edit_btn.clicked.connect(self._save_tag_edit)
         self.save_edit_btn.setMinimumHeight(35)
-        self.save_edit_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #2196F3;
+        colors = self.theme_manager.get_current_colors() if self.theme_manager else {}
+        accent_bg = colors.get('accent_primary', '#2196F3')
+        accent_hover = colors.get('accent_hover', '#0b7dda')
+        disabled_bg = colors.get('disabled_bg', '#cccccc')
+        self.save_edit_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {accent_bg};
                 color: white;
                 border: none;
                 border-radius: 4px;
                 font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #0b7dda;
-            }
-            QPushButton:disabled {
-                background-color: #cccccc;
-            }
+            }}
+            QPushButton:hover {{
+                background-color: {accent_hover};
+            }}
+            QPushButton:disabled {{
+                background-color: {disabled_bg};
+            }}
         """)
         right_panel.addWidget(self.save_edit_btn)
         

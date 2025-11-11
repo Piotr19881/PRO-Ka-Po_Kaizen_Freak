@@ -214,7 +214,9 @@ class PWebView(QWidget):
                     palette = app.palette()
                     bg_color = palette.color(QPalette.ColorRole.Base).name()
                 else:
-                    bg_color = '#FFFFFF'
+                    # Użyj koloru z motywu jako ostateczny fallback
+                    colors = self.theme_manager.get_current_colors() if self.theme_manager else {}
+                    bg_color = colors.get('bg_main', '#FFFFFF')
             
             # Ustaw kolor tła dla przeglądarki
             self.web_view.page().setBackgroundColor(QColor(bg_color))

@@ -8,6 +8,7 @@ from PyQt6.QtCore import pyqtSignal
 from loguru import logger
 
 from ..utils.i18n_manager import t, get_i18n
+from ..utils.theme_manager import get_theme_manager
 from ..core.config import load_settings
 
 
@@ -22,6 +23,7 @@ class NavigationBar(QWidget):
         self.second_row_visible = False
         self.buttons = {}
         self.button_rows = []  # Lista wierszy przycisków
+        self.theme_manager = get_theme_manager()
         self._setup_ui()
         
         # Połącz z menedżerem i18n dla automatycznego odświeżania tłumaczeń
@@ -258,3 +260,54 @@ class NavigationBar(QWidget):
         """
         # TODO: Implementacja w następnym etapie - konfiguracja przycisków z settings
         logger.info(f"Button configuration updated: {len(button_configs)} buttons")
+    
+    def apply_theme(self):
+        """Apply current theme to navigation bar"""
+        if not self.theme_manager:
+            return
+        
+        colors = self.theme_manager.get_current_colors()
+        
+        bg_main = colors.get('bg_main', '#ffffff')
+        text_primary = colors.get('text_primary', '#000000')
+        accent_primary = colors.get('accent_primary', '#2196F3')
+        accent_hover = colors.get('accent_hover', '#1976D2')
+        border_light = colors.get('border_light', '#e0e0e0')
+        
+        # Styl dla całego navigation bara
+        self.setStyleSheet(f"""
+            QWidget {{
+                background-color: {bg_main};
+            }}
+            
+            QPushButton#navButton {{
+                background-color: {bg_main};
+                color: {text_primary};
+                border: 1px solid {border_light};
+                border-radius: 4px;
+                padding: 8px 12px;
+                font-weight: bold;
+                min-height: 40px;
+            }}
+            
+            QPushButton#navButton:hover {{
+                background-color: {accent_hover};
+                color: white;
+                border-color: {accent_hover};
+            }}
+            
+            QPushButton#navButton:checked {{
+                background-color: {accent_primary};
+                color: white;
+                border-color: {accent_primary};
+            }}
+        """)
+        
+        # Ustaw styl przycisku toggle (zachowaj szerokość)
+        if hasattr(self, 'toggle_second_row_btn'):
+            self.toggle_second_row_btn.setStyleSheet(
+                f"min-width: 25px; max-width: 25px; width: 25px; padding: 0px;"
+            )
+        
+        logger.info("[NavigationBar] Theme applied successfully")
+

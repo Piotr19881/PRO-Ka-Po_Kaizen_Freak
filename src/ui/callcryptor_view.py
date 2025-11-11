@@ -208,13 +208,16 @@ class CallCryptorView(QWidget):
             return
         
         try:
+            colors = self.theme_manager.get_current_colors() if self.theme_manager else {}
             if self.sync_manager.sync_enabled:
                 # Zielony - sync włączona
-                self.sync_btn.setStyleSheet("background-color: #4CAF50; color: white; font-size: 16px;")
+                success_bg = colors.get('success_bg', '#4CAF50')
+                self.sync_btn.setStyleSheet(f"background-color: {success_bg}; color: white; font-size: 16px;")
                 self.sync_btn.setToolTip(t('callcryptor.sync.enabled_tooltip'))
             else:
                 # Pomarańczowy - sync wyłączona
-                self.sync_btn.setStyleSheet("background-color: #FF8C00; color: white; font-size: 16px;")
+                error_bg = colors.get('error_bg', '#FF8C00')
+                self.sync_btn.setStyleSheet(f"background-color: {error_bg}; color: white; font-size: 16px;")
                 self.sync_btn.setToolTip(t('callcryptor.sync.disabled_tooltip'))
         except Exception as e:
             logger.error(f"[CallCryptor] Error updating sync button: {e}")
@@ -322,7 +325,9 @@ class CallCryptorView(QWidget):
         self.sync_btn.setMaximumWidth(45)
         self.sync_btn.clicked.connect(self._on_sync_clicked)
         # Domyślnie pomarańczowy (sync wyłączona)
-        self.sync_btn.setStyleSheet("background-color: #FF8C00; color: white; font-size: 16px;")
+        colors = self.theme_manager.get_current_colors() if self.theme_manager else {}
+        error_bg = colors.get('error_bg', '#FF8C00')
+        self.sync_btn.setStyleSheet(f"background-color: {error_bg}; color: white; font-size: 16px;")
         toolbar_layout.addWidget(self.sync_btn)
         
         toolbar_layout.addStretch()
@@ -618,12 +623,13 @@ class CallCryptorView(QWidget):
             dict: {tag_name: tag_color}
         """
         # TODO: Pobierz z bazy danych gdy będzie implementacja
-        # Na razie zwracamy przykładowe tagi
+        # Na razie zwracamy przykładowe tagi z kolorami z motywu
+        colors = self.theme_manager.get_current_colors() if self.theme_manager else {}
         return {
-            t('callcryptor.tags.important'): "#e74c3c",
-            t('callcryptor.tags.work'): "#3498db",
-            t('callcryptor.tags.personal'): "#2ecc71",
-            t('callcryptor.tags.to_review'): "#f39c12"
+            t('callcryptor.tags.important'): colors.get('error_bg', '#e74c3c'),
+            t('callcryptor.tags.work'): colors.get('accent_primary', '#3498db'),
+            t('callcryptor.tags.personal'): colors.get('success_bg', '#2ecc71'),
+            t('callcryptor.tags.to_review'): colors.get('warning_bg', '#f39c12')
         }
     
     def _on_source_changed(self, index: int):
@@ -1307,10 +1313,13 @@ class CallCryptorView(QWidget):
     def _set_status(self, message: str, success: bool = False):
         """Ustaw wiadomość w statusie"""
         self.status_label.setText(message)
+        colors = self.theme_manager.get_current_colors() if self.theme_manager else {}
         if success:
-            self.status_label.setStyleSheet("color: #4CAF50; font-style: italic;")
+            success_color = colors.get('success_bg', '#4CAF50')
+            self.status_label.setStyleSheet(f"color: {success_color}; font-style: italic;")
         else:
-            self.status_label.setStyleSheet("color: #666; font-style: italic;")
+            text_secondary = colors.get('text_secondary', '#666')
+            self.status_label.setStyleSheet(f"color: {text_secondary}; font-style: italic;")
     
     def apply_theme(self):
         """Aplikuj motyw"""
@@ -1381,6 +1390,12 @@ class CallCryptorView(QWidget):
             }}
         """
         self.search_input.setStyleSheet(search_style)
+        
+        # Odśwież przycisk synchronizacji
+        self._update_sync_button_state()
+        
+        # Odśwież tabelę aby zastosować nowe kolory do widgetów
+        self._refresh_table()
     
     def _transcribe_recording(self, recording: dict):
         """
@@ -1720,10 +1735,12 @@ class CallCryptorView(QWidget):
             # Utwórz notatkę w bazie danych notatek
             note_title = f"ROZMOWA: {contact_name}"
             try:
+                colors = self.theme_manager.get_current_colors() if self.theme_manager else {}
+                note_color = colors.get('warning_bg', '#FF5722')  # Pomarańczowy dla notatek z rozmów
                 new_note_id = main_window.notes_view.db.create_note(
                     title=note_title,
                     content=note_content,
-                    color="#FF5722"  # Pomarańczowy dla notatek z rozmów
+                    color=note_color
                 )
                 
                 # Zapisz note_id w nagraniu
@@ -1992,8 +2009,10 @@ class CallCryptorView(QWidget):
         
         if active:
             # Aktywuj tryb kolejki
+            colors = self.theme_manager.get_current_colors() if self.theme_manager else {}
+            warning_bg = colors.get('warning_bg', '#FF8C00')
             self.queue_btn.setText(t('callcryptor.queue.button_execute'))  # "Wykonaj kolejkę"
-            self.queue_btn.setStyleSheet("background-color: #FF8C00; color: white; font-weight: bold;")  # Orange
+            self.queue_btn.setStyleSheet(f"background-color: {warning_bg}; color: white; font-weight: bold;")  # Orange
             self.queue_btn.setMaximumWidth(150)  # Zwiększ szerokość dla tekstu
             self.selected_items['transcribe'].clear()
             self.selected_items['summarize'].clear()
@@ -2137,7 +2156,8 @@ class CallCryptorView(QWidget):
                 
                 # Zmień kolor tła comboboxa
                 available_tags = self._get_available_tags()
-                tag_color = available_tags.get(selected_tag, "#FFFFFF")
+                colors = self.theme_manager.get_current_colors() if self.theme_manager else {}
+                tag_color = available_tags.get(selected_tag, colors.get('bg_main', '#FFFFFF'))
                 tag_combo.setStyleSheet(f"""
                     QComboBox {{
                         background-color: {tag_color};
@@ -2306,42 +2326,48 @@ class CallCryptorView(QWidget):
             favorite_btn.setFlat(True)
             favorite_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             
+            # Pobierz kolory z motywu
+            colors = self.theme_manager.get_current_colors() if self.theme_manager else {}
+            warning_bg = colors.get('warning_bg', '#FFD700')  # Złoty/pomarańczowy
+            warning_hover = colors.get('warning_hover', '#FFA500')
+            disabled_text = colors.get('disabled_text', '#CCCCCC')
+            
             # Ustaw kolor gwiazdki - złota dla ulubionego, szara dla zwykłego
             if is_favorite:
-                favorite_btn.setStyleSheet("""
-                    QPushButton {
+                favorite_btn.setStyleSheet(f"""
+                    QPushButton {{
                         font-size: 22px;
                         font-weight: bold;
                         border: none;
                         background: transparent;
-                        color: #FFD700;  /* Gold */
+                        color: {warning_bg};  /* Gold */
                         padding: 0;
-                    }
-                    QPushButton:hover {
-                        color: #FFA500;  /* Orange on hover */
+                    }}
+                    QPushButton:hover {{
+                        color: {warning_hover};  /* Orange on hover */
                         background: rgba(255, 215, 0, 0.1);
-                    }
-                    QPushButton:pressed {
-                        color: #FF8C00;  /* Dark orange on press */
-                    }
+                    }}
+                    QPushButton:pressed {{
+                        color: {warning_hover};  /* Dark orange on press */
+                    }}
                 """)
             else:
-                favorite_btn.setStyleSheet("""
-                    QPushButton {
+                favorite_btn.setStyleSheet(f"""
+                    QPushButton {{
                         font-size: 22px;
                         font-weight: bold;
                         border: none;
                         background: transparent;
-                        color: #CCCCCC;  /* Light gray */
+                        color: {disabled_text};  /* Light gray */
                         padding: 0;
-                    }
-                    QPushButton:hover {
-                        color: #FFD700;  /* Gold on hover */
+                    }}
+                    QPushButton:hover {{
+                        color: {warning_bg};  /* Gold on hover */
                         background: rgba(255, 215, 0, 0.1);
-                    }
-                    QPushButton:pressed {
-                        color: #FFA500;
-                    }
+                    }}
+                    QPushButton:pressed {{
+                        color: {warning_hover};
+                    }}
                 """)
             
             favorite_btn.clicked.connect(lambda checked, r=recording: self._toggle_favorite(r))
@@ -2388,7 +2414,8 @@ class CallCryptorView(QWidget):
                 if index >= 0:
                     tag_combo.setCurrentIndex(index)
                     # Ustaw kolor tła komórki
-                    tag_color = available_tags.get(current_tag, "#FFFFFF")
+                    colors = self.theme_manager.get_current_colors() if self.theme_manager else {}
+                    tag_color = available_tags.get(current_tag, colors.get('bg_main', '#FFFFFF'))
                     tag_combo.setStyleSheet(f"""
                         QComboBox {{
                             background-color: {tag_color};

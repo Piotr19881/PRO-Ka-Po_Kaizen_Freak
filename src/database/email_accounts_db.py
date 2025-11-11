@@ -74,6 +74,7 @@ class EmailAccountsDatabase:
                     -- Opcje
                     use_ssl BOOLEAN DEFAULT 1,
                     use_tls BOOLEAN DEFAULT 0,
+                    fetch_limit INTEGER DEFAULT 50,  -- Liczba pobieranych wiadomości
                     
                     -- Status
                     is_active BOOLEAN DEFAULT 1,
@@ -101,6 +102,16 @@ class EmailAccountsDatabase:
                 CREATE INDEX IF NOT EXISTS idx_email_accounts_active 
                 ON email_accounts(is_active)
             """)
+            
+            # Migracja: dodaj fetch_limit jeśli nie istnieje
+            cursor.execute("PRAGMA table_info(email_accounts)")
+            columns = [col[1] for col in cursor.fetchall()]
+            if 'fetch_limit' not in columns:
+                cursor.execute("""
+                    ALTER TABLE email_accounts 
+                    ADD COLUMN fetch_limit INTEGER DEFAULT 50
+                """)
+                logger.info("[EmailAccountsDB] Added fetch_limit column")
             
             conn.commit()
             logger.debug("[EmailAccountsDB] Database schema initialized")
@@ -145,9 +156,9 @@ class EmailAccountsDatabase:
                     id, user_id, account_name, email_address,
                     server_type, server_address, server_port,
                     username, password_key,
-                    use_ssl, use_tls,
+                    use_ssl, use_tls, fetch_limit,
                     created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 account_id, user_id,
                 account_data['account_name'],
@@ -159,6 +170,7 @@ class EmailAccountsDatabase:
                 password_key,
                 account_data.get('use_ssl', True),
                 account_data.get('use_tls', False),
+                account_data.get('fetch_limit', 50),
                 now, now
             ))
             conn.commit()
@@ -192,7 +204,8 @@ class EmailAccountsDatabase:
             'server_port': 'server_port',
             'username': 'username',
             'use_ssl': 'use_ssl',
-            'use_tls': 'use_tls'
+            'use_tls': 'use_tls',
+            'fetch_limit': 'fetch_limit'
         }
         
         for key, db_field in field_mapping.items():

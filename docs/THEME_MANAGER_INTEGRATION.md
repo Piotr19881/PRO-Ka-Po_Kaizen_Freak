@@ -625,11 +625,23 @@ bg = colors.get('bg_main', '#FFFFFF')  # Zawsze podaj fallback
 | `accent_hover` | Hover nad akcentem | `#1976D2` | `#42A5F5` |
 | `accent_pressed` | Wciśnięty akcent | `#0D47A1` | `#2196F3` |
 
+### Kolory Statusów
+| Klucz | Opis | Jasny Domyślny | Ciemny Domyślny |
+|-------|------|----------------|-----------------|
+| `success_bg` | Tło sukcesu (zielony) | `#4CAF50` | `#4CAF50` |
+| `success_hover` | Hover sukcesu | `#45A049` | `#45A049` |
+| `error_bg` | Tło błędu (czerwony) | `#f44336` | `#f44336` |
+| `error_hover` | Hover błędu | `#da190b` | `#da190b` |
+| `disabled_bg` | Tło wyłączone | `#cccccc` | `#424242` |
+| `disabled_text` | Tekst wyłączony | `#666666` | `#757575` |
+| `disabled_border` | Ramka wyłączona | `#999999` | `#555555` |
+
 ### Kolory Obramowań
 | Klucz | Opis | Jasny Domyślny | Ciemny Domyślny |
 |-------|------|----------------|-----------------|
 | `border_light` | Jasna ramka | `#CCCCCC` | `#404040` |
 | `border_dark` | Ciemna ramka | `#999999` | `#202020` |
+| `border_disabled` | Ramka wyłączona | `#BDBDBD` | `#555555` |
 
 ### Kolory Specjalne
 | Klucz | Opis | Jasny Domyślny | Ciemny Domyślny |

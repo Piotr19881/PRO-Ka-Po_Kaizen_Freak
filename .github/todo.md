@@ -23,3 +23,6 @@ dodanie przycisków pomocy do modułów
 \
 
 dodajmy tryb pelnego ekranu dla okna głównego
+
+ANALIZA KREATORA STYLKI CZY PASUJE DO ISTNIEJACYCH STYLI
+

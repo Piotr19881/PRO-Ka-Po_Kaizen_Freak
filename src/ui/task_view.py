@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QTimer
 from loguru import logger
 from ..utils.i18n_manager import t
+from ..utils.theme_manager import get_theme_manager
 
 
 class DateTableWidgetItem(QTableWidgetItem):
@@ -52,6 +53,7 @@ class TaskView(QWidget):
 		super().__init__(parent)
 		self.task_logic = task_logic
 		self.local_db = local_db
+		self.theme_manager = get_theme_manager()
 		self.alarm_manager = None  # Menedżer alarmów (ustawiany później)
 		self._locked = False
 		self._columns_config = []  # Konfiguracja kolumn z bazy danych
@@ -227,24 +229,8 @@ class TaskView(QWidget):
 		self.stretch_btn.setToolTip("Auto-dopasowanie szerokości kolumny 'Zadanie'\n(aktywne tylko gdy kolumny odblokowane)")
 		self.stretch_btn.setEnabled(not self._locked)  # Disabled gdy zablokowane
 		self.stretch_btn.clicked.connect(self._on_stretch_toggled)
-		# Ustaw domyślny styl (OFF - czerwony)
-		self.stretch_btn.setStyleSheet("""
-			QPushButton {
-				background-color: #f44336;
-				color: white;
-				font-weight: bold;
-				border: 2px solid #da190b;
-				border-radius: 4px;
-			}
-			QPushButton:hover {
-				background-color: #da190b;
-			}
-			QPushButton:disabled {
-				background-color: #cccccc;
-				color: #666666;
-				border: 2px solid #999999;
-			}
-		""")
+		# Ustaw styl używając theme managera
+		self._update_stretch_button_style()
 		left_filters.addWidget(self.stretch_btn)
 
 		bar_layout.addLayout(left_filters)
@@ -1564,47 +1550,14 @@ class TaskView(QWidget):
 		
 		self._stretch_enabled = checked
 		
+		# Update style using theme manager
+		self._update_stretch_button_style()
+		
 		if checked:
-			# ON - zielony, włącz auto-dopasowanie
-			self.stretch_btn.setStyleSheet("""
-				QPushButton {
-					background-color: #4CAF50;
-					color: white;
-					font-weight: bold;
-					border: 2px solid #45a049;
-					border-radius: 4px;
-				}
-				QPushButton:hover {
-					background-color: #45a049;
-				}
-				QPushButton:disabled {
-					background-color: #cccccc;
-					color: #666666;
-					border: 2px solid #999999;
-				}
-			""")
 			logger.info("[TaskView] Column 'Zadanie' auto-fit mode: ON")
 			# Natychmiast dopasuj szerokość
 			self._adjust_zadanie_column_width()
 		else:
-			# OFF - czerwony, wyłącz auto-dopasowanie
-			self.stretch_btn.setStyleSheet("""
-				QPushButton {
-					background-color: #f44336;
-					color: white;
-					font-weight: bold;
-					border: 2px solid #da190b;
-					border-radius: 4px;
-				}
-				QPushButton:hover {
-					background-color: #da190b;
-				}
-				QPushButton:disabled {
-					background-color: #cccccc;
-					color: #666666;
-					border: 2px solid #999999;
-				}
-			""")
 			logger.info("[TaskView] Column 'Zadanie' auto-fit mode: OFF")
 	
 	def _adjust_zadanie_column_width(self):
@@ -2520,12 +2473,17 @@ class TaskView(QWidget):
 		task_id = task.get('id')
 		note_id = task.get('note_id')  # Zakładam że pole note_id istnieje w bazie
 		
+		colors = self.theme_manager.get_current_colors() if self.theme_manager else {}
+		
 		if note_id:
-			# Zielone tło - zadanie ma już notatkę
+			# Zielone tło - zadanie ma już notatkę (success colors)
+			success_bg = colors.get('success_bg', '#4CAF50')
+			success_hover = colors.get('success_hover', '#45A049')
+			
 			btn.setText("📝")
-			btn.setStyleSheet("""
-				QPushButton {
-					background-color: #4CAF50;
+			btn.setStyleSheet(f"""
+				QPushButton {{
+					background-color: {success_bg};
 					color: white;
 					border: none;
 					border-radius: 4px;
@@ -2535,18 +2493,22 @@ class TaskView(QWidget):
 					max-width: 32px;
 					min-height: 28px;
 					max-height: 28px;
-				}
-				QPushButton:hover {
-					background-color: #45A049;
-				}
+				}}
+				QPushButton:hover {{
+					background-color: {success_hover};
+				}}
 			""")
 			btn.setToolTip(self._translations_cache['note_open'])
 		else:
-			# Niebieskie tło - można utworzyć notatkę
+			# Niebieskie tło - można utworzyć notatkę (accent colors)
+			accent_primary = colors.get('accent_primary', '#2196F3')
+			accent_hover = colors.get('accent_hover', '#1976D2')
+			accent_pressed = colors.get('accent_pressed', '#0D47A1')
+			
 			btn.setText("📝")
-			btn.setStyleSheet("""
-				QPushButton {
-					background-color: #2196F3;
+			btn.setStyleSheet(f"""
+				QPushButton {{
+					background-color: {accent_primary};
 					color: white;
 					border: none;
 					border-radius: 4px;
@@ -2556,13 +2518,13 @@ class TaskView(QWidget):
 					max-width: 32px;
 					min-height: 28px;
 					max-height: 28px;
-				}
-				QPushButton:hover {
-					background-color: #1976D2;
-				}
-				QPushButton:pressed {
-					background-color: #0D47A1;
-				}
+				}}
+				QPushButton:hover {{
+					background-color: {accent_hover};
+				}}
+				QPushButton:pressed {{
+					background-color: {accent_pressed};
+				}}
 			""")
 			btn.setToolTip(self._translations_cache['note_create'])
 		
@@ -2597,15 +2559,19 @@ class TaskView(QWidget):
 		btn = QPushButton()
 		task_id = task.get('id')
 		
+		colors = self.theme_manager.get_current_colors() if self.theme_manager else {}
+		
 		# Sprawdź czy zadanie jest już na tablicy KanBan
 		is_on_kanban = self._is_task_on_kanban(task_id)
 		
 		if is_on_kanban:
-			# Zielone tło - zadanie już na KanBan
+			# Zielone tło - zadanie już na KanBan (success colors)
+			success_bg = colors.get('success_bg', '#4CAF50')
+			
 			btn.setText("➜")
-			btn.setStyleSheet("""
-				QPushButton {
-					background-color: #4CAF50;
+			btn.setStyleSheet(f"""
+				QPushButton {{
+					background-color: {success_bg};
 					color: white;
 					border: none;
 					border-radius: 4px;
@@ -2615,16 +2581,20 @@ class TaskView(QWidget):
 					max-width: 32px;
 					min-height: 28px;
 					max-height: 28px;
-				}
+				}}
 			""")
 			btn.setEnabled(False)  # Nieaktywny
 			btn.setToolTip(self._translations_cache['kanban_on_board'])
 		else:
-			# Niebieskie tło - można dodać do KanBan
+			# Niebieskie tło - można dodać do KanBan (accent colors)
+			accent_primary = colors.get('accent_primary', '#2196F3')
+			accent_hover = colors.get('accent_hover', '#1976D2')
+			accent_pressed = colors.get('accent_pressed', '#0D47A1')
+			
 			btn.setText("➜")
-			btn.setStyleSheet("""
-				QPushButton {
-					background-color: #2196F3;
+			btn.setStyleSheet(f"""
+				QPushButton {{
+					background-color: {accent_primary};
 					color: white;
 					border: none;
 					border-radius: 4px;
@@ -2634,13 +2604,13 @@ class TaskView(QWidget):
 					max-width: 32px;
 					min-height: 28px;
 					max-height: 28px;
-				}
-				QPushButton:hover {
-					background-color: #1976D2;
-				}
-				QPushButton:pressed {
-					background-color: #0D47A1;
-				}
+				}}
+				QPushButton:hover {{
+					background-color: {accent_hover};
+				}}
+				QPushButton:pressed {{
+					background-color: {accent_pressed};
+				}}
 			""")
 			btn.setEnabled(True)
 			btn.setToolTip(self._translations_cache['kanban_add'])
@@ -2765,18 +2735,21 @@ class TaskView(QWidget):
 		
 		btn = QPushButton("▼")  # Strzałka w dół
 		
-		# Kolory
+		# Kolory z theme managera
+		colors = self.theme_manager.get_current_colors() if self.theme_manager else {}
+		
 		if has_subtasks:
-			# Zielone tło - ma subtaski
-			btn_color = "#4CAF50"  # Zielony
-			hover_color = "#45A049"
+			# Zielone tło - ma subtaski (success colors)
+			btn_color = colors.get('success_bg', '#4CAF50')
+			hover_color = colors.get('success_hover', '#45A049')
 			tooltip = self._translations_cache['subtask_expand']
 		else:
-			# Niebieskie tło - nie ma subtasków
-			btn_color = "#2196F3"  # Niebieski
-			hover_color = "#1976D2"
+			# Niebieskie tło - nie ma subtasków (accent colors)
+			btn_color = colors.get('accent_primary', '#2196F3')
+			hover_color = colors.get('accent_hover', '#1976D2')
 			tooltip = self._translations_cache['subtask_add']
 		
+		pressed_color = colors.get('accent_pressed', '#0D47A1')
 		btn.setToolTip(tooltip)
 		
 		# Style
@@ -2798,7 +2771,7 @@ class TaskView(QWidget):
 				background-color: {hover_color};
 			}}
 			QPushButton:pressed {{
-				background-color: #0D47A1;
+				background-color: {pressed_color};
 			}}
 		""")
 		
@@ -3823,6 +3796,86 @@ class TaskView(QWidget):
 		
 		logger.debug("[TaskView] Closing - flushed pending updates")
 		super().closeEvent(a0)
+	
+	def _update_stretch_button_style(self):
+		"""Update stretch button style based on current state and theme"""
+		if not hasattr(self, 'stretch_btn') or not self.theme_manager:
+			return
+		
+		colors = self.theme_manager.get_current_colors()
+		is_on = self.stretch_btn.isChecked()
+		
+		if is_on:
+			# ON state - użyj success colors (zielony)
+			bg_color = colors.get('success_bg', '#4CAF50')
+			hover_color = colors.get('success_hover', '#45a049')
+		else:
+			# OFF state - użyj error colors (czerwony)
+			bg_color = colors.get('error_bg', '#f44336')
+			hover_color = colors.get('error_hover', '#da190b')
+		
+		# Disabled state
+		disabled_bg = colors.get('disabled_bg', '#cccccc')
+		disabled_text = colors.get('text_disabled', '#666666')
+		disabled_border = colors.get('border_disabled', '#999999')
+		
+		self.stretch_btn.setStyleSheet(f"""
+			QPushButton {{
+				background-color: {bg_color};
+				color: white;
+				font-weight: bold;
+				border: 2px solid {hover_color};
+				border-radius: 4px;
+			}}
+			QPushButton:hover {{
+				background-color: {hover_color};
+			}}
+			QPushButton:disabled {{
+				background-color: {disabled_bg};
+				color: {disabled_text};
+				border: 2px solid {disabled_border};
+			}}
+		""")
+	
+	def apply_theme(self):
+		"""Apply current theme to task view"""
+		if not self.theme_manager:
+			return
+		
+		colors = self.theme_manager.get_current_colors()
+		
+		bg_main = colors.get('bg_main', '#ffffff')
+		text_primary = colors.get('text_primary', '#000000')
+		border_light = colors.get('border_light', '#e0e0e0')
+		
+		# Apply theme to main widget
+		self.setStyleSheet(f"""
+			QWidget {{
+				background-color: {bg_main};
+				color: {text_primary};
+			}}
+			
+			QTableWidget {{
+				background-color: {bg_main};
+				color: {text_primary};
+				border: 1px solid {border_light};
+				gridline-color: {border_light};
+			}}
+			
+			QLineEdit, QComboBox {{
+				background-color: {bg_main};
+				color: {text_primary};
+				border: 1px solid {border_light};
+				border-radius: 4px;
+				padding: 4px;
+			}}
+		""")
+		
+		# Update stretch button with current state
+		self._update_stretch_button_style()
+		
+		logger.info("[TaskView] Theme applied successfully")
+
 
 
 

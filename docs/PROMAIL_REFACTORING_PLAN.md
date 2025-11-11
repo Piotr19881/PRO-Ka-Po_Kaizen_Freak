@@ -675,7 +675,7 @@ def __init__(self, parent=None):
 
 **Zadania**:
 
-**4.1. Dodać wszystkie tłumaczenia do `pl.json`**
+**4.1. Dodać wszystkie tłumaczenia do `pl.json` ;`en.json`;`de.json`**
 - Skopiować sekcję promail.* z przykładów w tym dokumencie
 - Rozszerzyć o brakujące stringi (~200 kluczy)
 

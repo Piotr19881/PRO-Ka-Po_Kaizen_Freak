@@ -1,0 +1,21 @@
+[
+  {
+    "name": "Newslettery",
+    "enabled": true,
+    "account_email": null,
+    "conditions": [
+      {
+        "field": "subject",
+        "operator": "contains",
+        "value": "newsletter"
+      }
+    ],
+    "target_folder": "Newslettery",
+    "tags": [
+      "newsletter"
+    ],
+    "forward_to": [],
+    "export_pdf": false,
+    "mark_as_read": false
+  }
+]

@@ -1,30 +1,35 @@
 """
-Moduł konfiguracji klienta pocztowego
+Moduł konfiguracji ProMail
 
 Funkcjonalność:
-- Zarządzanie kontami email (dodawanie, edycja, usuwanie)
-- Konfiguracja serwerów SMTP/IMAP
-- Zapisywanie i wczytywanie ustawień
-- Testowanie połączenia z serwerem
+- Zarządzanie podpisami email
+- Konfiguracja filtrów poczty
+- Ustawienia autorespondera
+- Układ kolumn tabeli
+- Zarządzanie tagami
+
+Uwaga: Konta email są zarządzane przez główną aplikację (email_settings_card.py)
 
 Autor: Moduł dla aplikacji komercyjnej
-Data: 2025-11-06
+Data: 2025-11-11
 """
 
 import json
 import os
 import re
-import socket
-import smtplib
-import imaplib
 from pathlib import Path
+from datetime import datetime, timedelta
 from PyQt6.QtWidgets import (
     QApplication, QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
     QLineEdit, QPushButton, QLabel, QSpinBox, QCheckBox,
     QListWidget, QGroupBox, QMessageBox, QTabWidget, QWidget,
-    QTextEdit, QListWidgetItem, QComboBox
+    QTextEdit, QListWidgetItem, QComboBox, QDialogButtonBox,
+    QAbstractItemView, QHeaderView, QColorDialog
 )
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QColor
+from typing import Dict, List, Any
+from .autoresponder import AutoresponderRule
 
 
 FILTER_FIELDS = [
@@ -44,19 +49,6 @@ FILTER_OPERATORS = [
 
 FIELD_LABELS = {value: label for value, label in FILTER_FIELDS}
 OPERATOR_LABELS = {value: label for value, label in FILTER_OPERATORS}
-
-ACCOUNT_DEFAULTS = {
-    "name": "",
-    "email": "",
-    "password": "",
-    "user_name": "",
-    "imap_server": "",
-    "imap_port": 993,
-    "imap_ssl": True,
-    "smtp_server": "",
-    "smtp_port": 587,
-    "smtp_ssl": True,
-}
 
 
 def _to_bool(value, default):
@@ -142,105 +134,57 @@ class FilterConditionDialog(QDialog):
 
 
 class MailConfigDialog(QDialog):
-    """Okno dialogowe konfiguracji kont email"""
+    """Okno dialogowe konfiguracji ProMail (bez kont email - te są w głównych ustawieniach)"""
     
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, mail_view_parent=None):
         super().__init__(parent)
-        self.config_file = Path("mail_client/mail_accounts.json")
+        self.mail_view_parent = mail_view_parent  # Referencja do MailView dla interakcji z tagami/kolumnami
         self.signatures_file = Path("mail_client/mail_signatures.json")
         self.filters_file = Path("mail_client/mail_filters.json")
-        self.accounts = []
+        self.autoresponder_file = Path("mail_client/autoresponder_rules.json")
         self.signatures = []
         self.filters = []
+        self.autoresponder_rules = []
         self.editing_conditions = []
-        self.current_account = None
         self.current_signature = None
         self.current_filter = None
         self.is_filter_editing = False
-        self.is_account_editing = False
-        self.is_loading_account = False
         self.init_ui()
-        self.load_accounts()
         self.load_signatures()
         self.load_filters()
+        self.load_autoresponder_rules()
         
     def init_ui(self):
         """Inicjalizacja interfejsu użytkownika"""
-        self.setWindowTitle("Konfiguracja kont pocztowych")
-        self.setMinimumSize(700, 500)
+        self.setWindowTitle("⚙️ Konfiguracja ProMail")
+        self.setMinimumSize(900, 600)
         
-        main_layout = QHBoxLayout()
-        
-        # Lewa strona - lista kont
-        left_panel = QVBoxLayout()
-        
-        left_label = QLabel("Konta email:")
-        left_label.setStyleSheet("font-weight: bold; font-size: 11pt;")
-        left_panel.addWidget(left_label)
-        
-        self.accounts_list = QListWidget()
-        self.accounts_list.currentRowChanged.connect(self.on_account_selected)
-        left_panel.addWidget(self.accounts_list)
-        
-        # Przyciski zarządzania kontami
-        btn_layout = QVBoxLayout()
-        
-        self.btn_new = QPushButton("+ Nowe konto")
-        self.btn_new.clicked.connect(self.new_account)
-        btn_layout.addWidget(self.btn_new)
-        
-        self.btn_delete = QPushButton("- Usuń konto")
-        self.btn_delete.clicked.connect(self.delete_account)
-        self.btn_delete.setEnabled(False)
-        btn_layout.addWidget(self.btn_delete)
-        
-        btn_layout.addStretch()
-        left_panel.addLayout(btn_layout)
-        
-        # Prawa strona - szczegóły konta
-        right_panel = QVBoxLayout()
+        layout = QVBoxLayout()
         
         # Zakładki dla różnych ustawień
         self.tabs = QTabWidget()
         
-        account_tab = self.create_account_settings_tab()
-        self.tabs.addTab(account_tab, "Ustawienia konta")
-        
         # Zakładka: Podpisy
         signatures_tab = self.create_signatures_tab()
-        self.tabs.addTab(signatures_tab, "Podpisy")
+        self.tabs.addTab(signatures_tab, "✍️ Podpisy")
         
         # Zakładka: Filtry poczty
         filters_tab = self.create_filters_tab()
-        self.tabs.addTab(filters_tab, "Filtry")
+        self.tabs.addTab(filters_tab, "🔍 Filtry")
+        
+        # Zakładka: Autoresponder
+        autoresponder_tab = self.create_autoresponder_tab()
+        self.tabs.addTab(autoresponder_tab, "🤖 Autoresponder")
+        
+        # Zakładka: Układ kolumn
+        columns_tab = self.create_columns_tab()
+        self.tabs.addTab(columns_tab, "📋 Układ kolumn")
+        
+        # Zakładka: Tagi
+        tags_tab = self.create_tags_tab()
+        self.tabs.addTab(tags_tab, "🏷️ Tagi")
 
-        right_panel.addWidget(self.tabs)
-        
-        # Przyciski akcji
-        action_layout = QHBoxLayout()
-        
-        self.btn_test = QPushButton("Testuj połączenie")
-        self.btn_test.clicked.connect(self.test_connection)
-        self.btn_test.setEnabled(False)
-        action_layout.addWidget(self.btn_test)
-        
-        action_layout.addStretch()
-        
-        self.btn_save = QPushButton("Zapisz")
-        self.btn_save.clicked.connect(self.save_account)
-        self.btn_save.setEnabled(False)
-        action_layout.addWidget(self.btn_save)
-        
-        self.btn_cancel = QPushButton("Anuluj")
-        self.btn_cancel.clicked.connect(self.cancel_edit)
-        self.btn_cancel.setEnabled(False)
-        action_layout.addWidget(self.btn_cancel)
-        
-        right_panel.addLayout(action_layout)
-        
-        # Dodaj panele do głównego layoutu
-        main_layout.addLayout(left_panel, 1)
-        main_layout.addLayout(right_panel, 2)
+        layout.addWidget(self.tabs)
         
         # Przyciski dialogu
         dialog_buttons = QHBoxLayout()
@@ -251,198 +195,12 @@ class MailConfigDialog(QDialog):
         btn_close.setFixedWidth(100)
         dialog_buttons.addWidget(btn_close)
         
-        # Główny layout
-        final_layout = QVBoxLayout()
-        final_layout.addLayout(main_layout)
-        final_layout.addLayout(dialog_buttons)
+        layout.addLayout(dialog_buttons)
         
-        self.setLayout(final_layout)
-        self._register_account_field_signals()
-        self.update_account_actions()
+        self.setLayout(layout)
 
-    def _register_account_field_signals(self) -> None:
-        """Podpina aktualizację przy zmianach pól konta."""
-        line_edits = [
-            self.account_name,
-            self.email_address,
-            self.password,
-            self.user_name,
-            self.imap_server,
-            self.smtp_server,
-        ]
-        for edit in line_edits:
-            edit.textChanged.connect(self.on_account_field_changed)
-
-        self.imap_port.valueChanged.connect(self.on_account_field_changed)
-        self.smtp_port.valueChanged.connect(self.on_account_field_changed)
-        self.imap_ssl.toggled.connect(self.on_account_field_changed)
-        self.smtp_ssl.toggled.connect(self.on_account_field_changed)
-
-    def on_account_field_changed(self, *_args) -> None:
-        """Reaguje na zmiany pól konta."""
-        if self.is_loading_account:
-            return
-
-        if self.current_account is None:
-            self.is_account_editing = self._collect_account_form_data() != ACCOUNT_DEFAULTS
-        else:
-            self.is_account_editing = not self._current_form_matches_account()
-
-        self.update_account_actions()
-
-    def update_account_actions(self) -> None:
-        """Aktualizuje dostępność przycisków zapisu i testu."""
-        if not hasattr(self, "btn_save"):
-            return
-
-        required_fields = (
-            self.account_name.text().strip(),
-            self.email_address.text().strip(),
-            self.password.text().strip(),
-            self.imap_server.text().strip(),
-            self.smtp_server.text().strip(),
-        )
-        required_filled = all(required_fields)
-        has_selected_account = self.current_account is not None
-
-        self.btn_save.setEnabled(self.is_account_editing and required_filled)
-        self.btn_cancel.setEnabled(self.is_account_editing)
-        self.btn_test.setEnabled(required_filled or has_selected_account)
-
-    def _normalize_account_data(self, data: dict) -> dict:
-        """Zwraca dane konta uzupełnione o wartości domyślne."""
-        normalized = dict(ACCOUNT_DEFAULTS)
-        if isinstance(data, dict):
-            normalized.update({
-                "name": data.get("name", ""),
-                "email": data.get("email", ""),
-                "password": data.get("password", ""),
-                "user_name": data.get("user_name", ""),
-                "imap_server": data.get("imap_server", ""),
-                "imap_port": int(data.get("imap_port", ACCOUNT_DEFAULTS["imap_port"])),
-                "imap_ssl": _to_bool(data.get("imap_ssl", ACCOUNT_DEFAULTS["imap_ssl"]), ACCOUNT_DEFAULTS["imap_ssl"]),
-                "smtp_server": data.get("smtp_server", ""),
-                "smtp_port": int(data.get("smtp_port", ACCOUNT_DEFAULTS["smtp_port"])),
-                "smtp_ssl": _to_bool(data.get("smtp_ssl", ACCOUNT_DEFAULTS["smtp_ssl"]), ACCOUNT_DEFAULTS["smtp_ssl"]),
-            })
-        return normalized
-
-    def _collect_account_form_data(self) -> dict:
-        """Odczytuje wartości pól formularza konta."""
-        return {
-            "name": self.account_name.text().strip(),
-            "email": self.email_address.text().strip(),
-            "password": self.password.text(),
-            "user_name": self.user_name.text().strip(),
-            "imap_server": self.imap_server.text().strip(),
-            "imap_port": self.imap_port.value(),
-            "imap_ssl": self.imap_ssl.isChecked(),
-            "smtp_server": self.smtp_server.text().strip(),
-            "smtp_port": self.smtp_port.value(),
-            "smtp_ssl": self.smtp_ssl.isChecked(),
-        }
-
-    def _apply_account_to_form(self, account_data: dict) -> None:
-        """Wypełnia formularz danymi konta."""
-        self.is_loading_account = True
-        data = self._normalize_account_data(account_data)
-
-        self.account_name.setText(data["name"])
-        self.email_address.setText(data["email"])
-        self.password.setText(data["password"])
-        self.user_name.setText(data["user_name"])
-
-        self.imap_server.setText(data["imap_server"])
-        self.imap_port.setValue(data["imap_port"])
-        self.imap_ssl.setChecked(data["imap_ssl"])
-
-        self.smtp_server.setText(data["smtp_server"])
-        self.smtp_port.setValue(data["smtp_port"])
-        self.smtp_ssl.setChecked(data["smtp_ssl"])
-
-        self.is_loading_account = False
-
-    def _current_form_matches_account(self) -> bool:
-        """Sprawdza czy formularz odpowiada zapisanym danym."""
-        form_data = self._collect_account_form_data()
-        if self.current_account is None or self.current_account >= len(self.accounts):
-            return form_data == ACCOUNT_DEFAULTS
-        stored = self._normalize_account_data(self.accounts[self.current_account])
-        return form_data == stored
-
-    def create_account_settings_tab(self):
-        """Buduje kartę z ustawieniami konta pocztowego."""
-        tab = QWidget()
-        layout = QVBoxLayout()
-        layout.setSpacing(12)
-
-        account_group = QGroupBox("Dane konta")
-        account_form = QFormLayout()
-
-        self.account_name = QLineEdit()
-        self.account_name.setPlaceholderText("Np. Praca, Gmail osobisty...")
-        account_form.addRow("Nazwa konta:", self.account_name)
-
-        self.email_address = QLineEdit()
-        self.email_address.setPlaceholderText("adres@email.com")
-        account_form.addRow("Adres email:", self.email_address)
-
-        self.password = QLineEdit()
-        self.password.setEchoMode(QLineEdit.EchoMode.Password)
-        self.password.setPlaceholderText("Hasło do konta")
-        account_form.addRow("Hasło:", self.password)
-
-        self.user_name = QLineEdit()
-        self.user_name.setPlaceholderText("Twoje imię i nazwisko")
-        account_form.addRow("Twoja nazwa:", self.user_name)
-
-        account_group.setLayout(account_form)
-        layout.addWidget(account_group)
-
-        imap_group = QGroupBox("Serwer IMAP (odbieranie)")
-        imap_form = QFormLayout()
-
-        self.imap_server = QLineEdit()
-        self.imap_server.setPlaceholderText("imap.gmail.com")
-        imap_form.addRow("Serwer IMAP:", self.imap_server)
-
-        self.imap_port = QSpinBox()
-        self.imap_port.setRange(1, 65535)
-        self.imap_port.setValue(993)
-        imap_form.addRow("Port IMAP:", self.imap_port)
-
-        self.imap_ssl = QCheckBox("Użyj SSL/TLS")
-        self.imap_ssl.setChecked(True)
-        imap_form.addRow("", self.imap_ssl)
-
-        imap_group.setLayout(imap_form)
-        layout.addWidget(imap_group)
-
-        smtp_group = QGroupBox("Serwer SMTP (wysyłanie)")
-        smtp_form = QFormLayout()
-
-        self.smtp_server = QLineEdit()
-        self.smtp_server.setPlaceholderText("smtp.gmail.com")
-        smtp_form.addRow("Serwer SMTP:", self.smtp_server)
-
-        self.smtp_port = QSpinBox()
-        self.smtp_port.setRange(1, 65535)
-        self.smtp_port.setValue(587)
-        smtp_form.addRow("Port SMTP:", self.smtp_port)
-
-        self.smtp_ssl = QCheckBox("Użyj STARTTLS")
-        self.smtp_ssl.setChecked(True)
-        smtp_form.addRow("", self.smtp_ssl)
-
-        smtp_group.setLayout(smtp_form)
-        layout.addWidget(smtp_group)
-
-        layout.addStretch()
-        tab.setLayout(layout)
-        return tab
-        
     def create_signatures_tab(self):
-        """Tworzy zakładkę z podpisami"""
+        """Tworzy zakład kę z podpisami"""
         tab = QWidget()
         layout = QHBoxLayout()
         
@@ -655,6 +413,511 @@ class MailConfigDialog(QDialog):
 
         tab.setLayout(layout)
         return tab
+    
+    def create_autoresponder_tab(self):
+        """Tworzy zakładkę autorespondera"""
+        tab = QWidget()
+        layout = QVBoxLayout()
+        
+        # Nagłówek
+        header = QLabel("Zarządzaj automatycznymi odpowiedziami na wiadomości")
+        header.setStyleSheet("font-size: 14px; font-weight: bold; padding: 10px;")
+        layout.addWidget(header)
+        
+        # Główny układ (lista reguł + szczegóły)
+        main_layout = QHBoxLayout()
+        
+        # Lewa strona - lista reguł
+        left_panel = QVBoxLayout()
+        
+        rules_label = QLabel("Reguły autorespondera:")
+        rules_label.setStyleSheet("font-weight: bold;")
+        left_panel.addWidget(rules_label)
+        
+        self.autoresponder_rules_list = QListWidget()
+        self.autoresponder_rules_list.currentRowChanged.connect(self.on_autoresponder_rule_selected)
+        left_panel.addWidget(self.autoresponder_rules_list)
+        
+        # Przyciski zarządzania regułami
+        rules_buttons = QHBoxLayout()
+        
+        btn_add_rule = QPushButton("➕ Dodaj")
+        btn_add_rule.clicked.connect(self.add_autoresponder_rule)
+        rules_buttons.addWidget(btn_add_rule)
+        
+        btn_remove_rule = QPushButton("❌ Usuń")
+        btn_remove_rule.clicked.connect(self.remove_autoresponder_rule)
+        rules_buttons.addWidget(btn_remove_rule)
+        
+        btn_duplicate = QPushButton("📋 Duplikuj")
+        btn_duplicate.clicked.connect(self.duplicate_autoresponder_rule)
+        rules_buttons.addWidget(btn_duplicate)
+        
+        left_panel.addLayout(rules_buttons)
+        
+        # Prawa strona - szczegóły reguły
+        right_panel = QVBoxLayout()
+        
+        # Grupa: Podstawowe ustawienia
+        basic_group = QGroupBox("Podstawowe ustawienia")
+        basic_layout = QVBoxLayout()
+        
+        # Checkbox włącz/wyłącz
+        self.autoresponder_enabled_check = QCheckBox("✓ Reguła włączona")
+        self.autoresponder_enabled_check.setChecked(True)
+        basic_layout.addWidget(self.autoresponder_enabled_check)
+        
+        # Nazwa reguły
+        name_layout = QHBoxLayout()
+        name_layout.addWidget(QLabel("Nazwa reguły:"))
+        self.autoresponder_name_input = QLineEdit()
+        self.autoresponder_name_input.setPlaceholderText("np. Odpowiedź dla klientów")
+        name_layout.addWidget(self.autoresponder_name_input)
+        basic_layout.addLayout(name_layout)
+        
+        basic_group.setLayout(basic_layout)
+        right_panel.addWidget(basic_group)
+        
+        # Grupa: Warunki
+        condition_group = QGroupBox("Warunki wyzwalające")
+        condition_layout = QVBoxLayout()
+        
+        cond_type_layout = QHBoxLayout()
+        cond_type_layout.addWidget(QLabel("Gdy w polu:"))
+        self.autoresponder_condition_type_combo = QComboBox()
+        self.autoresponder_condition_type_combo.addItems([
+            "Wszystkie wiadomości",
+            "Nadawca (FROM)",
+            "Temat (SUBJECT)",
+            "Treść wiadomości"
+        ])
+        self.autoresponder_condition_type_combo.setCurrentIndex(0)
+        cond_type_layout.addWidget(self.autoresponder_condition_type_combo)
+        condition_layout.addLayout(cond_type_layout)
+        
+        cond_value_layout = QHBoxLayout()
+        cond_value_layout.addWidget(QLabel("Zawiera tekst:"))
+        self.autoresponder_condition_value_input = QLineEdit()
+        self.autoresponder_condition_value_input.setPlaceholderText("np. @firma.pl, urgent, zapytanie")
+        cond_value_layout.addWidget(self.autoresponder_condition_value_input)
+        condition_layout.addLayout(cond_value_layout)
+        
+        condition_group.setLayout(condition_layout)
+        right_panel.addWidget(condition_group)
+        
+        # Grupa: Odpowiedź
+        response_group = QGroupBox("Treść automatycznej odpowiedzi")
+        response_layout = QVBoxLayout()
+        
+        subject_layout = QHBoxLayout()
+        subject_layout.addWidget(QLabel("Temat:"))
+        self.autoresponder_response_subject_input = QLineEdit()
+        self.autoresponder_response_subject_input.setPlaceholderText("Re: Automatyczna odpowiedź")
+        subject_layout.addWidget(self.autoresponder_response_subject_input)
+        response_layout.addLayout(subject_layout)
+        
+        response_layout.addWidget(QLabel("Treść wiadomości:"))
+        self.autoresponder_response_body_input = QTextEdit()
+        self.autoresponder_response_body_input.setPlaceholderText(
+            "Witam,\n\n"
+            "Dziękuję za wiadomość. Odpowiem w ciągu 24 godzin.\n\n"
+            "Pozdrawiam,\n"
+            "Bot"
+        )
+        self.autoresponder_response_body_input.setMaximumHeight(120)
+        response_layout.addWidget(self.autoresponder_response_body_input)
+        
+        response_group.setLayout(response_layout)
+        right_panel.addWidget(response_group)
+        
+        # Grupa: Ograniczenia
+        limits_group = QGroupBox("Ograniczenia i harmonogram")
+        limits_layout = QVBoxLayout()
+        
+        # Maksymalna liczba odpowiedzi
+        max_resp_layout = QHBoxLayout()
+        max_resp_layout.addWidget(QLabel("Max odpowiedzi na nadawcę:"))
+        self.autoresponder_max_responses_spin = QSpinBox()
+        self.autoresponder_max_responses_spin.setMinimum(1)
+        self.autoresponder_max_responses_spin.setMaximum(100)
+        self.autoresponder_max_responses_spin.setValue(1)
+        self.autoresponder_max_responses_spin.setToolTip("Ile razy wysłać automatyczną odpowiedź temu samemu nadawcy")
+        max_resp_layout.addWidget(self.autoresponder_max_responses_spin)
+        max_resp_layout.addStretch()
+        limits_layout.addLayout(max_resp_layout)
+        
+        # Dni tygodnia
+        days_layout = QHBoxLayout()
+        days_layout.addWidget(QLabel("Aktywne dni:"))
+        self.autoresponder_day_checks = {}
+        days = ["Pon", "Wt", "Śr", "Czw", "Pt", "Sob", "Niedz"]
+        for i, day in enumerate(days):
+            check = QCheckBox(day)
+            check.setChecked(i < 5)  # Domyślnie Pon-Pt
+            self.autoresponder_day_checks[i] = check
+            days_layout.addWidget(check)
+        limits_layout.addLayout(days_layout)
+        
+        # Godziny
+        hours_layout = QHBoxLayout()
+        hours_layout.addWidget(QLabel("Aktywne godziny:"))
+        self.autoresponder_hours_start_spin = QSpinBox()
+        self.autoresponder_hours_start_spin.setMinimum(0)
+        self.autoresponder_hours_start_spin.setMaximum(23)
+        self.autoresponder_hours_start_spin.setValue(0)
+        self.autoresponder_hours_start_spin.setSuffix(":00")
+        hours_layout.addWidget(self.autoresponder_hours_start_spin)
+        hours_layout.addWidget(QLabel("-"))
+        self.autoresponder_hours_end_spin = QSpinBox()
+        self.autoresponder_hours_end_spin.setMinimum(0)
+        self.autoresponder_hours_end_spin.setMaximum(23)
+        self.autoresponder_hours_end_spin.setValue(23)
+        self.autoresponder_hours_end_spin.setSuffix(":00")
+        hours_layout.addWidget(self.autoresponder_hours_end_spin)
+        hours_layout.addStretch()
+        limits_layout.addLayout(hours_layout)
+        
+        limits_group.setLayout(limits_layout)
+        right_panel.addWidget(limits_group)
+        
+        # Przycisk zapisz zmiany
+        save_rule_btn = QPushButton("💾 Zapisz zmiany w regule")
+        save_rule_btn.clicked.connect(self.save_current_autoresponder_rule)
+        save_rule_btn.setStyleSheet("font-weight: bold; padding: 8px;")
+        right_panel.addWidget(save_rule_btn)
+        
+        right_panel.addStretch()
+        
+        # Dodaj panele do głównego layoutu
+        main_layout.addLayout(left_panel, 1)
+        main_layout.addLayout(right_panel, 2)
+        
+        layout.addLayout(main_layout)
+        
+        tab.setLayout(layout)
+        return tab
+    
+    def create_columns_tab(self):
+        """Tworzy zakładkę układu kolumn"""
+        tab = QWidget()
+        main_layout = QVBoxLayout()
+        
+        main_layout.addWidget(QLabel("Zarządzaj kolejnością i widocznością kolumn:"))
+        
+        # Sprawdź czy mamy referencję do mail_view
+        if not self.mail_view_parent:
+            info_label = QLabel(
+                "⚠️ Brak połączenia z modułem ProMail.\n\n"
+                "Karta Układ kolumn wymaga aktywnego modułu ProMail aby zarządzać kolumnami."
+            )
+            info_label.setWordWrap(True)
+            info_label.setStyleSheet("padding: 20px; font-size: 11pt; color: orange;")
+            main_layout.addWidget(info_label)
+            main_layout.addStretch()
+            tab.setLayout(main_layout)
+            return tab
+        
+        # Kontener z listą i przyciskami
+        content_layout = QHBoxLayout()
+        
+        # Lista kolumn
+        self.columns_list = QListWidget()
+        self.columns_list.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+        
+        # Pobierz aktualną kolejność kolumn (jeśli istnieje) lub użyj domyślnej
+        if not hasattr(self.mail_view_parent, 'column_order'):
+            self.mail_view_parent.column_order = list(range(12))  # 0-11
+        
+        # Wypełnij listę według aktualnej kolejności
+        for col_idx in self.mail_view_parent.column_order:
+            item = QListWidgetItem()
+            is_visible = self.mail_view_parent.column_visibility.get(col_idx, True)
+            checkbox_text = "✓" if is_visible else "✗"
+            item.setText(f"{checkbox_text} {self.mail_view_parent.column_names[col_idx]}")
+            item.setData(Qt.ItemDataRole.UserRole, col_idx)
+            # Zaznacz/odznacz w zależności od widoczności
+            if is_visible:
+                item.setCheckState(Qt.CheckState.Checked)
+            else:
+                item.setCheckState(Qt.CheckState.Unchecked)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            self.columns_list.addItem(item)
+        
+        content_layout.addWidget(self.columns_list)
+        
+        # Przyciski do zmiany kolejności
+        buttons_layout = QVBoxLayout()
+        
+        move_up_btn = QPushButton("⬆️ W górę")
+        move_up_btn.setToolTip("Przesuń wybraną kolumnę w górę")
+        buttons_layout.addWidget(move_up_btn)
+        
+        move_down_btn = QPushButton("⬇️ W dół")
+        move_down_btn.setToolTip("Przesuń wybraną kolumnę w dół")
+        buttons_layout.addWidget(move_down_btn)
+        
+        buttons_layout.addSpacing(20)
+        
+        toggle_btn = QPushButton("🔄 Przełącz widoczność")
+        toggle_btn.setToolTip("Przełącz widoczność wybranej kolumny")
+        buttons_layout.addWidget(toggle_btn)
+        
+        buttons_layout.addStretch()
+        
+        # Funkcje obsługi przycisków
+        def move_up():
+            current_row = self.columns_list.currentRow()
+            if current_row > 0:
+                item = self.columns_list.takeItem(current_row)
+                self.columns_list.insertItem(current_row - 1, item)
+                self.columns_list.setCurrentRow(current_row - 1)
+        
+        def move_down():
+            current_row = self.columns_list.currentRow()
+            if current_row < self.columns_list.count() - 1 and current_row >= 0:
+                item = self.columns_list.takeItem(current_row)
+                self.columns_list.insertItem(current_row + 1, item)
+                self.columns_list.setCurrentRow(current_row + 1)
+        
+        def toggle_visibility():
+            current_item = self.columns_list.currentItem()
+            if current_item:
+                if current_item.checkState() == Qt.CheckState.Checked:
+                    current_item.setCheckState(Qt.CheckState.Unchecked)
+                    col_idx = current_item.data(Qt.ItemDataRole.UserRole)
+                    current_item.setText(f"✗ {self.mail_view_parent.column_names[col_idx]}")
+                else:
+                    current_item.setCheckState(Qt.CheckState.Checked)
+                    col_idx = current_item.data(Qt.ItemDataRole.UserRole)
+                    current_item.setText(f"✓ {self.mail_view_parent.column_names[col_idx]}")
+        
+        move_up_btn.clicked.connect(move_up)
+        move_down_btn.clicked.connect(move_down)
+        toggle_btn.clicked.connect(toggle_visibility)
+        
+        content_layout.addLayout(buttons_layout)
+        main_layout.addLayout(content_layout)
+        
+        main_layout.addWidget(QLabel("\n💡 Wskazówka: Możesz także przeciągać kolumny myszką aby zmienić ich kolejność."))
+        
+        # Przycisk zastosuj zmiany
+        apply_btn = QPushButton("✔️ Zastosuj zmiany")
+        apply_btn.setStyleSheet("font-weight: bold; padding: 8px;")
+        apply_btn.setToolTip("Zastosuj nową kolejność i widoczność kolumn")
+        apply_btn.clicked.connect(self.apply_column_settings)
+        main_layout.addWidget(apply_btn)
+        
+        tab.setLayout(main_layout)
+        return tab
+    
+    def apply_column_settings(self):
+        """Stosuje ustawienia kolumn do mail_view"""
+        if not self.mail_view_parent or not hasattr(self, 'columns_list'):
+            return
+        
+        # Zapisz nową kolejność i widoczność
+        new_order = []
+        for i in range(self.columns_list.count()):
+            item = self.columns_list.item(i)
+            col_idx = item.data(Qt.ItemDataRole.UserRole)
+            new_order.append(col_idx)
+            self.mail_view_parent.column_visibility[col_idx] = (item.checkState() == Qt.CheckState.Checked)
+        
+        self.mail_view_parent.column_order = new_order
+        
+        # Przebuduj tabelę z nową kolejnością
+        if hasattr(self.mail_view_parent, 'rebuild_mail_table_with_order'):
+            self.mail_view_parent.rebuild_mail_table_with_order()
+        
+        QMessageBox.information(self, "Sukces", "Ustawienia kolumn zostały zastosowane!")
+
+    
+    def create_tags_tab(self):
+        """Tworzy zakładkę tagów"""
+        tab = QWidget()
+        layout = QVBoxLayout()
+        
+        # Sprawdź czy mamy referencję do mail_view
+        if not self.mail_view_parent:
+            info_label = QLabel(
+                "⚠️ Brak połączenia z modułem ProMail.\n\n"
+                "Karta Tagi wymaga aktywnego modułu ProMail aby zarządzać tagami."
+            )
+            info_label.setWordWrap(True)
+            info_label.setStyleSheet("padding: 20px; font-size: 11pt; color: orange;")
+            layout.addWidget(info_label)
+            layout.addStretch()
+            tab.setLayout(layout)
+            return tab
+        
+        # Tabs dla tagów wiadomości i kontaktów
+        tabs = QTabWidget()
+        layout.addWidget(tabs)
+        
+        # Tab 1: Tagi wiadomości
+        mail_tags_widget = QWidget()
+        mail_tags_layout = QVBoxLayout(mail_tags_widget)
+        
+        mail_tags_label = QLabel("Tagi dla wiadomości e-mail:")
+        mail_tags_label.setStyleSheet("font-weight: bold; font-size: 12px;")
+        mail_tags_layout.addWidget(mail_tags_label)
+        
+        mail_tags_list = QListWidget()
+        mail_tags_list.setObjectName("mail_tags_list")
+        for tag in self.mail_view_parent.mail_tags:
+            tag_name = tag.get("name", "")
+            tag_color = tag.get("color")
+            item = QListWidgetItem(f"🏷️ {tag_name}")
+            if tag_color:
+                item.setBackground(QColor(tag_color))
+                # Dostosuj kolor tekstu w zależności od jasności tła
+                if QColor(tag_color).lightness() < 128:
+                    item.setForeground(QColor("white"))
+            mail_tags_list.addItem(item)
+        mail_tags_layout.addWidget(mail_tags_list)
+        
+        mail_tags_btn_layout = QHBoxLayout()
+        
+        btn_add_mail_tag = QPushButton("➕ Dodaj tag wiadomości")
+        btn_add_mail_tag.clicked.connect(lambda: self.mail_view_parent.add_tag_from_manager(mail_tags_list, "mail"))
+        mail_tags_btn_layout.addWidget(btn_add_mail_tag)
+        
+        btn_edit_mail_tag = QPushButton("✏️ Edytuj")
+        btn_edit_mail_tag.clicked.connect(lambda: self.mail_view_parent.edit_tag_from_manager(mail_tags_list, "mail"))
+        mail_tags_btn_layout.addWidget(btn_edit_mail_tag)
+        
+        btn_delete_mail_tag = QPushButton("🗑️ Usuń")
+        btn_delete_mail_tag.clicked.connect(lambda: self.mail_view_parent.delete_tag_from_manager(mail_tags_list, "mail"))
+        mail_tags_btn_layout.addWidget(btn_delete_mail_tag)
+        
+        mail_tags_layout.addLayout(mail_tags_btn_layout)
+        tabs.addTab(mail_tags_widget, "📧 Tagi wiadomości")
+        
+        # Tab 2: Definicje tagów kontaktów
+        contact_tag_def_widget = QWidget()
+        contact_tag_def_layout = QVBoxLayout(contact_tag_def_widget)
+        
+        contact_tag_def_label = QLabel("Definicje tagów dla kontaktów:")
+        contact_tag_def_label.setStyleSheet("font-weight: bold; font-size: 12px;")
+        contact_tag_def_layout.addWidget(contact_tag_def_label)
+        
+        contact_tag_def_list = QListWidget()
+        contact_tag_def_list.setObjectName("contact_tag_def_list")
+        for tag in self.mail_view_parent.contact_tag_definitions:
+            tag_name = tag.get("name", "")
+            tag_color = tag.get("color")
+            item = QListWidgetItem(f"🏷️ {tag_name}")
+            if tag_color:
+                item.setBackground(QColor(tag_color))
+                if QColor(tag_color).lightness() < 128:
+                    item.setForeground(QColor("white"))
+            contact_tag_def_list.addItem(item)
+        contact_tag_def_layout.addWidget(contact_tag_def_list)
+        
+        contact_tag_def_btn_layout = QHBoxLayout()
+        
+        btn_add_contact_tag_def = QPushButton("➕ Dodaj tag kontaktu")
+        btn_add_contact_tag_def.clicked.connect(lambda: self.mail_view_parent.add_tag_from_manager(contact_tag_def_list, "contact"))
+        contact_tag_def_btn_layout.addWidget(btn_add_contact_tag_def)
+        
+        btn_edit_contact_tag_def = QPushButton("✏️ Edytuj")
+        btn_edit_contact_tag_def.clicked.connect(lambda: self.mail_view_parent.edit_tag_from_manager(contact_tag_def_list, "contact"))
+        contact_tag_def_btn_layout.addWidget(btn_edit_contact_tag_def)
+        
+        btn_delete_contact_tag_def = QPushButton("🗑️ Usuń")
+        btn_delete_contact_tag_def.clicked.connect(lambda: self.mail_view_parent.delete_tag_from_manager(contact_tag_def_list, "contact"))
+        contact_tag_def_btn_layout.addWidget(btn_delete_contact_tag_def)
+        
+        contact_tag_def_layout.addLayout(contact_tag_def_btn_layout)
+        tabs.addTab(contact_tag_def_widget, "🏷️ Tagi kontaktów")
+        
+        # Tab 3: Przypisanie tagów do kontaktów
+        contact_assignment_widget = QWidget()
+        contact_assignment_layout = QVBoxLayout(contact_assignment_widget)
+        
+        contact_assignment_label = QLabel("Przypisz tagi do kontaktów:")
+        contact_assignment_label.setStyleSheet("font-weight: bold; font-size: 12px;")
+        contact_assignment_layout.addWidget(contact_assignment_label)
+        
+        contact_list = QListWidget()
+        contact_list.setObjectName("contact_list")
+        # Pobierz wszystkie unikalne adresy email z maili
+        all_emails = set()
+        for folder_mails in self.mail_view_parent.sample_mails.values():
+            for mail in folder_mails:
+                email = self.mail_view_parent.extract_email_address(mail.get("from", ""))
+                if email:
+                    all_emails.add(email)
+        
+        for email in sorted(all_emails):
+            name = self.mail_view_parent.extract_display_name_for_email(email)
+            display = f"{name} <{email}>" if name else email
+            item = QListWidgetItem(f"👤 {display}")
+            item.setData(Qt.ItemDataRole.UserRole, email)
+            
+            # Dodaj tagi do tooltipa i tekstu
+            if email in self.mail_view_parent.contact_tags and self.mail_view_parent.contact_tags[email]:
+                tags_str = ", ".join(self.mail_view_parent.contact_tags[email])
+                item.setToolTip(f"Tagi: {tags_str}")
+                item.setText(f"👤 {display} [{tags_str}]")
+            
+            contact_list.addItem(item)
+        contact_assignment_layout.addWidget(contact_list)
+        
+        contact_assignment_btn_layout = QHBoxLayout()
+        
+        btn_add_contact_tag = QPushButton("🏷️ Dodaj tag")
+        btn_add_contact_tag.clicked.connect(lambda: self.mail_view_parent.add_contact_tag(contact_list))
+        contact_assignment_btn_layout.addWidget(btn_add_contact_tag)
+        
+        btn_remove_contact_tag = QPushButton("❌ Usuń tag")
+        btn_remove_contact_tag.clicked.connect(lambda: self.mail_view_parent.remove_contact_tag(contact_list))
+        contact_assignment_btn_layout.addWidget(btn_remove_contact_tag)
+        
+        contact_assignment_layout.addLayout(contact_assignment_btn_layout)
+        tabs.addTab(contact_assignment_widget, "👥 Przypisanie")
+        
+        # Tab 4: Kolory kontaktów
+        contact_colors_widget = QWidget()
+        contact_colors_layout = QVBoxLayout(contact_colors_widget)
+        
+        contact_colors_label = QLabel("Kolory dla kontaktów:")
+        contact_colors_label.setStyleSheet("font-weight: bold; font-size: 12px;")
+        contact_colors_layout.addWidget(contact_colors_label)
+        
+        contact_colors_list = QListWidget()
+        contact_colors_list.setObjectName("contact_colors_list")
+        
+        for email in sorted(all_emails):
+            name = self.mail_view_parent.extract_display_name_for_email(email)
+            display = f"{name} <{email}>" if name else email
+            item = QListWidgetItem(f"👤 {display}")
+            item.setData(Qt.ItemDataRole.UserRole, email)
+            
+            # Zastosuj kolor jeśli jest ustawiony
+            if email in self.mail_view_parent.contact_colors:
+                item.setBackground(self.mail_view_parent.contact_colors[email])
+                if self.mail_view_parent.contact_colors[email].lightness() < 128:
+                    item.setForeground(QColor("white"))
+            
+            contact_colors_list.addItem(item)
+        contact_colors_layout.addWidget(contact_colors_list)
+        
+        contact_colors_btn_layout = QHBoxLayout()
+        
+        btn_set_color = QPushButton("🎨 Ustaw kolor")
+        btn_set_color.clicked.connect(lambda: self.mail_view_parent.set_contact_color(contact_colors_list))
+        contact_colors_btn_layout.addWidget(btn_set_color)
+        
+        btn_clear_color = QPushButton("🔄 Wyczyść kolor")
+        btn_clear_color.clicked.connect(lambda: self.mail_view_parent.clear_contact_color(contact_colors_list))
+        contact_colors_btn_layout.addWidget(btn_clear_color)
+        
+        contact_colors_layout.addLayout(contact_colors_btn_layout)
+        tabs.addTab(contact_colors_widget, "🎨 Kolory")
+        
+        tab.setLayout(layout)
+        return tab
 
     def load_signatures(self):
         """Wczytuje podpisy z pliku JSON"""
@@ -804,8 +1067,8 @@ class MailConfigDialog(QDialog):
                     raw_filters = json.load(f)
                 self.filters = []
                 for filter_data in raw_filters:
-                    if isinstance(filter_data, dict):
-                        self.filters.append(self.normalize_filter_definition(filter_data))
+                    normalized = self.normalize_filter_definition(filter_data)
+                    self.filters.append(normalized)
             except Exception as e:
                 QMessageBox.warning(self, "Błąd", f"Nie można wczytać filtrów: {e}")
                 self.filters = []
@@ -1120,7 +1383,7 @@ class MailConfigDialog(QDialog):
             self.enable_filter_editing(False)
 
     def update_filter_accounts(self):
-        """Aktualizuje listę kont dostępnych w filtrach"""
+        """Aktualizuje listę kont dostępnych w filtrach - pobiera z głównej aplikacji"""
         if not hasattr(self, 'filter_account'):
             return
 
@@ -1129,12 +1392,16 @@ class MailConfigDialog(QDialog):
         self.filter_account.blockSignals(True)
         self.filter_account.clear()
         self.filter_account.addItem("Dowolne konto", None)
-
-        for account in self.accounts:
-            email = account.get('email', '')
-            name = account.get('name') or email or "Konto"
-            label = f"{name} ({email})" if email else name
-            self.filter_account.addItem(label, email or None)
+        
+        # TODO: Pobierz konta z EmailAccountsDatabase zamiast z self.accounts
+        # from src.database.email_accounts_db import EmailAccountsDatabase
+        # db = EmailAccountsDatabase()
+        # accounts = db.get_all_accounts()
+        # for account in accounts:
+        #     email = account.get('email', '')
+        #     name = account.get('name') or email or "Konto"
+        #     label = f"{name} ({email})" if email else name
+        #     self.filter_account.addItem(label, email or None)
 
         if current_value is not None:
             index = self.filter_account.findData(current_value)
@@ -1186,15 +1453,9 @@ class MailConfigDialog(QDialog):
         """Buduje etykietę konta dla listy filtrów"""
         if not account_email:
             return "Dowolne konto"
-
-        for account in self.accounts:
-            if account.get('email') == account_email:
-                name = account.get('name')
-                if name and name != account_email:
-                    return f"{name} ({account_email})"
-                return account_email
-
-        return f"{account_email} (brak w konfiguracji)"
+        
+        # TODO: Pobierz konta z EmailAccountsDatabase
+        return f"{account_email}"
 
     def on_condition_double_clicked(self, _item):
         """Obsługuje dwuklik na warunku"""
@@ -1235,288 +1496,161 @@ class MailConfigDialog(QDialog):
         if 0 <= index < len(self.editing_conditions):
             del self.editing_conditions[index]
             self.update_conditions_list_widget()
-
-    def load_accounts(self):
-        """Wczytuje konta z pliku JSON"""
-        if self.config_file.exists():
+    
+    # ==================== AUTORESPONDER METHODS ====================
+    
+    def load_autoresponder_rules(self):
+        """Wczytuje reguły autorespondera z pliku"""
+        if self.autoresponder_file.exists():
             try:
-                with open(self.config_file, 'r', encoding='utf-8') as f:
-                    raw_accounts = json.load(f)
-                self.accounts = [
-                    self._normalize_account_data(account)
-                    for account in raw_accounts
-                    if isinstance(account, dict)
-                ]
-                self.update_accounts_list()
+                with open(self.autoresponder_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    self.autoresponder_rules = [AutoresponderRule(rule_data) for rule_data in data]
             except Exception as e:
-                QMessageBox.warning(self, "Błąd", f"Nie można wczytać kont: {e}")
+                print(f"Błąd wczytywania reguł autorespondera: {e}")
+                self.autoresponder_rules = []
         else:
-            # Utwórz folder jeśli nie istnieje
-            self.config_file.parent.mkdir(parents=True, exist_ok=True)
-            
-    def update_accounts_list(self):
-        """Aktualizuje listę kont"""
-        self.accounts_list.blockSignals(True)
-        self.accounts_list.clear()
-        for account in self.accounts:
-            self.accounts_list.addItem(f"{account['name']} ({account['email']})")
-        self.accounts_list.blockSignals(False)
-
-        self.update_filter_accounts()
-
-        if self.accounts:
-            target_row = self.current_account if self.current_account is not None else 0
-            target_row = max(0, min(target_row, self.accounts_list.count() - 1))
-            self.accounts_list.setCurrentRow(target_row)
-        else:
-            self.accounts_list.clearSelection()
-            self.current_account = None
-            self.enable_editing(True)
-            self.clear_form()
-            
-    def on_account_selected(self, index):
-        """Obsługa wyboru konta z listy"""
-        if index >= 0 and index < len(self.accounts):
-            self.current_account = index
-            self.load_account_details(self.accounts[index])
-            self.btn_delete.setEnabled(True)
-            self.is_account_editing = False
-            self.enable_editing(True)
-            self.update_account_actions()
-        else:
-            self.current_account = None
-            self.btn_delete.setEnabled(False)
-            self.enable_editing(True)
-            self.clear_form()
-            
-    def load_account_details(self, account):
-        """Ładuje szczegóły konta do formularza"""
-        self._apply_account_to_form(account)
+            self.autoresponder_rules = []
         
-    def new_account(self):
-        """Tworzy nowe konto"""
-        self.current_account = None
-        self.accounts_list.clearSelection()
-        self.clear_form()
-        self.enable_editing(True)
-        self.btn_delete.setEnabled(False)
-        self.is_account_editing = False
-        self.update_account_actions()
-        
-    def clear_form(self):
-        """Czyści formularz"""
-        self._apply_account_to_form(ACCOUNT_DEFAULTS)
-        self.is_account_editing = False
-        self.update_account_actions()
-        
-    def enable_editing(self, enabled):
-        """Włącza/wyłącza edycję pól"""
-        self.account_name.setReadOnly(not enabled)
-        self.email_address.setReadOnly(not enabled)
-        self.password.setReadOnly(not enabled)
-        self.user_name.setReadOnly(not enabled)
-        self.imap_server.setReadOnly(not enabled)
-        self.imap_port.setReadOnly(not enabled)
-        self.smtp_server.setReadOnly(not enabled)
-        self.smtp_port.setReadOnly(not enabled)
-        self.imap_ssl.setEnabled(enabled)
-        self.smtp_ssl.setEnabled(enabled)
-        self.update_account_actions()
-            
-    def save_account(self):
-        """Zapisuje konto"""
-        # Walidacja
-        if not self.account_name.text().strip():
-            QMessageBox.warning(self, "Błąd", "Podaj nazwę konta!")
-            return
-            
-        if not self.email_address.text().strip():
-            QMessageBox.warning(self, "Błąd", "Podaj adres email!")
-            return
-            
-        account_data = self._normalize_account_data(self._collect_account_form_data())
-
-        # Dodaj lub zaktualizuj
-        if self.current_account is None:
-            self.accounts.append(account_data)
-            self.current_account = len(self.accounts) - 1
-        else:
-            self.accounts[self.current_account] = account_data
-            
-        # Zapisz do pliku
+        # Odśwież listę po wczytaniu
+        if hasattr(self, 'autoresponder_rules_list'):
+            self.populate_autoresponder_rules_list()
+    
+    def save_autoresponder_rules(self):
+        """Zapisuje reguły autorespondera do pliku"""
         try:
-            with open(self.config_file, 'w', encoding='utf-8') as f:
-                json.dump(self.accounts, f, indent=2, ensure_ascii=False)
-            
-            self.update_accounts_list()
-            self.is_account_editing = False
-            self._apply_account_to_form(account_data)
-            self.update_account_actions()
-            QMessageBox.information(self, "Sukces", "Konto zostało zapisane!")
-            
+            self.autoresponder_file.parent.mkdir(parents=True, exist_ok=True)
+            data = [rule.to_dict() for rule in self.autoresponder_rules]
+            with open(self.autoresponder_file, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
         except Exception as e:
-            QMessageBox.critical(self, "Błąd", f"Nie można zapisać konta: {e}")
-            
-    def cancel_edit(self):
-        """Anuluje edycję"""
-        if self.current_account is not None:
-            self.load_account_details(self.accounts[self.current_account])
-        else:
-            self.clear_form()
-        self.is_account_editing = False
-        self.enable_editing(True)
-        self.btn_delete.setEnabled(self.current_account is not None)
-        self.update_account_actions()
+            print(f"Błąd zapisywania reguł autorespondera: {e}")
+    
+    def populate_autoresponder_rules_list(self):
+        """Wypełnia listę reguł autorespondera"""
+        self.autoresponder_rules_list.clear()
+        for rule in self.autoresponder_rules:
+            status = "✓" if rule.enabled else "✗"
+            item = QListWidgetItem(f"{status} {rule.name}")
+            self.autoresponder_rules_list.addItem(item)
         
-    def delete_account(self):
-        """Usuwa konto"""
-        if self.current_account is not None:
-            reply = QMessageBox.question(
-                self, 
-                "Potwierdzenie", 
-                f"Czy na pewno chcesz usunąć konto '{self.accounts[self.current_account]['name']}'?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-            )
-            
-            if reply == QMessageBox.StandardButton.Yes:
-                del self.accounts[self.current_account]
-                
-                try:
-                    with open(self.config_file, 'w', encoding='utf-8') as f:
-                        json.dump(self.accounts, f, indent=2, ensure_ascii=False)
-                    
-                    self.update_accounts_list()
-                    self.clear_form()
-                    self.current_account = None
-                    
-                except Exception as e:
-                    QMessageBox.critical(self, "Błąd", f"Nie można usunąć konta: {e}")
-                    
-    def test_connection(self):
-        """Testuje połączenie z serwerem"""
-        account_data = self._collect_account_form_data()
-
-        missing = []
-        field_labels = {
-            "name": "Nazwa konta",
-            "email": "Adres email",
-            "password": "Hasło",
-            "imap_server": "Serwer IMAP",
-            "smtp_server": "Serwer SMTP",
-        }
-
-        for key, label in field_labels.items():
-            if not account_data.get(key):
-                missing.append(label)
-
-        if missing:
-            QMessageBox.warning(
-                self,
-                "Brak danych",
-                "Uzupełnij wymagane pola przed testem połączenia:\n- " + "\n- ".join(missing),
-            )
+        if self.autoresponder_rules:
+            self.autoresponder_rules_list.setCurrentRow(0)
+    
+    def on_autoresponder_rule_selected(self, index: int):
+        """Obsługuje wybór reguły z listy"""
+        if index < 0 or index >= len(self.autoresponder_rules):
             return
-
-        normalized = self._normalize_account_data(account_data)
-
-        self.btn_test.setEnabled(False)
-        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-
-        try:
-            imap_ok, imap_error = self._test_imap_connection(normalized)
-            smtp_ok, smtp_error = self._test_smtp_connection(normalized)
-        finally:
-            QApplication.restoreOverrideCursor()
-            self.btn_test.setEnabled(True)
-
-        messages = []
-        if imap_ok:
-            messages.append("✅ Połączenie IMAP zakończone pomyślnie.")
-        else:
-            messages.append("❌ IMAP: " + imap_error)
-
-        if smtp_ok:
-            messages.append("✅ Połączenie SMTP zakończone pomyślnie.")
-        else:
-            messages.append("❌ SMTP: " + smtp_error)
-
-        if imap_ok and smtp_ok:
-            QMessageBox.information(
-                self,
-                "Test połączenia",
-                "\n".join(messages),
-            )
-        else:
-            QMessageBox.warning(
-                self,
-                "Problemy z połączeniem",
-                "\n".join(messages),
-            )
-
-    def _test_imap_connection(self, account_data):
-        """Próbuje nawiązać połączenie IMAP i zalogować użytkownika."""
-        try:
-            if account_data["imap_ssl"]:
-                imap = imaplib.IMAP4_SSL(
-                    account_data["imap_server"],
-                    account_data["imap_port"],
-                    timeout=10,
-                )
-            else:
-                imap = imaplib.IMAP4(
-                    account_data["imap_server"],
-                    account_data["imap_port"],
-                    timeout=10,
-                )
-
-            try:
-                imap.login(account_data["email"], account_data["password"])
-            finally:
-                try:
-                    imap.logout()
-                except Exception:
-                    pass
-
-            return True, ""
-        except (socket.timeout, socket.gaierror, imaplib.IMAP4.error, OSError) as exc:
-            return False, str(exc)
-
-    def _test_smtp_connection(self, account_data):
-        """Próbuje nawiązać połączenie SMTP i zalogować użytkownika."""
-        server = None
-        try:
-            if account_data["smtp_ssl"] and account_data["smtp_port"] == 465:
-                server = smtplib.SMTP_SSL(
-                    account_data["smtp_server"],
-                    account_data["smtp_port"],
-                    timeout=10,
-                )
-                server.ehlo()
-            else:
-                server = smtplib.SMTP(
-                    account_data["smtp_server"],
-                    account_data["smtp_port"],
-                    timeout=10,
-                )
-                server.ehlo()
-                if account_data["smtp_ssl"]:
-                    server.starttls()
-                    server.ehlo()
-
-            server.login(account_data["email"], account_data["password"])
-            server.quit()
-            return True, ""
-        except (socket.timeout, socket.gaierror, smtplib.SMTPException, OSError) as exc:
-            if server is not None:
-                try:
-                    server.quit()
-                except Exception:
-                    pass
-            return False, str(exc)
         
-    def get_accounts(self):
-        """Zwraca listę kont"""
-        return self.accounts
+        rule = self.autoresponder_rules[index]
+        
+        # Wypełnij pola danymi reguły
+        self.autoresponder_enabled_check.setChecked(rule.enabled)
+        self.autoresponder_name_input.setText(rule.name)
+        
+        # Typ warunku
+        type_map = {"all": 0, "sender": 1, "subject": 2, "body": 3}
+        self.autoresponder_condition_type_combo.setCurrentIndex(type_map.get(rule.condition_type, 0))
+        
+        self.autoresponder_condition_value_input.setText(rule.condition_value)
+        self.autoresponder_response_subject_input.setText(rule.response_subject)
+        self.autoresponder_response_body_input.setPlainText(rule.response_body)
+        self.autoresponder_max_responses_spin.setValue(rule.max_responses_per_sender)
+        
+        # Dni tygodnia
+        for i in range(7):
+            self.autoresponder_day_checks[i].setChecked(i in rule.active_days)
+        
+        self.autoresponder_hours_start_spin.setValue(rule.active_hours_start)
+        self.autoresponder_hours_end_spin.setValue(rule.active_hours_end)
+    
+    def save_current_autoresponder_rule(self):
+        """Zapisuje zmiany w aktualnie wybranej regule"""
+        current_row = self.autoresponder_rules_list.currentRow()
+        if current_row < 0 or current_row >= len(self.autoresponder_rules):
+            QMessageBox.warning(self, "Brak wyboru", "Wybierz regułę do edycji")
+            return
+        
+        rule = self.autoresponder_rules[current_row]
+        
+        # Zapisz dane z formularza
+        rule.enabled = self.autoresponder_enabled_check.isChecked()
+        rule.name = self.autoresponder_name_input.text() or "Bez nazwy"
+        
+        type_map = {0: "all", 1: "sender", 2: "subject", 3: "body"}
+        rule.condition_type = type_map[self.autoresponder_condition_type_combo.currentIndex()]
+        
+        rule.condition_value = self.autoresponder_condition_value_input.text()
+        rule.response_subject = self.autoresponder_response_subject_input.text()
+        rule.response_body = self.autoresponder_response_body_input.toPlainText()
+        rule.max_responses_per_sender = self.autoresponder_max_responses_spin.value()
+        
+        # Dni tygodnia
+        rule.active_days = [i for i in range(7) if self.autoresponder_day_checks[i].isChecked()]
+        
+        rule.active_hours_start = self.autoresponder_hours_start_spin.value()
+        rule.active_hours_end = self.autoresponder_hours_end_spin.value()
+        
+        # Zapisz do pliku
+        self.save_autoresponder_rules()
+        
+        # Odśwież listę
+        self.populate_autoresponder_rules_list()
+        self.autoresponder_rules_list.setCurrentRow(current_row)
+        
+        QMessageBox.information(self, "Zapisano", f"Reguła '{rule.name}' została zaktualizowana")
+    
+    def add_autoresponder_rule(self):
+        """Dodaje nową regułę autorespondera"""
+        new_rule = AutoresponderRule()
+        new_rule.name = f"Reguła {len(self.autoresponder_rules) + 1}"
+        self.autoresponder_rules.append(new_rule)
+        self.save_autoresponder_rules()
+        self.populate_autoresponder_rules_list()
+        self.autoresponder_rules_list.setCurrentRow(len(self.autoresponder_rules) - 1)
+    
+    def remove_autoresponder_rule(self):
+        """Usuwa wybraną regułę"""
+        current_row = self.autoresponder_rules_list.currentRow()
+        if current_row < 0 or current_row >= len(self.autoresponder_rules):
+            QMessageBox.warning(self, "Brak wyboru", "Wybierz regułę do usunięcia")
+            return
+        
+        rule_name = self.autoresponder_rules[current_row].name
+        reply = QMessageBox.question(
+            self,
+            "Potwierdzenie",
+            f"Czy na pewno usunąć regułę '{rule_name}'?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            del self.autoresponder_rules[current_row]
+            self.save_autoresponder_rules()
+            self.populate_autoresponder_rules_list()
+    
+    def duplicate_autoresponder_rule(self):
+        """Duplikuje wybraną regułę"""
+        current_row = self.autoresponder_rules_list.currentRow()
+        if current_row < 0 or current_row >= len(self.autoresponder_rules):
+            QMessageBox.warning(self, "Brak wyboru", "Wybierz regułę do zduplikowania")
+            return
+        
+        original = self.autoresponder_rules[current_row]
+        duplicate = AutoresponderRule(original.to_dict())
+        duplicate.name = f"{original.name} (kopia)"
+        duplicate.responded_to = {}  # Resetuj historię odpowiedzi
+        
+        self.autoresponder_rules.append(duplicate)
+        self.save_autoresponder_rules()
+        self.populate_autoresponder_rules_list()
+        self.autoresponder_rules_list.setCurrentRow(len(self.autoresponder_rules) - 1)
+    
+    def get_autoresponder_rules(self) -> List[AutoresponderRule]:
+        """Zwraca listę reguł autorespondera"""
+        return self.autoresponder_rules
+    
+    # ==================== END AUTORESPONDER METHODS ====================
     
     def get_signatures(self):
         """Zwraca listę podpisów"""
@@ -1538,7 +1672,6 @@ def show_config_dialog(parent=None):
     """Funkcja pomocnicza do wyświetlenia okna konfiguracji"""
     dialog = MailConfigDialog(parent)
     dialog.exec()
-    return dialog.get_accounts()
 
 
 if __name__ == '__main__':
@@ -1546,7 +1679,7 @@ if __name__ == '__main__':
     from PyQt6.QtWidgets import QApplication
     
     app = QApplication(sys.argv)
-    app.setApplicationName("Konfiguracja poczty")
+    app.setApplicationName("Konfiguracja ProMail")
     dialog = MailConfigDialog()
     dialog.exec()
     sys.exit()

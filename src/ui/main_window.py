@@ -13,6 +13,7 @@ from PyQt6.QtGui import QFont, QMouseEvent, QAction, QKeySequence, QShortcut
 from loguru import logger
 
 from ..utils.i18n_manager import t, get_i18n
+from ..utils.theme_manager import get_theme_manager
 from ..core.config import config
 from .config_view import SettingsView
 from .alarms_view import AlarmsView
@@ -345,6 +346,7 @@ class MainWindow(QMainWindow):
         self.on_token_refreshed = on_token_refreshed  # Callback dla odświeżonych tokenów
         self._quick_add_shortcut: QShortcut | None = None
         self._toggle_nav_shortcut: QShortcut | None = None
+        self.theme_manager = get_theme_manager()  # Theme manager
         
         # Słownik przechowujący custom module viewers
         self.custom_module_views = {}
@@ -435,6 +437,11 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'settings_view') and hasattr(self.settings_view, 'tab_email'):
             self.settings_view.tab_email.set_user_data(user_data)
             logger.info("[MAIN] ✅ Email settings initialized")
+        
+        # Przekaż dane użytkownika do ProMail
+        if hasattr(self, 'promail_view') and hasattr(self.promail_view, 'set_user_data'):
+            self.promail_view.set_user_data(user_data)
+            logger.info("[MAIN] ✅ ProMail initialized with user data")
         
         # Status LED: user logged in, connected
         if hasattr(self, 'status_led_manager'):
@@ -907,6 +914,24 @@ class MainWindow(QMainWindow):
             logger.error(traceback.format_exc())
             self.quickboard_view = None
         
+        # Widok ProMail
+        try:
+            from src.Modules.custom_modules.mail_client.mail_view import MailViewModule
+            self.promail_view = MailViewModule(parent=self)
+            self.content_stack.addWidget(self.promail_view)
+            logger.info("ProMail view initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize ProMail view: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            # Fallback - pusty widget z komunikatem błędu
+            self.promail_view = QWidget()
+            error_label = QLabel(f"Błąd inicjalizacji ProMail:\n{str(e)}")
+            error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            error_layout = QVBoxLayout(self.promail_view)
+            error_layout.addWidget(error_label)
+            self.content_stack.addWidget(self.promail_view)
+        
         main_layout.addWidget(self.content_stack, stretch=1)
         
         # Separator
@@ -1048,6 +1073,11 @@ class MainWindow(QMainWindow):
         if shortcut is not None:
             self._install_quick_add_shortcut(shortcut)
         
+        # Obsługa zmiany motywu
+        if 'current_layout' in changes or 'theme' in changes:
+            logger.info("[MainWindow] Theme changed, applying to all views...")
+            self.apply_theme()
+        
         # Obsługa zmiany environment settings
         if 'environment' in changes:
             logger.info("Environment settings changed, applying new layout...")
@@ -1144,6 +1174,15 @@ class MainWindow(QMainWindow):
                 self.quickboard_view.update_stats()
             else:
                 logger.warning("QuickBoardView not initialized")
+                self.content_stack.setCurrentWidget(self.main_content)
+        elif view_name == 'promail':
+            if hasattr(self, 'promail_view') and self.promail_view:
+                self.content_stack.setCurrentWidget(self.promail_view)
+                # Odśwież foldery przy każdym wejściu
+                if hasattr(self.promail_view, 'refresh_folders'):
+                    self.promail_view.refresh_folders()
+            else:
+                logger.warning("ProMail view not initialized")
                 self.content_stack.setCurrentWidget(self.main_content)
         elif view_name.startswith('custom_'):
             # Obsługa custom buttons
@@ -1344,8 +1383,11 @@ class MainWindow(QMainWindow):
 
         title = note_title.strip() or t('notes.quick_note_default', 'Szybka notatka')
         content = "<p></p>"
+        # Use theme accent color for quick notes
+        colors = self.theme_manager.get_current_colors()
+        note_color = colors.get('accent_primary', '#2196F3')
         try:
-            note_id = self.notes_view.db.create_note(title=title, content=content, color="#2196F3")
+            note_id = self.notes_view.db.create_note(title=title, content=content, color=note_color)
         except Exception as exc:
             logger.error(f"[MainWindow] Failed to create quick note: {exc}")
             return
@@ -1637,11 +1679,15 @@ class MainWindow(QMainWindow):
                     f"<p><br></p>"
                 )
                 
+                # Use theme accent color for task notes
+                colors = self.theme_manager.get_current_colors()
+                note_color = colors.get('accent_primary', '#2196F3')
+                
                 # Użyj bazy danych z notes_view
                 new_note_id = self.notes_view.db.create_note(
                     title=note_title,
                     content=note_content,
-                    color="#2196F3"  # Niebieski kolor dla notatek z zadań
+                    color=note_color  # Task notes color from theme
                 )
                 
                 if new_note_id:
@@ -1754,6 +1800,12 @@ class MainWindow(QMainWindow):
             if hasattr(self, 'quickboard_view') and self.quickboard_view:
                 logger.info("Cleaning up QuickBoard...")
                 self.quickboard_view.cleanup()
+            
+            # Cleanup ProMail
+            if hasattr(self, 'promail_view') and self.promail_view:
+                if hasattr(self.promail_view, 'cleanup'):
+                    logger.info("Cleaning up ProMail...")
+                    self.promail_view.cleanup()
             
             logger.info("Cleanup complete")
             
@@ -2056,6 +2108,36 @@ class MainWindow(QMainWindow):
         # Zatrzymaj sesję
         self.pomodoro_view.assistant_stop()
         logger.success("[MainWindow] Assistant stopped pomodoro session")
+    
+    def apply_theme(self):
+        """Aplikuje aktualny motyw do wszystkich widoków"""
+        logger.info("[MainWindow] Applying theme to all views")
+        
+        # Aplikuj motyw do wszystkich widoków które mają metodę apply_theme
+        views_to_update = [
+            ('settings_view', self.settings_view),
+            ('task_view', self.task_view),
+            ('kanban_view', self.kanban_view),
+            ('notes_view', self.notes_view),
+            ('habit_view', getattr(self, 'habit_view', None)),
+            ('callcryptor_view', getattr(self, 'callcryptor_view', None)),
+            ('navigation_bar', getattr(self, 'navigation_bar', None)),
+            ('title_bar', getattr(self, 'title_bar', None)),
+            ('quick_input', getattr(self, 'quick_input', None)),
+        ]
+        
+        for view_name, view in views_to_update:
+            if view and hasattr(view, 'apply_theme'):
+                try:
+                    view.apply_theme()
+                    logger.debug(f"[MainWindow] Applied theme to {view_name}")
+                except Exception as e:
+                    logger.error(f"[MainWindow] Failed to apply theme to {view_name}: {e}")
+        
+        logger.success("[MainWindow] Theme applied to all views")
+
+
+
 
 
 

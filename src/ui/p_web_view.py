@@ -265,7 +265,9 @@ class PWebView(QWidget):
                     palette = app.palette()
                     bg_color = palette.color(QPalette.ColorRole.Base).name()
                 else:
-                    bg_color = '#FFFFFF'
+                    # Użyj koloru z motywu jako ostateczny fallback
+                    colors = self.theme_manager.get_current_colors() if self.theme_manager else {}
+                    bg_color = colors.get('bg_main', '#FFFFFF')
             
             # Ustaw kolor tła dla przeglądarki
             self.web_view.page().setBackgroundColor(QColor(bg_color))
@@ -618,10 +620,12 @@ class PWebView(QWidget):
         
         try:
             # Utwórz notatkę
+            colors = self.theme_manager.get_current_colors() if self.theme_manager else {}
+            note_color = colors.get('accent_primary', '#2196F3')
             new_note_id = main_window.notes_view.db.create_note(
                 title=note_title,
                 content=note_content,
-                color="#2196F3"
+                color=note_color
             )
             
             logger.info(f"[PWebView] Created note {new_note_id} from selection")

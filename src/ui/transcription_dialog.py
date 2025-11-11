@@ -329,10 +329,12 @@ class TranscriptionDialog(QDialog):
             )
             
             # Utwórz notatkę
+            colors = self.theme_manager.get_current_colors() if self.theme_manager else {}
+            note_color = colors.get('warning_bg', '#FF5722')  # Pomarańczowy dla notatek z rozmów
             new_note_id = main_window.notes_view.db.create_note(
                 title=note_title,
                 content=note_content,
-                color="#FF5722"  # Pomarańczowy dla notatek z rozmów
+                color=note_color
             )
             
             # Zapisz note_id do nagrania

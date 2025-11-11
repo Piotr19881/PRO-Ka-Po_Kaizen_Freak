@@ -493,7 +493,9 @@ class QuickBoardView(QWidget):
         if self._pinned_color_cache is None:
             self._pinned_color_cache = self._build_pinned_color()
         if not isinstance(self._pinned_color_cache, QColor):
-            self._pinned_color_cache = QColor('#FFF8DC')
+            colors = self.theme_manager.get_current_colors() if self.theme_manager else {}
+            accent_hex = colors.get('accent_primary', '#FFD54F')
+            self._pinned_color_cache = QColor(accent_hex)
         return self._pinned_color_cache
     
     def create_right_panel(self):

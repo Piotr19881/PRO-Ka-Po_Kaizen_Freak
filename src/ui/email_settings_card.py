@@ -128,6 +128,22 @@ class EmailAccountDialog(QDialog):
         creds_group.setLayout(creds_layout)
         layout.addWidget(creds_group)
         
+        # === Ustawienia pobierania ===
+        fetch_group = QGroupBox(t('settings.email.fetch_settings'))
+        fetch_layout = QFormLayout()
+        fetch_layout.setSpacing(10)
+        
+        # Liczba pobieranych wiadomości
+        self.fetch_limit_input = QSpinBox()
+        self.fetch_limit_input.setRange(10, 1000)
+        self.fetch_limit_input.setValue(50)  # Domyślnie 50 wiadomości
+        self.fetch_limit_input.setSuffix(" " + t('settings.email.messages'))
+        self.fetch_limit_input.setToolTip(t('settings.email.fetch_limit_tooltip'))
+        fetch_layout.addRow(t('settings.email.fetch_limit') + ":", self.fetch_limit_input)
+        
+        fetch_group.setLayout(fetch_layout)
+        layout.addWidget(fetch_group)
+        
         # === Przyciski ===
         buttons_layout = QHBoxLayout()
         
@@ -161,6 +177,7 @@ class EmailAccountDialog(QDialog):
         self.username_input.setText(self.account_data.get('username', ''))
         self.use_ssl_checkbox.setChecked(bool(self.account_data.get('use_ssl', True)))
         self.use_tls_checkbox.setChecked(bool(self.account_data.get('use_tls', False)))
+        self.fetch_limit_input.setValue(self.account_data.get('fetch_limit', 50))
         
         # Hasło nie jest ładowane ze względów bezpieczeństwa
         self.password_input.setPlaceholderText(t('settings.email.password_unchanged'))
@@ -257,7 +274,8 @@ class EmailAccountDialog(QDialog):
             'server_port': self.server_port_input.value(),
             'username': self.username_input.text().strip(),
             'use_ssl': self.use_ssl_checkbox.isChecked(),
-            'use_tls': self.use_tls_checkbox.isChecked()
+            'use_tls': self.use_tls_checkbox.isChecked(),
+            'fetch_limit': self.fetch_limit_input.value()
         }
         
         # Dodaj hasło jeśli zostało podane

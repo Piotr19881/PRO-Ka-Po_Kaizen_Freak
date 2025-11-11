@@ -26,6 +26,7 @@ from datetime import datetime
 from functools import partial
 from pathlib import Path
 from typing import Any, Dict, List, Optional, cast
+from loguru import logger
 
 from PyQt6.QtCore import Qt, QMimeData, QUrl, QEvent, QTimer
 from PyQt6.QtGui import (
@@ -40,7 +41,6 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtWidgets import (
     QApplication,
-    QMainWindow,
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
@@ -60,8 +60,6 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QInputDialog,
     QFileDialog,
-    QToolBar,
-    QStatusBar,
     QAbstractItemView,
     QSpinBox,
     QListWidget,
@@ -72,6 +70,20 @@ from PyQt6.QtWidgets import (
     QHeaderView,
     QScrollArea,
 )
+
+# Import ThemeManager i i18n
+try:
+    from src.utils.theme_manager import get_theme_manager
+    from src.utils.i18n_manager import get_i18n, t
+    from src.database.email_accounts_db import EmailAccountsDatabase
+    from src.core.config import config
+except ImportError:
+    # Fallback dla uruchomienia standalone
+    get_theme_manager = None
+    get_i18n = None
+    t = lambda key, **kwargs: kwargs.get('default', key)
+    EmailAccountsDatabase = None
+    config = None
 
 # Obsługa importów - zarówno dla uruchomienia jako moduł, jak i skrypt
 if __name__ == '__main__':
@@ -104,7 +116,7 @@ else:
     )
 
 
-class MailViewModule(QMainWindow):
+class MailViewModule(QWidget):
     """Główny widok klienta pocztowego z listą maili i podglądem treści."""
 
     LAYOUT_DESCRIPTIONS: Dict[int, str] = {
@@ -125,19 +137,45 @@ class MailViewModule(QMainWindow):
     mail_uid_map: Dict[str, Dict[str, Any]]
     mail_uid_counter: int
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.setWindowTitle("Klient pocztowy")
-        self.resize(1400, 900)
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        
+        # Inicjalizacja menedżerów z bezpiecznym wywołaniem
+        try:
+            self.theme_manager = get_theme_manager()
+        except:
+            self.theme_manager = None
+        
+        try:
+            self.i18n = get_i18n()
+        except:
+            self.i18n = None
+        
+        # User ID - będzie ustawiony przez set_user_data()
+        self.user_id = None
+        
+        # Inicjalizacja bazy danych kont email (centralna baza aplikacji)
+        try:
+            if EmailAccountsDatabase and config:
+                db_path = config.DATA_DIR / "email_accounts.db"
+                self.email_accounts_db = EmailAccountsDatabase(str(db_path))
+                logger.info("[ProMail] Connected to central EmailAccountsDatabase")
+            else:
+                self.email_accounts_db = None
+                logger.warning("[ProMail] EmailAccountsDatabase not available")
+        except Exception as e:
+            logger.error(f"[ProMail] Failed to initialize EmailAccountsDatabase: {e}")
+            self.email_accounts_db = None
 
         self.tags_file = Path("mail_client/mail_tags.json")
         self.contact_tags_file = Path("mail_client/contact_tags.json")
         self.contact_colors_file = Path("mail_client/contact_colors.json")
         self.contact_tag_assignments_file = Path("mail_client/contact_tag_assignments.json")
-        self.accounts_file = Path("mail_client/mail_accounts.json")
+        self.column_order_file = Path("mail_client/column_order.json")
+        # Usunięto: self.accounts_file - teraz używamy EmailAccountsDatabase
         self.favorite_files = self.load_favorite_files()
         self.mail_tags = self.load_mail_tags()
-        self.mail_accounts = self.load_mail_accounts()
+        self.mail_accounts = self.get_accounts_from_db()  # Nowa metoda pobierająca z DB
         self.mail_uid_counter = 0
         self.mail_uid_map: Dict[str, Dict[str, Any]] = {}
         
@@ -168,6 +206,7 @@ class MailViewModule(QMainWindow):
         self.view_mode = "folders"
         self.layout_mode = 1
         self.layout_actions = {}
+        self.imap_folders = {}  # account_email -> lista folderów IMAP
         
         # Stan drzewa folderów (zapamiętywanie rozwinięcia sekcji)
         self.tree_expansion_state = {
@@ -179,6 +218,9 @@ class MailViewModule(QMainWindow):
         self.threads_enabled = True  # Czy grupować w wątki
         self.mail_threads: Dict[str, List[Dict[str, Any]]] = {}  # thread_id -> lista maili
         self.collapsed_threads: set = set()  # Zwinięte wątki
+        
+        # Podgląd maili
+        self.expanded_preview_rows: Dict[int, int] = {}  # mail_row -> preview_row (mapowanie wierszy z podglądem)
         
         # Zoom settings
         self.mail_table_zoom = 100  # Procent (100 = normalny rozmiar)
@@ -204,6 +246,7 @@ class MailViewModule(QMainWindow):
             8: True,  # Wątków
             9: True,  # Tag
             10: True, # Notatka
+            11: True, # 🪄
         }
         self.column_names = {
             0: "⭐ Gwiazdka",
@@ -217,15 +260,18 @@ class MailViewModule(QMainWindow):
             8: "Wątków",
             9: "Tag",
             10: "Notatka",
+            11: "🪄 Magiczna różdżka",
         }
-        # Domyślna kolejność kolumn
-        self.column_order = list(range(11))  # [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        # Domyślna kolejność kolumn - wczytaj zapisany układ
+        self.column_order = self.load_column_order()
         
         # Szerokości kolumn - domyślne wartości
         self.column_widths_file = Path("mail_client/column_widths.json")
         self.column_widths = self.load_column_widths()
 
-        self._status_bar = self.statusBar()
+        # Status label (zastępuje QStatusBar)
+        self.status_label = QLabel()
+        self.status_label.setObjectName("mail_status_label")
         
         # Autoresponder
         autoresponder_file = Path("mail_client/autoresponder_rules.json")
@@ -239,105 +285,38 @@ class MailViewModule(QMainWindow):
         # Załaduj dane z cache (asynchronicznie w tle)
         self.cache_integration.load_from_cache_at_startup()
 
-        # Załaduj prawdziwe maile asynchronicznie
-        self.fetch_real_emails_async()
+        # NIE pobieraj maili automatycznie przy starcie - użytkownik może nie używać ProMail
+        # Maile będą pobrane gdy użytkownik otworzy moduł ProMail i kliknie Odśwież
+        # self.fetch_real_emails_async()
 
-        toolbar = cast(QToolBar, self.addToolBar("Widok"))
-        toolbar.setMovable(False)
-
-        self.layout_button = QPushButton("⬛⬜ Układ 1", self)
-        self.layout_button.setStyleSheet("font-weight: bold; padding: 4px 10px;")
-        self.layout_menu = QMenu(self.layout_button)
-        layout_options = [
-            (1, "Układ 1: treść na górze, maile na dole"),
-            (2, "Układ 2: treść na dole, maile u góry"),
-            (3, "Układ 3: treść po lewej, maile po prawej"),
-            (4, "Układ 4: maile po lewej, treść po prawej"),
-        ]
-        for mode, label in layout_options:
-            action = QAction(label, self)
-            action.setData(mode)
-            action.setCheckable(True)
-            self.layout_menu.addAction(action)
-            self.layout_actions[mode] = action
-        self.layout_menu.triggered.connect(self.on_layout_menu_triggered)
-        self.layout_button.setMenu(self.layout_menu)
-        toolbar.addWidget(self.layout_button)
-
-        # Przycisk przełączania widoku kolejki
-        self.toggle_queue_btn = QPushButton("📋 Pokaż kolejkę")
-        self.toggle_queue_btn.setCheckable(True)
-        self.toggle_queue_btn.clicked.connect(self.toggle_queue_view)
-        self.toggle_queue_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #9C27B0;
-                color: white;
-                font-weight: bold;
-                border: none;
-                padding: 6px 12px;
-                border-radius: 3px;
-            }
-            QPushButton:hover {
-                background-color: #7B1FA2;
-            }
-            QPushButton:checked {
-                background-color: #E91E63;
-            }
-        """)
-        toolbar.addWidget(self.toggle_queue_btn)
-
-        toolbar.addSeparator()
-        self.action_new_mail = QAction("📧 Nowy", self)
-        self.action_new_mail.setStatusTip("Utwórz nową wiadomość")
-        self.action_new_mail.triggered.connect(self.new_mail)
-        toolbar.addAction(self.action_new_mail)
-
-        self.action_reply_mail = QAction("↩️ Odpowiedz", self)
-        self.action_reply_mail.setStatusTip("Odpowiedz na wybraną wiadomość")
-        self.action_reply_mail.triggered.connect(self.reply_mail)
-        toolbar.addAction(self.action_reply_mail)
-
-        self.action_forward_mail = QAction("➡️ Przekaż", self)
-        self.action_forward_mail.setStatusTip("Przekaż wybraną wiadomość")
-        self.action_forward_mail.triggered.connect(self.forward_mail)
-        toolbar.addAction(self.action_forward_mail)
-
-        self.action_refresh_mail = QAction("🔄 Odśwież", self)
-        self.action_refresh_mail.setStatusTip("Odśwież listę wiadomości")
-        self.action_refresh_mail.triggered.connect(self.refresh_mails)
-        toolbar.addAction(self.action_refresh_mail)
+        # Inicjalizacja UI
+        self.init_ui()
         
-        self.action_autoresponder = QAction("🤖 Autoresponder", self)
-        self.action_autoresponder.setStatusTip("Konfiguruj automatyczne odpowiedzi")
-        self.action_autoresponder.triggered.connect(self.open_autoresponder_dialog)
-        toolbar.addAction(self.action_autoresponder)
-
-        toolbar.addSeparator()
-        action_config = QAction("⚙️ Konfiguracja", self)
-        action_config.setStatusTip("Ustawienia kont pocztowych")
-        action_config.triggered.connect(self.open_config)
-        toolbar.addAction(action_config)
+        # Połącz z i18n dla auto-update tłumaczeń i motywu
+        if self.i18n and hasattr(self.i18n, 'language_changed'):
+            self.i18n.language_changed.connect(self.update_translations)
         
-        action_column_settings = QAction("📋 Widoczność kolumn", self)
-        action_column_settings.setStatusTip("Ustawienia widoczności kolumn w tabeli maili")
-        action_column_settings.triggered.connect(self.open_column_settings)
-        toolbar.addAction(action_column_settings)
+        # Aplikuj motyw i tłumaczenia
+        self.apply_theme()
+        self.update_translations()
         
-        action_tag_manager = QAction("🏷️ Zarządzaj tagami", self)
-        action_tag_manager.setStatusTip("Zarządzaj tagami wiadomości i kontaktów")
-        action_tag_manager.triggered.connect(self.open_tag_manager)
-        toolbar.addAction(action_tag_manager)
+        logger.info("[ProMail] MailViewModule initialized successfully")
 
-        central_widget = QWidget()
-        central_layout = QHBoxLayout()
-        central_layout.setContentsMargins(4, 4, 4, 4)
-        central_layout.setSpacing(4)
-        central_widget.setLayout(central_layout)
-        self.setCentralWidget(central_widget)
-
+    def init_ui(self) -> None:
+        """Inicjalizuje interfejs użytkownika"""
+        # Główny layout z odpowiednimi marginesami
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setSpacing(8)
+        
+        # Toolbar jako panel przycisków (zastępuje QToolBar)
+        toolbar_widget = self.create_toolbar()
+        main_layout.addWidget(toolbar_widget)
+        
+        # Główny splitter
         self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.main_splitter.setChildrenCollapsible(False)
-        central_layout.addWidget(self.main_splitter)
+        main_layout.addWidget(self.main_splitter)
 
         self.folder_tree_container = self.create_folder_tree()
         self.main_splitter.addWidget(self.folder_tree_container)
@@ -359,6 +338,8 @@ class MailViewModule(QMainWindow):
 
         self.main_splitter.setStretchFactor(0, 0)
         self.main_splitter.setStretchFactor(1, 1)
+        
+        # Status label usunięty - niepotrzebny
 
         self.apply_layout_mode(self.layout_mode, initial=True)
 
@@ -367,16 +348,95 @@ class MailViewModule(QMainWindow):
             if first_item is not None:
                 self.tree.setCurrentItem(first_item)
                 self.load_folder_mails(first_item.text(0))
+    
+    def create_toolbar(self) -> QWidget:
+        """Tworzy toolbar z przyciskami (zastępuje QToolBar)"""
+        toolbar_widget = QWidget()
+        toolbar_widget.setObjectName("mail_toolbar")
+        toolbar_widget.setMaximumHeight(50)
+        toolbar_layout = QHBoxLayout(toolbar_widget)
+        toolbar_layout.setContentsMargins(8, 6, 8, 6)
+        toolbar_layout.setSpacing(6)
+        
+        # Przycisk układu
+        self.layout_button = QPushButton("⬛⬜ Układ 1", self)
+        self.layout_button.setObjectName("mail_layout_btn")
+        self.layout_menu = QMenu(self.layout_button)
+        layout_options = [
+            (1, "Układ 1: treść na górze, maile na dole"),
+            (2, "Układ 2: treść na dole, maile u góry"),
+            (3, "Układ 3: treść po lewej, maile po prawej"),
+            (4, "Układ 4: maile po lewej, treść po prawej"),
+        ]
+        for mode, label in layout_options:
+            action = QAction(label, self)
+            action.setData(mode)
+            action.setCheckable(True)
+            self.layout_menu.addAction(action)
+            self.layout_actions[mode] = action
+        self.layout_menu.triggered.connect(self.on_layout_menu_triggered)
+        self.layout_button.setMenu(self.layout_menu)
+        toolbar_layout.addWidget(self.layout_button)
+        
+        # Przycisk kolejki
+        self.toggle_queue_btn = QPushButton("📋 Pokaż kolejkę")
+        self.toggle_queue_btn.setObjectName("mail_toggle_queue_btn")
+        self.toggle_queue_btn.setCheckable(True)
+        self.toggle_queue_btn.clicked.connect(self.toggle_queue_view)
+        toolbar_layout.addWidget(self.toggle_queue_btn)
+        
+        # Separator (stretch)
+        toolbar_layout.addSpacing(10)
+        
+        # Przyciski akcji
+        self.new_mail_btn = QPushButton("📧 Nowy")
+        self.new_mail_btn.setObjectName("mail_new_btn")
+        self.new_mail_btn.setToolTip("Utwórz nową wiadomość")
+        self.new_mail_btn.clicked.connect(self.new_mail)
+        toolbar_layout.addWidget(self.new_mail_btn)
+        
+        self.reply_btn = QPushButton("↩️ Odpowiedz")
+        self.reply_btn.setObjectName("mail_reply_btn")
+        self.reply_btn.setToolTip("Odpowiedz na wybraną wiadomość")
+        self.reply_btn.clicked.connect(self.reply_mail)
+        toolbar_layout.addWidget(self.reply_btn)
+        
+        self.forward_btn = QPushButton("➡️ Przekaż")
+        self.forward_btn.setObjectName("mail_forward_btn")
+        self.forward_btn.setToolTip("Przekaż wybraną wiadomość")
+        self.forward_btn.clicked.connect(self.forward_mail)
+        toolbar_layout.addWidget(self.forward_btn)
+        
+        self.refresh_btn = QPushButton("🔄 Odśwież")
+        self.refresh_btn.setObjectName("mail_refresh_btn")
+        self.refresh_btn.setToolTip("Odśwież listę wiadomości")
+        self.refresh_btn.clicked.connect(self.refresh_mails)
+        toolbar_layout.addWidget(self.refresh_btn)
+        
+        toolbar_layout.addSpacing(10)
+        
+        # Ustawienia - wszystko w jednym przycisku konfiguracji
+        self.config_btn = QPushButton("⚙️ Konfiguracja")
+        self.config_btn.setObjectName("mail_config_btn")
+        self.config_btn.setToolTip("Otwórz konfigurację ProMail (podpisy, filtry, autoresponder, kolumny, tagi)")
+        self.config_btn.clicked.connect(self.open_config)
+        toolbar_layout.addWidget(self.config_btn)
+        
+        toolbar_layout.addStretch()
+        
+        return toolbar_widget
 
     def create_mail_content(self):
         """Tworzy panel podglądu maila"""
         container = QWidget()
+        container.setObjectName("mail_content_container")
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(6)
         container.setLayout(layout)
 
         header_widget = QWidget()
+        header_widget.setObjectName("mail_header_widget")
         header_layout = QVBoxLayout()
         header_layout.setContentsMargins(0, 0, 0, 0)
         header_layout.setSpacing(4)
@@ -384,6 +444,7 @@ class MailViewModule(QMainWindow):
         header_widget.setMaximumHeight(140)
 
         self.mail_subject = QLabel("(Wybierz wiadomość)")
+        self.mail_subject.setObjectName("mail_subject_label")
         subject_font = QFont()
         subject_font.setBold(True)
         subject_font.setPointSize(12)
@@ -391,20 +452,32 @@ class MailViewModule(QMainWindow):
         header_layout.addWidget(self.mail_subject)
 
         self.mail_from = QLabel("")
+        self.mail_from.setObjectName("mail_from_label")
         header_layout.addWidget(self.mail_from)
 
         self.mail_to = QLabel("")
+        self.mail_to.setObjectName("mail_to_label")
         header_layout.addWidget(self.mail_to)
 
         self.mail_date = QLabel("")
+        self.mail_date.setObjectName("mail_date_label")
         header_layout.addWidget(self.mail_date)
 
-        self.mail_tag_label = QLabel("")
-        self.mail_tag_label.setStyleSheet("color: #555;")
+        self.mail_tag_label = QLabel("Tagi:")
+        self.mail_tag_label.setObjectName("mail_tag_label")
+        self.mail_tag_label.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         header_layout.addWidget(self.mail_tag_label)
+        
+        # ComboBox do zarządzania tagami wyświetlanego maila
+        self.mail_tag_selector = QComboBox()
+        self.mail_tag_selector.setMinimumWidth(150)
+        self.mail_tag_selector.setMinimumHeight(28)  # Zwiększona wysokość dla lepszej czytelności
+        self.mail_tag_selector.setPlaceholderText("Wybierz tag...")
+        self.mail_tag_selector.currentIndexChanged.connect(self.on_mail_tag_selected)
+        header_layout.addWidget(self.mail_tag_selector)
 
         self.mail_note_label = QLabel("")
-        self.mail_note_label.setStyleSheet("color: #777;")
+        self.mail_note_label.setObjectName("mail_note_label")
         header_layout.addWidget(self.mail_note_label)
 
         header_layout.addStretch()
@@ -416,16 +489,32 @@ class MailViewModule(QMainWindow):
         layout.addWidget(separator)
 
         self.mail_body = QTextEdit()
+        self.mail_body.setObjectName("mail_body_text")
         self.mail_body.setReadOnly(True)
         self.mail_body.installEventFilter(self)  # Zainstaluj filtr do obsługi Ctrl+Scroll
         layout.addWidget(self.mail_body)
 
-        # Sekcja załączników
-        attachments_label = QLabel("📎 Załączniki:")
-        attachments_label.setStyleSheet("font-weight: bold; margin-top: 10px;")
-        layout.addWidget(attachments_label)
+        # Sekcja załączników - zwijanalna
+        self.attachments_toggle_btn = QPushButton("▶️ Załączniki")
+        self.attachments_toggle_btn.setCheckable(True)
+        self.attachments_toggle_btn.setChecked(False)  # Domyślnie zwinięte
+        self.attachments_toggle_btn.setStyleSheet("""
+            QPushButton {
+                text-align: left;
+                padding: 5px;
+                border: none;
+                background-color: transparent;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: rgba(0, 0, 0, 0.05);
+            }
+        """)
+        self.attachments_toggle_btn.clicked.connect(self.toggle_attachments_section)
+        layout.addWidget(self.attachments_toggle_btn)
         
         self.attachments_container = QWidget()
+        self.attachments_container.setObjectName("mail_attachments_container")
         self.attachments_layout = QVBoxLayout(self.attachments_container)
         self.attachments_layout.setContentsMargins(0, 0, 0, 0)
         self.attachments_layout.setSpacing(5)
@@ -498,9 +587,11 @@ class MailViewModule(QMainWindow):
             self.content_splitter.insertWidget(index, widget)
 
     def show_status_message(self, message: str, timeout: int = 2000) -> None:
-        """Wyświetla komunikat w pasku statusu, jeśli dostępny."""
-        if self._status_bar is not None:
-            self._status_bar.showMessage(message, timeout)
+        """Wyświetla komunikat w labelu statusu."""
+        if hasattr(self, 'status_label'):
+            self.status_label.setText(message)
+            # Timer do czyszczenia komunikatu po timeout
+            QTimer.singleShot(timeout, lambda: self.status_label.setText(""))
 
     def update_layout_ui_state(self):
         """Aktualizuje zaznaczenie menu i opis przycisku układu"""
@@ -531,9 +622,28 @@ class MailViewModule(QMainWindow):
         account_layout.addWidget(account_label)
         
         self.account_filter_combo = QComboBox()
-        self.account_filter_combo.setMinimumWidth(180)
+        self.account_filter_combo.setMinimumWidth(140)
         self.account_filter_combo.currentIndexChanged.connect(self.on_account_filter_changed)
         account_layout.addWidget(self.account_filter_combo)
+        
+        # Przycisk odświeżania kont
+        reload_accounts_btn = QPushButton("🔄")
+        reload_accounts_btn.setToolTip("Odśwież listę kont z ustawień")
+        reload_accounts_btn.setFixedWidth(30)
+        reload_accounts_btn.clicked.connect(self.reload_accounts)
+        reload_accounts_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #607D8B;
+                color: white;
+                border: none;
+                border-radius: 3px;
+                padding: 4px;
+            }
+            QPushButton:hover {
+                background-color: #546E7A;
+            }
+        """)
+        account_layout.addWidget(reload_accounts_btn)
         
         layout.addLayout(account_layout)
         
@@ -711,15 +821,13 @@ class MailViewModule(QMainWindow):
         preview_header_layout.setContentsMargins(0, 0, 0, 0)
         preview_header_widget.setLayout(preview_header_layout)
         
-        expand_all_btn = QPushButton("🔽 Rozwiń wszystkie")
-        expand_all_btn.setToolTip("Rozwiń podgląd wszystkich maili")
-        expand_all_btn.clicked.connect(self.expand_all_previews)
-        preview_header_layout.addWidget(expand_all_btn)
-        
-        collapse_all_btn = QPushButton("▶️ Zwiń wszystkie")
-        collapse_all_btn.setToolTip("Zwiń podgląd wszystkich maili")
-        collapse_all_btn.clicked.connect(self.collapse_all_previews)
-        preview_header_layout.addWidget(collapse_all_btn)
+        # Jeden przycisk przełączalny zamiast dwóch osobnych
+        self.toggle_all_previews_btn = QPushButton("🔽 Rozwiń wszystkie")
+        self.toggle_all_previews_btn.setCheckable(True)
+        self.toggle_all_previews_btn.setChecked(False)
+        self.toggle_all_previews_btn.setToolTip("Rozwiń/zwiń podgląd wszystkich maili")
+        self.toggle_all_previews_btn.clicked.connect(self.toggle_all_previews)
+        preview_header_layout.addWidget(self.toggle_all_previews_btn)
         
         preview_header_layout.addWidget(QLabel("Linie podglądu:"))
         
@@ -737,10 +845,10 @@ class MailViewModule(QMainWindow):
         layout.addWidget(preview_header_widget)
 
         table = MailTableWidget(self)
-        table.setColumnCount(11)  # Zmieniono na 11 kolumn
+        table.setColumnCount(12)  # Zmieniono na 12 kolumn (dodano 🪄)
         table.setHorizontalHeaderLabels([
             "⭐", "Adres mail", "Imię/Nazwisko", "Odpowiedz", "▶️", "Tytuł", 
-            "Data", "Rozmiar", "Wątków", "Tag", "Notatka"
+            "Data", "Rozmiar", "Wątków", "Tag", "Notatka", "🪄"
         ])
 
         table_header = table.horizontalHeader()
@@ -753,6 +861,7 @@ class MailViewModule(QMainWindow):
             table_header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)  # ⭐
             table_header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)  # Odpowiedz
             table_header.setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)  # ▶️
+            table_header.setSectionResizeMode(11, QHeaderView.ResizeMode.Fixed)  # 🪄
             # Kolumny Adres (1), Imię/Nazwisko (2), Tytuł (5) - użytkownik może regulować szerokość
             table_header.setSectionResizeMode(1, QHeaderView.ResizeMode.Interactive)  # Adres - można zmieniać
             table_header.setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)  # Imię/Nazwisko - można zmieniać
@@ -760,10 +869,17 @@ class MailViewModule(QMainWindow):
             
             # Podłącz sygnał do zapisywania szerokości kolumn
             table_header.sectionResized.connect(self.on_column_resized)
+            
+            # Podłącz sygnał do zapisywania kolejności kolumn
+            table_header.sectionMoved.connect(self.on_column_moved)
 
         # Zastosuj szerokości kolumn (domyślne lub załadowane z pliku)
         for index, width in self.column_widths.items():
             table.setColumnWidth(index, width)
+        
+        # Zastosuj kolejność kolumn (domyślne lub załadowane z pliku)
+        for visual_idx, logical_idx in enumerate(self.column_order):
+            table_header.moveSection(table_header.visualIndex(logical_idx), visual_idx)
 
         vertical_header = table.verticalHeader()
         if vertical_header is not None:
@@ -865,8 +981,42 @@ class MailViewModule(QMainWindow):
             item = QTreeWidgetItem([item_text])
             item.setData(0, Qt.ItemDataRole.UserRole, {"type": "folder", "name": folder_name})
             folders_section.addChild(item)
+        
+        # Dodaj foldery IMAP jeśli są dostępne
+        if hasattr(self, 'imap_folders') and self.imap_folders:
+            for account_email, imap_folder_list in self.imap_folders.items():
+                for imap_folder in imap_folder_list:
+                    # Pomiń INBOX (już mamy jako "Odebrane")
+                    if imap_folder == "INBOX":
+                        continue
+                    # Pomiń foldery które już mamy
+                    if imap_folder in ordered_folders:
+                        continue
+                    
+                    # Dodaj folder IMAP do drzewa
+                    mails = self.sample_mails.get(imap_folder, [])
+                    item_text = f"📁 {imap_folder} ({len(mails)})"
+                    item = QTreeWidgetItem([item_text])
+                    item.setData(0, Qt.ItemDataRole.UserRole, {
+                        "type": "imap_folder", 
+                        "name": imap_folder,
+                        "account": account_email
+                    })
+                    folders_section.addChild(item)
 
         self.tree.setUpdatesEnabled(True)  # Włącz odświeżanie po zakończeniu
+        
+        # Automatyczne rozwijanie sekcji "FOLDERY" i zaznaczanie "Odebrane"
+        folders_section.setExpanded(True)
+        for i in range(folders_section.childCount()):
+            child = folders_section.child(i)
+            data = child.data(0, Qt.ItemDataRole.UserRole)
+            if data and data.get("name") == "Odebrane":
+                self.tree.setCurrentItem(child)
+                # Wywołaj też metodę kliknięcia, aby wyświetlić zawartość
+                self.on_folder_clicked(child, 0)
+                break
+        
         self.update_folder_button_states()
 
     def get_starred_mails(self) -> List[Dict[str, Any]]:
@@ -1509,6 +1659,16 @@ class MailViewModule(QMainWindow):
 
         self.show_status_message(f"Usunięto folder '{folder_name}'.", 2500)
     
+    def toggle_attachments_section(self):
+        """Przełącza widoczność sekcji załączników"""
+        is_expanded = self.attachments_toggle_btn.isChecked()
+        if is_expanded:
+            self.attachments_toggle_btn.setText("🔽 Załączniki")
+            self.attachments_container.show()
+        else:
+            self.attachments_toggle_btn.setText("▶️ Załączniki")
+            self.attachments_container.hide()
+    
     def create_favorites_section(self):
         """Tworzy rozwijaną sekcję ulubionych plików"""
         section = QWidget()
@@ -1860,6 +2020,33 @@ class MailViewModule(QMainWindow):
         except Exception as e:
             QMessageBox.warning(self, "Błąd", f"Nie można zapisać przypisań tagów: {e}")
     
+    def load_column_order(self):
+        """Wczytuje kolejność kolumn z pliku"""
+        default_order = list(range(12))  # [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+        
+        if self.column_order_file.exists():
+            try:
+                with open(self.column_order_file, 'r', encoding='utf-8') as f:
+                    saved_order = json.load(f)
+                    # Walidacja: musi być listą 12 elementów z unikalnymi wartościami 0-11
+                    if isinstance(saved_order, list) and len(saved_order) == 12:
+                        if set(saved_order) == set(range(12)):
+                            return saved_order
+            except (json.JSONDecodeError, IOError) as e:
+                logger.warning(f"Błąd wczytywania kolejności kolumn: {e}")
+        
+        return default_order
+    
+    def save_column_order(self):
+        """Zapisuje kolejność kolumn do pliku"""
+        try:
+            self.column_order_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.column_order_file, 'w', encoding='utf-8') as f:
+                json.dump(self.column_order, f, indent=2, ensure_ascii=False)
+            logger.info(f"Zapisano kolejność kolumn: {self.column_order}")
+        except Exception as e:
+            logger.error(f"Błąd zapisywania kolejności kolumn: {e}")
+    
     def load_column_widths(self):
         """Wczytuje szerokości kolumn z pliku"""
         default_widths = {
@@ -1874,6 +2061,7 @@ class MailViewModule(QMainWindow):
             8: 100,  # Wątków
             9: 140,  # Tag
             10: 220, # Notatka
+            11: 40,  # 🪄
         }
         
         if self.column_widths_file.exists():
@@ -1891,7 +2079,7 @@ class MailViewModule(QMainWindow):
                             col_idx = int(k)
                             width = int(v)
                             # Waliduj rozsądne wartości (20-2000 px)
-                            if 20 <= width <= 2000 and 0 <= col_idx <= 10:
+                            if 20 <= width <= 2000 and 0 <= col_idx <= 11:
                                 result[col_idx] = width
                         except (ValueError, TypeError):
                             continue
@@ -1918,15 +2106,125 @@ class MailViewModule(QMainWindow):
         except Exception as e:
             print(f"Błąd zapisywania szerokości kolumn: {e}")
 
-    def load_mail_accounts(self):
-        """Wczytuje konta pocztowe z pliku"""
-        if self.accounts_file.exists():
-            try:
-                with open(self.accounts_file, 'r', encoding='utf-8') as f:
-                    return json.load(f)
-            except Exception:
-                pass
-        return []
+    def get_accounts_from_db(self):
+        """
+        Pobiera konta pocztowe z centralnej bazy danych EmailAccountsDatabase
+        
+        Returns:
+            Lista słowników z danymi kont w formacie kompatybilnym z ProMail
+        """
+        if not self.email_accounts_db:
+            logger.warning("[ProMail] EmailAccountsDatabase not available, returning empty list")
+            return []
+        
+        if not self.user_id:
+            logger.warning("[ProMail] User ID not set, returning empty list. Call set_user_data() first.")
+            return []
+        
+        try:
+            # Pobierz konta z bazy (tylko aktywne)
+            accounts = self.email_accounts_db.get_all_accounts(self.user_id, active_only=True)
+            
+            logger.info(f"[ProMail] Loaded {len(accounts)} accounts for user_id: {self.user_id}")
+            
+            # Konwertuj format bazy danych na format używany przez ProMail
+            mail_accounts = []
+            for account in accounts:
+                # Pobierz pełną konfigurację z hasłem
+                account_config = self.email_accounts_db.get_account_config(account['id'])
+                
+                if not account_config:
+                    logger.warning(f"[ProMail] Could not get config for account {account['id']}")
+                    continue
+                
+                # Mapuj na format oczekiwany przez fetch_from_account()
+                mail_account = {
+                    # Podstawowe info
+                    "id": account['id'],
+                    "name": account['account_name'],
+                    "email": account['email_address'],
+                    
+                    # Dane logowania
+                    "username": account_config['username'],
+                    "password": account_config['password'],
+                    
+                    # Serwer (IMAP)
+                    "imap_server": account_config['server_address'],
+                    "imap_port": account_config['server_port'],
+                    "imap_ssl": account_config['use_ssl'],
+                    
+                    # Opcje pobierania
+                    "fetch_limit": account.get('fetch_limit', 50),
+                    
+                    # Dla kompatybilności
+                    "server": account_config['server_address'],
+                    "port": account_config['server_port'],
+                    "server_type": account_config['server_type'].lower(),
+                    "use_ssl": account_config['use_ssl'],
+                    "use_tls": account_config['use_tls'],
+                }
+                mail_accounts.append(mail_account)
+            
+            logger.info(f"[ProMail] Configured {len(mail_accounts)} accounts with credentials for IMAP")
+            return mail_accounts
+            
+        except Exception as e:
+            logger.error(f"[ProMail] Error loading accounts from database: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return []
+
+    def reload_accounts(self):
+        """Ponownie wczytuje konta z bazy danych i aktualizuje UI"""
+        try:
+            logger.info("[ProMail] Reloading accounts from database...")
+            
+            # Pobierz konta z bazy
+            self.mail_accounts = self.get_accounts_from_db()
+            
+            # Odśwież listę rozwijaną
+            self.populate_account_filter()
+            
+            # Pokaż komunikat
+            count = len(self.mail_accounts)
+            self.show_status_message(f"Odświeżono: znaleziono {count} kont", 3000)
+            
+            logger.info(f"[ProMail] Reloaded {count} accounts successfully")
+            
+        except Exception as e:
+            logger.error(f"[ProMail] Error reloading accounts: {e}")
+            QMessageBox.warning(
+                self,
+                "Błąd",
+                f"Nie można odświeżyć listy kont:\n{e}"
+            )
+
+    def set_user_data(self, user_data: dict, **kwargs):
+        """
+        Ustawia dane użytkownika i wczytuje jego konta pocztowe.
+        
+        Ta metoda jest wywoływana przez główną aplikację podczas inicjalizacji modułu.
+        
+        Args:
+            user_data: Słownik z danymi użytkownika (musi zawierać 'id')
+            **kwargs: Dodatkowe parametry (ignorowane)
+        """
+        try:
+            self.user_id = user_data.get('id')
+            logger.info(f"[ProMail] User ID set to: {self.user_id}")
+            
+            # Wczytaj konta użytkownika
+            self.mail_accounts = self.get_accounts_from_db()
+            
+            # Zaktualizuj UI
+            self.populate_account_filter()
+            
+            logger.info(f"[ProMail] Loaded {len(self.mail_accounts)} accounts for user")
+            
+        except Exception as e:
+            logger.error(f"[ProMail] Error in set_user_data: {e}")
+            self.user_id = None
+            self.mail_accounts = []
 
     def populate_account_filter(self):
         """Wypełnia listę filtrowania kont"""
@@ -1998,6 +2296,23 @@ class MailViewModule(QMainWindow):
         self.column_widths[logical_index] = new_size
         self.save_column_widths()
     
+    def on_column_moved(self, logical_index: int, old_visual_index: int, new_visual_index: int):
+        """Zapisuje kolejność kolumn po przesunięciu przez użytkownika"""
+        if not hasattr(self, 'column_order') or not hasattr(self, 'mail_list'):
+            return
+        
+        # Aktualizuj column_order na podstawie aktualnego stanu nagłówka
+        header = self.mail_list.horizontalHeader()
+        if header:
+            new_order = []
+            for visual_idx in range(header.count()):
+                logical_idx = header.logicalIndex(visual_idx)
+                new_order.append(logical_idx)
+            self.column_order = new_order
+            self.save_column_order()
+            logger.info(f"Kolumna przesunięta: {logical_index} z {old_visual_index} na {new_visual_index}")
+            logger.info(f"Nowa kolejność: {self.column_order}")
+    
     def on_mail_filter_changed(self, *_args):
         """Reaguje na zmianę filtrów listy maili"""
         if not self.mail_filter_enabled or self.mail_scope != "folder":
@@ -2041,9 +2356,12 @@ class MailViewModule(QMainWindow):
         if not hasattr(self, "mail_list"):
             return
         
+        # Wyczyść mapowanie rozwiniętych wierszy przy odświeżaniu
+        self.expanded_preview_rows = {}
+        
         # Ustaw domyślną kolejność jeśli nie istnieje
         if not hasattr(self, 'column_order'):
-            self.column_order = list(range(11))
+            self.column_order = list(range(12))
         
         # Grupuj maile w wątki jeśli włączone
         if self.threads_enabled:
@@ -2071,7 +2389,7 @@ class MailViewModule(QMainWindow):
         self.mail_list.setRowCount(len(display_mails))
 
         for row, mail in enumerate(display_mails):
-            self.mail_list.setRowHeight(row, 26)
+            self.mail_list.setRowHeight(row, 36)  # Zwiększono z 26 na 36 dla lepszej czytelności
             self.ensure_mail_uid(mail)
             if "_folder" not in mail and self.mail_scope == "folder":
                 mail["_folder"] = getattr(self, "current_folder", None)
@@ -2130,20 +2448,21 @@ class MailViewModule(QMainWindow):
                 name_item.setToolTip(f"Tagi: {tags_str}")
             self.mail_list.setItem(row, visual_idx, name_item)
         
-        elif col_idx == 3:  # Przycisk Odpowiedz
-            reply_btn = QPushButton("↩️")
-            reply_btn.setToolTip("Odpowiedz na wiadomość")
-            reply_btn.setMaximumWidth(60)
-            reply_btn.clicked.connect(lambda checked, m=mail: self.reply_to_mail(m))
-            self.mail_list.setCellWidget(row, visual_idx, reply_btn)
+        elif col_idx == 3:  # Emoji Odpowiedz (klikalne)
+            reply_item = QTableWidgetItem("↩️")
+            reply_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            reply_item.setFlags(reply_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            reply_item.setToolTip("Kliknij aby odpowiedzieć")
+            reply_item.setData(Qt.ItemDataRole.UserRole, {"action": "reply", "mail": mail})
+            self.mail_list.setItem(row, visual_idx, reply_item)
         
-        elif col_idx == 4:  # Emoji strzałki (rozwiń/zwiń)
-            expand_btn = QPushButton("▶️" if not mail.get("_expanded") else "🔽")
-            expand_btn.setToolTip("Rozwiń/zwiń podgląd treści")
-            expand_btn.setMaximumWidth(35)
-            expand_btn.setFlat(True)
-            expand_btn.clicked.connect(lambda checked, r=row: self.toggle_mail_preview(r))
-            self.mail_list.setCellWidget(row, visual_idx, expand_btn)
+        elif col_idx == 4:  # Emoji strzałki (rozwiń/zwiń) - klikalne
+            expand_item = QTableWidgetItem("▶️" if not mail.get("_expanded") else "🔽")
+            expand_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            expand_item.setFlags(expand_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            expand_item.setToolTip("Kliknij aby rozwinąć/zwinąć podgląd")
+            expand_item.setData(Qt.ItemDataRole.UserRole, {"action": "expand", "row": row})
+            self.mail_list.setItem(row, visual_idx, expand_item)
         
         elif col_idx == 5:  # Tytuł
             subject_item = QTableWidgetItem(mail.get("subject", ""))
@@ -2178,20 +2497,30 @@ class MailViewModule(QMainWindow):
             self.mail_list.setItem(row, visual_idx, conv_item)
         
         elif col_idx == 9:  # Tag
-            tag_item = QTableWidgetItem()
-            tag_item.setFlags(tag_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            self.mail_list.setItem(row, visual_idx, tag_item)
             tags = self.get_mail_tags(mail)
-            self.update_tag_item_display(row, visual_idx, tags)
+            if tags:
+                # Utwórz etykietę z tagami oddzielonymi przecinkami
+                tags_text = ", ".join(tags)
+                tag_item = QTableWidgetItem(tags_text)
+            else:
+                tag_item = QTableWidgetItem("")
             
-            tag_combo = self.build_tag_combobox(mail, row)
-            self.mail_list.setCellWidget(row, visual_idx, tag_combo)
+            tag_item.setFlags(tag_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            tag_item.setToolTip(tags_text if tags else "Brak tagów - kliknij prawym aby dodać")
+            self.mail_list.setItem(row, visual_idx, tag_item)
         
         elif col_idx == 10:  # Notatka
             note_item = QTableWidgetItem(mail.get("note", ""))
             note_item.setFlags(note_item.flags() | Qt.ItemFlag.ItemIsEditable)
             note_item.setToolTip(mail.get("note", ""))
             self.mail_list.setItem(row, visual_idx, note_item)
+        
+        elif col_idx == 11:  # 🪄 (Magiczna różdżka)
+            magic_item = QTableWidgetItem("🪄")
+            magic_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            magic_item.setFlags(magic_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            magic_item.setToolTip("Magiczna różdżka")
+            self.mail_list.setItem(row, visual_idx, magic_item)
 
     def extract_display_name(self, from_field: str) -> str:
         """Wyodrębnia nazwę/imię z pola 'from' (np. 'Jan Kowalski <jan@example.com>' → 'Jan Kowalski')"""
@@ -2282,106 +2611,190 @@ class MailViewModule(QMainWindow):
         
         # Ustaw domyślną kolejność jeśli nie istnieje
         if not hasattr(self, 'column_order'):
-            self.column_order = list(range(11))
+            self.column_order = list(range(12))
         
-        # Znajdź wizualne indeksy dla kolumn 4 (strzałka) i 5 (tytuł)
+        # Znajdź wizualny indeks dla kolumny 4 (strzałka)
         expand_visual_idx = self.column_order.index(4) if 4 in self.column_order else -1
-        title_visual_idx = self.column_order.index(5) if 5 in self.column_order else -1
         
         # Przełącz stan rozwinięcia
         is_expanded = mail.get("_expanded", False)
         mail["_expanded"] = not is_expanded
         
-        # Zaktualizuj emoji przycisku
+        # Zaktualizuj emoji w komórce
         if expand_visual_idx >= 0:
-            expand_btn = self.mail_list.cellWidget(row, expand_visual_idx)
-            if expand_btn and isinstance(expand_btn, QPushButton):
-                expand_btn.setText("🔽" if mail["_expanded"] else "▶️")
+            expand_item = self.mail_list.item(row, expand_visual_idx)
+            if expand_item:
+                expand_item.setText("🔽" if mail["_expanded"] else "▶️")
+                expand_item.setData(Qt.ItemDataRole.UserRole, {"action": "expand", "row": row})
         
-        # Zmień wysokość wiersza i pokaż/ukryj podgląd
+        # Dodaj lub usuń wiersz podglądu
         if mail["_expanded"]:
-            # Pobierz liczbę linii z ustawień (domyślnie 3)
-            preview_lines = getattr(self, "mail_preview_lines", 3)
-            # Wysokość: standardowa (26) + linie podglądu * ~18px
-            new_height = 26 + (preview_lines * 18)
-            self.mail_list.setRowHeight(row, new_height)
+            # Dodaj nowy wiersz pod aktualnym mailem
+            preview_row = row + 1
+            self.mail_list.insertRow(preview_row)
             
-            # Dodaj podgląd do kolumny tytułu
-            if title_visual_idx >= 0:
-                body_preview = self.get_mail_body_preview(mail, preview_lines)
-                subject_item = self.mail_list.item(row, title_visual_idx)
-                if subject_item:
-                    subject_text = mail.get("subject", "")
-                    subject_item.setText(f"{subject_text}\n{body_preview}")
+            # Pobierz liczbę linii z ustawień
+            preview_lines = getattr(self, "mail_preview_lines", 3)
+            
+            # Parsuj treść maila
+            body_preview = self.get_mail_body_preview(mail, preview_lines)
+            
+            # Sprawdź czy jest ciemny motyw
+            is_dark = False
+            if self.theme_manager:
+                try:
+                    is_dark = self.theme_manager.get_current_theme() == "dark"
+                except:
+                    pass
+            
+            # Utwórz widget z podglądem treści (połączone kolumny)
+            preview_widget = QLabel(body_preview)
+            preview_widget.setWordWrap(True)
+            
+            if is_dark:
+                preview_widget.setStyleSheet("""
+                    QLabel {
+                        background-color: #2C2C2C;
+                        padding: 8px;
+                        border-left: 3px solid #64B5F6;
+                        color: #E0E0E0;
+                        font-size: 11px;
+                    }
+                """)
+            else:
+                preview_widget.setStyleSheet("""
+                    QLabel {
+                        background-color: #F5F5F5;
+                        padding: 8px;
+                        border-left: 3px solid #2196F3;
+                        color: #333;
+                        font-size: 11px;
+                    }
+                """)
+            
+            preview_widget.setTextInteractionFlags(
+                Qt.TextInteractionFlag.TextSelectableByMouse | 
+                Qt.TextInteractionFlag.TextSelectableByKeyboard
+            )
+            
+            # Ustaw widget rozciągnięty na wszystkie kolumny
+            self.mail_list.setSpan(preview_row, 0, 1, self.mail_list.columnCount())
+            self.mail_list.setCellWidget(preview_row, 0, preview_widget)
+            
+            # Dostosuj wysokość wiersza do treści
+            content_height = min(preview_lines * 20 + 16, 200)  # max 200px
+            self.mail_list.setRowHeight(preview_row, content_height)
+            
+            # Zapisz mapowanie
+            self.expanded_preview_rows[row] = preview_row
         else:
-            # Przywróć normalną wysokość
-            self.mail_list.setRowHeight(row, 26)
-            if title_visual_idx >= 0:
-                subject_item = self.mail_list.item(row, title_visual_idx)
-                if subject_item:
-                    subject_item.setText(mail.get("subject", ""))
+            # Usuń wiersz podglądu jeśli istnieje
+            if row in self.expanded_preview_rows:
+                preview_row = self.expanded_preview_rows[row]
+                self.mail_list.removeRow(preview_row)
+                del self.expanded_preview_rows[row]
+                
+                # Zaktualizuj mapowanie dla pozostałych wierszy
+                updated_mapping = {}
+                for mail_row, prev_row in self.expanded_preview_rows.items():
+                    if prev_row > preview_row:
+                        updated_mapping[mail_row] = prev_row - 1
+                    else:
+                        updated_mapping[mail_row] = prev_row
+                self.expanded_preview_rows = updated_mapping
     
     def get_mail_body_preview(self, mail: Dict[str, Any], lines: int = 3) -> str:
-        """Zwraca podgląd treści maila (pierwsze N linii)"""
+        """Zwraca podgląd treści maila z normalizacją białych znaków"""
         body = mail.get("body", "")
         if not body:
             return "(brak treści)"
         
-        # Podziel na linie i weź pierwsze N
-        body_lines = body.split('\n')
+        # Usuń HTML tags jeśli są
+        import re
+        body = re.sub(r'<[^>]+>', '', body)
+        
+        # Normalizuj białe znaki - zamień wielokrotne spacje/taby na pojedyncze
+        body = re.sub(r'[ \t]+', ' ', body)
+        
+        # Podziel na linie, usuń puste i weź pierwsze N niepustych
+        body_lines = [line.strip() for line in body.split('\n') if line.strip()]
         preview_lines = body_lines[:lines]
         preview = '\n'.join(preview_lines)
         
         # Skróć jeśli za długie
-        if len(preview) > 300:
-            preview = preview[:300] + "..."
+        if len(preview) > 400:
+            preview = preview[:400] + "..."
         
         return preview
 
+    def toggle_all_previews(self):
+        """Przełącza stan wszystkich podglądów (rozwiń/zwiń)"""
+        is_expanding = self.toggle_all_previews_btn.isChecked()
+        
+        if is_expanding:
+            # Rozwiń wszystkie
+            self.toggle_all_previews_btn.setText("▶️ Zwiń wszystkie")
+            self.expand_all_previews()
+        else:
+            # Zwiń wszystkie
+            self.toggle_all_previews_btn.setText("🔽 Rozwiń wszystkie")
+            self.collapse_all_previews()
+    
     def expand_all_previews(self):
         """Rozwija wszystkie podglądy maili"""
-        for row in range(self.mail_list.rowCount()):
-            mail = self.get_mail_by_row(row)
-            if mail and not mail.get("_expanded", False):
-                self.toggle_mail_preview(row)
+        # Iteruj od końca, aby uniknąć problemów z dodawaniem wierszy
+        for i in range(len(self.displayed_mails) - 1, -1, -1):
+            mail = self.displayed_mails[i]
+            if not mail.get("_expanded", False):
+                # Znajdź fizyczny wiersz dla tego maila
+                preview_rows_before = sum(1 for mail_row, _ in self.expanded_preview_rows.items() if mail_row <= i)
+                physical_row = i + preview_rows_before
+                self.toggle_mail_preview(physical_row)
     
     def collapse_all_previews(self):
         """Zwija wszystkie podglądy maili"""
-        for row in range(self.mail_list.rowCount()):
-            mail = self.get_mail_by_row(row)
-            if mail and mail.get("_expanded", False):
-                self.toggle_mail_preview(row)
+        # Iteruj od końca, aby uniknąć problemów z usuwaniem wierszy
+        expanded_rows = sorted(self.expanded_preview_rows.keys(), reverse=True)
+        for mail_row in expanded_rows:
+            # Znajdź fizyczny wiersz
+            preview_rows_before = sum(1 for mr, _ in self.expanded_preview_rows.items() if mr < mail_row)
+            physical_row = mail_row + preview_rows_before
+            self.toggle_mail_preview(physical_row)
     
     def on_preview_lines_changed(self, value: int):
         """Reaguje na zmianę liczby linii podglądu"""
         self.mail_preview_lines = value
         
-        # Znajdź wizualny indeks kolumny tytułu
-        if not hasattr(self, 'column_order'):
-            self.column_order = list(range(11))
-        title_visual_idx = self.column_order.index(5) if 5 in self.column_order else -1
-        
-        if title_visual_idx < 0:
-            return
-        
-        # Odśwież wszystkie rozwinięte wiersze
-        for row in range(self.mail_list.rowCount()):
-            mail = self.get_mail_by_row(row)
-            if mail and mail.get("_expanded", False):
-                # Zaktualizuj wysokość i treść
-                new_height = 26 + (value * 18)
-                self.mail_list.setRowHeight(row, new_height)
-                
+        # Odśwież wszystkie rozwinięte podglądy
+        for mail_row, preview_row in list(self.expanded_preview_rows.items()):
+            mail = self.displayed_mails[mail_row] if mail_row < len(self.displayed_mails) else None
+            if not mail:
+                continue
+            
+            # Pobierz widget podglądu
+            preview_widget = self.mail_list.cellWidget(preview_row, 0)
+            if isinstance(preview_widget, QLabel):
+                # Zaktualizuj treść
                 body_preview = self.get_mail_body_preview(mail, value)
-                subject_item = self.mail_list.item(row, title_visual_idx)
-                if subject_item:
-                    subject_text = mail.get("subject", "")
-                    subject_item.setText(f"{subject_text}\n{body_preview}")
+                preview_widget.setText(body_preview)
+                
+                # Zaktualizuj wysokość
+                content_height = min(value * 20 + 16, 200)
+                self.mail_list.setRowHeight(preview_row, content_height)
 
     def get_mail_by_row(self, row: int) -> Optional[Dict[str, Any]]:
         """Zwraca maila powiązanego z wierszem tabeli."""
-        if 0 <= row < len(self.displayed_mails):
-            return self.displayed_mails[row]
+        # Sprawdź czy to wiersz podglądu
+        if row in self.expanded_preview_rows.values():
+            return None  # To jest wiersz podglądu, nie mail
+        
+        # Przelicz fizyczny wiersz na indeks w displayed_mails
+        # Musim policzyć ile wierszy podglądu jest przed tym wierszem
+        preview_rows_before = sum(1 for prev_row in self.expanded_preview_rows.values() if prev_row < row)
+        mail_index = row - preview_rows_before
+        
+        if 0 <= mail_index < len(self.displayed_mails):
+            return self.displayed_mails[mail_index]
         return None
 
     def ensure_mail_uid(self, mail: Dict[str, Any]) -> str:
@@ -2531,6 +2944,51 @@ class MailViewModule(QMainWindow):
         cleaned = [str(tag).strip() for tag in tags if str(tag).strip()]
         mail["tags"] = cleaned
         mail["tag"] = cleaned[0] if cleaned else ""
+    
+    def on_mail_tag_selected(self, index):
+        """Obsługuje wybór tagu z listy rozwijanej w nagłówku maila"""
+        if index <= 0:  # "-- Wybierz tag --"
+            return
+        
+        if not self.current_mail:
+            return
+        
+        selected_tag = self.mail_tag_selector.itemData(index)
+        if not selected_tag:
+            return
+        
+        # Pobierz aktualne tagi
+        current_tags = self.get_mail_tags(self.current_mail)
+        
+        # Jeśli tag już jest na liście, usuń go; jeśli nie ma, dodaj
+        if selected_tag in current_tags:
+            current_tags.remove(selected_tag)
+            self.show_status_message(f"Usunięto tag: {selected_tag}", 2000)
+        else:
+            current_tags.append(selected_tag)
+            self.show_status_message(f"Dodano tag: {selected_tag}", 2000)
+        
+        # Zapisz zmiany
+        self.set_mail_tags(self.current_mail, current_tags)
+        
+        # Odśwież wyświetlanie
+        self.display_mail(self.current_mail)
+        
+        # Odśwież wiersz w tabeli jeśli mail jest widoczny
+        for row in range(self.mail_list.rowCount()):
+            mail = self.get_mail_by_row(row)
+            if mail and mail.get("_uid") == self.current_mail.get("_uid"):
+                # Znajdź kolumnę tagów (col_idx == 9)
+                if not hasattr(self, 'column_order'):
+                    self.column_order = list(range(12))
+                visual_idx = self.column_order.index(9) if 9 in self.column_order else -1
+                if visual_idx >= 0:
+                    tags_text = ", ".join(current_tags) if current_tags else ""
+                    tag_item = self.mail_list.item(row, visual_idx)
+                    if tag_item:
+                        tag_item.setText(tags_text)
+                        tag_item.setToolTip(tags_text if tags_text else "Brak tagów - kliknij prawym aby dodać")
+                break
 
     def toggle_mail_star(self, row: int, mail: Optional[Dict[str, Any]] = None) -> Optional[bool]:
         """Przełącza stan gwiazdki dla wskazanego wiersza."""
@@ -2553,7 +3011,7 @@ class MailViewModule(QMainWindow):
 
         # Znajdź wizualny indeks kolumny gwiazdki (col_idx == 0)
         if not hasattr(self, 'column_order'):
-            self.column_order = list(range(11))
+            self.column_order = list(range(12))
         
         visual_idx = self.column_order.index(0) if 0 in self.column_order else 0
         
@@ -2794,8 +3252,7 @@ class MailViewModule(QMainWindow):
                 
                 self.save_favorite_files()
                 self.populate_favorites_tree()
-                if self.statusBar():
-                    self.show_status_message(f"Dodano plik: {Path(file_path).name}", 3000)
+                self.show_status_message(f"Dodano plik: {Path(file_path).name}", 3000)
     
     def load_available_groups(self):
         """Ładuje dostępne grupy z pliku słownika"""
@@ -2822,8 +3279,7 @@ class MailViewModule(QMainWindow):
         if dialog.exec():
             # Po zamknięciu dialogu odśwież drzewo ulubionych
             self.populate_favorites_tree()
-            if self.statusBar():
-                self.show_status_message("Grupy zostały zaktualizowane", 2000)
+            self.show_status_message("Grupy zostały zaktualizowane", 2000)
     
     def on_favorite_item_clicked(self, item, column):
         """Zmienia tło sekcji ulubionych na kolor wybranej grupy"""
@@ -3159,6 +3615,10 @@ class MailViewModule(QMainWindow):
         
     def load_folder_mails(self, folder_name):
         """Ładuje maile z wybranego folderu"""
+        # Sprawdź czy interfejs jest w pełni zainicjalizowany
+        if not hasattr(self, 'folder_label') or not hasattr(self, 'mail_list'):
+            return
+        
         # Usuń emoji z nazwy folderu
         clean_folder = folder_name.split()[1] if len(folder_name.split()) > 1 else folder_name
         clean_folder = clean_folder.split('(')[0].strip()
@@ -3195,8 +3655,43 @@ class MailViewModule(QMainWindow):
         if clean_folder == "Ulubione":
             self.update_favorites_folder_item()
     
+    def load_imap_folder_mails(self, folder_name: str, account_email: str):
+        """Ładuje maile z folderu IMAP"""
+        # Sprawdź czy interfejs jest w pełni zainicjalizowany
+        if not hasattr(self, 'folder_label') or not hasattr(self, 'mail_list'):
+            return
+        
+        self.current_folder = folder_name
+        self.folder_label.setText(f"📁 {folder_name}")
+        
+        # TODO: Implementacja pobierania maili z konkretnego folderu IMAP
+        # Na razie wyświetl placeholder
+        self.mail_scope = "folder"
+        self.set_mail_filter_controls_enabled(True)
+        
+        # Sprawdź czy mamy już maile z tego folderu
+        mails_source = self.sample_mails.get(folder_name, [])
+        
+        self.current_folder_mails = []
+        for mail in mails_source:
+            if mail.get("_account") == account_email:
+                self.current_folder_mails.append(mail)
+                mail["_folder"] = folder_name
+                self.ensure_mail_uid(mail)
+        
+        self.apply_mail_filters()
+        self.clear_mail_view()
+        
+        # Jeśli brak maili, pokaż komunikat
+        if not self.current_folder_mails:
+            self.show_status_message(f"Folder {folder_name} jest pusty lub nie został jeszcze zsynchronizowany")
+    
     def load_smart_folder_mails(self, smart_folder_name: str):
         """Ładuje maile z inteligentnego folderu"""
+        # Sprawdź czy interfejs jest w pełni zainicjalizowany
+        if not hasattr(self, 'folder_label') or not hasattr(self, 'mail_list'):
+            return
+        
         self.current_folder = smart_folder_name
         self.folder_label.setText(f"🔥 {smart_folder_name}")
         
@@ -3288,6 +3783,13 @@ class MailViewModule(QMainWindow):
                     self.load_folder_mails(item_name)
                     self.show_status_message(f"Folder: {item_name}")
                     return
+                
+                # Obsługa folderów IMAP
+                if item_type == "imap_folder":
+                    account_email = item_data.get("account")
+                    self.load_imap_folder_mails(item_name, account_email)
+                    self.show_status_message(f"Folder IMAP: {item_name}")
+                    return
             
             # Fallback - stary sposób (jeśli UserRole nie jest ustawiony)
             folder_name = item.text(0)
@@ -3339,9 +3841,20 @@ class MailViewModule(QMainWindow):
 
         mail = self.displayed_mails[row]
 
+        # Sprawdź czy kliknięto w emoji z akcją (kolumny 3 lub 4)
+        item = self.mail_list.item(row, column)
+        if item and item.data(Qt.ItemDataRole.UserRole):
+            action_data = item.data(Qt.ItemDataRole.UserRole)
+            if action_data.get("action") == "reply":
+                self.reply_to_mail(action_data["mail"])
+                return
+            elif action_data.get("action") == "expand":
+                self.toggle_mail_preview(action_data["row"])
+                return
+
         # Sprawdź czy kliknięto w kolumnę gwiazdki
         if not hasattr(self, 'column_order'):
-            self.column_order = list(range(11))
+            self.column_order = list(range(12))
         
         # Znajdź logiczny indeks kolumny na podstawie wizualnego indeksu
         logical_col_idx = self.column_order[column] if column < len(self.column_order) else -1
@@ -3373,23 +3886,36 @@ class MailViewModule(QMainWindow):
         self.mail_from.setText(f"Od: {mail['from']}")
         self.mail_to.setText(f"Do: ja@mojmail.pl")
         self.mail_date.setText(f"Data: {mail['date']}")
+        
+        # Wypełnij combobox tagów
+        self.mail_tag_selector.blockSignals(True)  # Blokuj sygnały podczas wypełniania
+        self.mail_tag_selector.clear()
+        self.mail_tag_selector.addItem("-- Wybierz tag --", None)
+        
+        # Dodaj wszystkie dostępne tagi (mail_tags to lista słowników)
+        if isinstance(self.mail_tags, list):
+            for tag_data in self.mail_tags:
+                if isinstance(tag_data, dict):
+                    tag_name = tag_data.get("name", "")
+                    if tag_name:
+                        self.mail_tag_selector.addItem(tag_name, tag_name)
+        
+        # Zaznacz aktualnie przypisane tagi (jeśli są)
+        current_tags = self.get_mail_tags(mail)
+        if current_tags:
+            # Ustaw pierwszy tag jako wybrany
+            index = self.mail_tag_selector.findData(current_tags[0])
+            if index >= 0:
+                self.mail_tag_selector.setCurrentIndex(index)
+        
+        self.mail_tag_selector.blockSignals(False)
+        
+        # Stary label tagów - możemy go ukryć lub zostawić jako podgląd
         tags = self.get_mail_tags(mail)
         if tags:
-            primary_tag = tags[0]
-            color = self.get_tag_color(primary_tag)
-            if color:
-                rgba = color.getRgb()
-                text_color = "#FFFFFF" if color.lightness() < 128 else "#000000"
-                self.mail_tag_label.setStyleSheet(
-                    f"color: {text_color}; background-color: rgba({rgba[0]}, {rgba[1]}, {rgba[2]}, 200); "
-                    "padding: 2px 6px; border-radius: 4px;"
-                )
-            else:
-                self.mail_tag_label.setStyleSheet("color: #555;")
             self.mail_tag_label.setText(f"Tagi: {', '.join(tags)}")
         else:
-            self.mail_tag_label.setStyleSheet("color: #555;")
-            self.mail_tag_label.setText("Tagi: -")
+            self.mail_tag_label.setText("Tagi:")
 
         note_text = mail.get("note", "")
         if note_text:
@@ -3414,10 +3940,16 @@ class MailViewModule(QMainWindow):
                 child.widget().deleteLater()
         
         if not attachments:
+            self.attachments_toggle_btn.hide()
             self.attachments_container.hide()
             return
         
-        self.attachments_container.show()
+        # Pokaż przycisk z liczbą załączników
+        count = len(attachments)
+        self.attachments_toggle_btn.setText(f"▶️ Załączniki ({count})")
+        self.attachments_toggle_btn.show()
+        self.attachments_toggle_btn.setChecked(False)  # Domyślnie zwinięte
+        self.attachments_container.hide()
         
         for attachment in attachments:
             att_widget = QWidget()
@@ -3890,9 +4422,8 @@ class MailViewModule(QMainWindow):
         # (tutaj można dodać logikę sprawdzania nowych maili i wysyłania odpowiedzi)
     
     def open_autoresponder_dialog(self):
-        """Otwiera dialog konfiguracji autorespondera"""
-        if self.autoresponder.open_dialog(self):
-            self.show_status_message("Reguły autorespondera zostały zapisane", 2000)
+        """Otwiera dialog konfiguracji autorespondera - karta Autoresponder"""
+        self.open_config(tab_index=2)  # Karta 2: Autoresponder (0=Podpisy, 1=Filtry, 2=Autoresponder)
 
     def fetch_real_emails_async(self):
         """Pobiera maile z IMAP w tle"""
@@ -3942,12 +4473,36 @@ class MailViewModule(QMainWindow):
                         )
 
                     imap.login(account["email"], account["password"])
+                    
+                    # Pobierz listę folderów IMAP
+                    try:
+                        status, folder_list = imap.list()
+                        if status == "OK":
+                            imap_folders = []
+                            for folder_line in folder_list:
+                                # Parsuj linię folderu: b'(\\HasNoChildren) "/" "INBOX"'
+                                if isinstance(folder_line, bytes):
+                                    folder_line = folder_line.decode('utf-8', errors='ignore')
+                                # Wyciągnij nazwę folderu (ostatnia część w cudzysłowach)
+                                import re
+                                match = re.search(r'"([^"]+)"$', folder_line)
+                                if match:
+                                    folder_name = match.group(1)
+                                    imap_folders.append(folder_name)
+                            
+                            # Zapisz foldery dla tego konta
+                            self.imap_folders[account.get("email")] = imap_folders
+                    except Exception as e:
+                        logger.warning(f"Nie udało się pobrać listy folderów IMAP: {e}")
+                        self.imap_folders[account.get("email")] = ["INBOX"]
+                    
                     imap.select("INBOX")
 
-                    # Pobierz ostatnie 50 maili
+                    # Pobierz maile (liczba z ustawień konta)
+                    fetch_limit = account.get("fetch_limit", 50)
                     _, messages = imap.search(None, "ALL")
                     email_ids = messages[0].split()
-                    email_ids = email_ids[-50:] if len(email_ids) > 50 else email_ids
+                    email_ids = email_ids[-fetch_limit:] if len(email_ids) > fetch_limit else email_ids
 
                     mails = []
                     for email_id in reversed(email_ids):
@@ -4043,7 +4598,9 @@ class MailViewModule(QMainWindow):
                         result.append(str(part))
                 return " ".join(result)
 
+        # Jeśli brak kont, po prostu nie pobieraj - bez denerwującego dialogu
         if not self.mail_accounts:
+            logger.info("[ProMail] No email accounts configured - skipping mail fetch")
             return
 
         # Jeśli poprzedni wątek nadal działa, poczekaj na jego zakończenie
@@ -4086,139 +4643,33 @@ class MailViewModule(QMainWindow):
         if total_count > 0:
             self.show_status_message(f"Pobrano {total_count} wiadomości z serwerów IMAP", 3000)
         
-    def open_config(self):
-        """Otwiera okno konfiguracji"""
+    def open_config(self, tab_index=None):
+        """Otwiera dialog konfiguracji ProMail z opcjonalną kartą"""
         try:
-            from mail_config import MailConfigDialog
-        except ImportError:
-            import sys
-            import os
-            sys.path.insert(0, os.path.dirname(__file__))
-            from mail_config import MailConfigDialog
-        dialog = MailConfigDialog(self)
-        result = dialog.exec()
-        
-        # Przeładuj konta po zamknięciu konfiguracji
-        if result:
-            self.mail_accounts = self.load_mail_accounts()
-            self.populate_account_filter()
-            self.refresh_mails()
+            from .mail_config import MailConfigDialog
+            
+            dialog = MailConfigDialog(self, mail_view_parent=self)
+            
+            # Jeśli podano indeks karty, przełącz na nią
+            if tab_index is not None and hasattr(dialog, 'tabs'):
+                dialog.tabs.setCurrentIndex(tab_index)
+            
+            dialog.exec()
+            
+            logger.info("[ProMail] Opened ProMail configuration dialog")
+            self.show_status_message("Zamknięto konfigurację ProMail", 2000)
+            
+        except Exception as e:
+            logger.error(f"[ProMail] Error opening config: {e}")
+            QMessageBox.warning(
+                self,
+                "Błąd",
+                f"Nie można otworzyć konfiguracji ProMail:\n{e}"
+            )
     
     def open_column_settings(self):
-        """Otwiera dialog ustawień widoczności i kolejności kolumn"""
-        dialog = QDialog(self)
-        dialog.setWindowTitle("Konfiguracja kolumn tabeli")
-        dialog.resize(500, 500)
-        
-        main_layout = QVBoxLayout()
-        dialog.setLayout(main_layout)
-        
-        main_layout.addWidget(QLabel("Zarządzaj kolejnością i widocznością kolumn:"))
-        
-        # Kontener z listą i przyciskami
-        content_layout = QHBoxLayout()
-        
-        # Lista kolumn
-        from PyQt6.QtWidgets import QListWidget
-        columns_list = QListWidget()
-        columns_list.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
-        
-        # Pobierz aktualną kolejność kolumn (jeśli istnieje) lub użyj domyślnej
-        if not hasattr(self, 'column_order'):
-            self.column_order = list(range(11))  # 0-10
-        
-        # Wypełnij listę według aktualnej kolejności
-        for col_idx in self.column_order:
-            item = QListWidgetItem()
-            is_visible = self.column_visibility.get(col_idx, True)
-            checkbox_text = "✓" if is_visible else "✗"
-            item.setText(f"{checkbox_text} {self.column_names[col_idx]}")
-            item.setData(Qt.ItemDataRole.UserRole, col_idx)
-            # Zaznacz/odznacz w zależności od widoczności
-            if is_visible:
-                item.setCheckState(Qt.CheckState.Checked)
-            else:
-                item.setCheckState(Qt.CheckState.Unchecked)
-            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-            columns_list.addItem(item)
-        
-        content_layout.addWidget(columns_list)
-        
-        # Przyciski do zmiany kolejności
-        buttons_layout = QVBoxLayout()
-        
-        move_up_btn = QPushButton("⬆️ W górę")
-        move_up_btn.setToolTip("Przesuń wybraną kolumnę w górę")
-        buttons_layout.addWidget(move_up_btn)
-        
-        move_down_btn = QPushButton("⬇️ W dół")
-        move_down_btn.setToolTip("Przesuń wybraną kolumnę w dół")
-        buttons_layout.addWidget(move_down_btn)
-        
-        buttons_layout.addSpacing(20)
-        
-        toggle_btn = QPushButton("🔄 Przełącz widoczność")
-        toggle_btn.setToolTip("Przełącz widoczność wybranej kolumny")
-        buttons_layout.addWidget(toggle_btn)
-        
-        buttons_layout.addStretch()
-        
-        # Funkcje obsługi przycisków
-        def move_up():
-            current_row = columns_list.currentRow()
-            if current_row > 0:
-                item = columns_list.takeItem(current_row)
-                columns_list.insertItem(current_row - 1, item)
-                columns_list.setCurrentRow(current_row - 1)
-        
-        def move_down():
-            current_row = columns_list.currentRow()
-            if current_row < columns_list.count() - 1 and current_row >= 0:
-                item = columns_list.takeItem(current_row)
-                columns_list.insertItem(current_row + 1, item)
-                columns_list.setCurrentRow(current_row + 1)
-        
-        def toggle_visibility():
-            current_item = columns_list.currentItem()
-            if current_item:
-                if current_item.checkState() == Qt.CheckState.Checked:
-                    current_item.setCheckState(Qt.CheckState.Unchecked)
-                    col_idx = current_item.data(Qt.ItemDataRole.UserRole)
-                    current_item.setText(f"✗ {self.column_names[col_idx]}")
-                else:
-                    current_item.setCheckState(Qt.CheckState.Checked)
-                    col_idx = current_item.data(Qt.ItemDataRole.UserRole)
-                    current_item.setText(f"✓ {self.column_names[col_idx]}")
-        
-        move_up_btn.clicked.connect(move_up)
-        move_down_btn.clicked.connect(move_down)
-        toggle_btn.clicked.connect(toggle_visibility)
-        
-        content_layout.addLayout(buttons_layout)
-        main_layout.addLayout(content_layout)
-        
-        main_layout.addWidget(QLabel("\n💡 Wskazówka: Możesz także przeciągać kolumny myszką aby zmienić ich kolejność."))
-        
-        # Przyciski dialogu
-        button_box = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        )
-        button_box.accepted.connect(dialog.accept)
-        button_box.rejected.connect(dialog.reject)
-        main_layout.addWidget(button_box)
-        
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            # Zapisz nową kolejność i widoczność
-            new_order = []
-            for i in range(columns_list.count()):
-                item = columns_list.item(i)
-                col_idx = item.data(Qt.ItemDataRole.UserRole)
-                new_order.append(col_idx)
-                self.column_visibility[col_idx] = (item.checkState() == Qt.CheckState.Checked)
-            
-            self.column_order = new_order
-            # Przebuduj tabelę z nową kolejnością
-            self.rebuild_mail_table_with_order()
+        """Otwiera dialog ustawień widoczności i kolejności kolumn - karta Kolumny"""
+        self.open_config(tab_index=3)  # Karta 3: Układ kolumn
     
     def rebuild_mail_table_with_order(self):
         """Przebudowuje tabelę maili z nową kolejnością kolumn"""
@@ -4399,191 +4850,8 @@ class MailViewModule(QMainWindow):
             return False
     
     def open_tag_manager(self):
-        """Otwiera dialog zarządzania tagami wiadomości i kontaktów"""
-        dialog = QDialog(self)
-        dialog.setWindowTitle("🏷️ Zarządzanie tagami")
-        dialog.setMinimumWidth(700)
-        dialog.setMinimumHeight(500)
-        
-        layout = QVBoxLayout(dialog)
-        
-        # Tabs dla tagów wiadomości i kontaktów
-        tabs = QTabWidget()
-        layout.addWidget(tabs)
-        
-        # Tab 1: Tagi wiadomości
-        mail_tags_widget = QWidget()
-        mail_tags_layout = QVBoxLayout(mail_tags_widget)
-        
-        mail_tags_label = QLabel("Tagi dla wiadomości e-mail:")
-        mail_tags_label.setStyleSheet("font-weight: bold; font-size: 12px;")
-        mail_tags_layout.addWidget(mail_tags_label)
-        
-        mail_tags_list = QListWidget()
-        mail_tags_list.setObjectName("mail_tags_list")
-        for tag in self.mail_tags:
-            tag_name = tag.get("name", "")
-            tag_color = tag.get("color")
-            item = QListWidgetItem(f"🏷️ {tag_name}")
-            if tag_color:
-                item.setBackground(QColor(tag_color))
-                # Dostosuj kolor tekstu w zależności od jasności tła
-                if QColor(tag_color).lightness() < 128:
-                    item.setForeground(QColor("white"))
-            mail_tags_list.addItem(item)
-        mail_tags_layout.addWidget(mail_tags_list)
-        
-        mail_tags_btn_layout = QHBoxLayout()
-        
-        btn_add_mail_tag = QPushButton("➕ Dodaj tag wiadomości")
-        btn_add_mail_tag.clicked.connect(lambda: self.add_tag_from_manager(mail_tags_list, "mail"))
-        mail_tags_btn_layout.addWidget(btn_add_mail_tag)
-        
-        btn_edit_mail_tag = QPushButton("✏️ Edytuj")
-        btn_edit_mail_tag.clicked.connect(lambda: self.edit_tag_from_manager(mail_tags_list, "mail"))
-        mail_tags_btn_layout.addWidget(btn_edit_mail_tag)
-        
-        btn_delete_mail_tag = QPushButton("🗑️ Usuń")
-        btn_delete_mail_tag.clicked.connect(lambda: self.delete_tag_from_manager(mail_tags_list, "mail"))
-        mail_tags_btn_layout.addWidget(btn_delete_mail_tag)
-        
-        mail_tags_layout.addLayout(mail_tags_btn_layout)
-        tabs.addTab(mail_tags_widget, "📧 Tagi wiadomości")
-        
-        # Tab 2: Definicje tagów kontaktów
-        contact_tag_def_widget = QWidget()
-        contact_tag_def_layout = QVBoxLayout(contact_tag_def_widget)
-        
-        contact_tag_def_label = QLabel("Definicje tagów dla kontaktów:")
-        contact_tag_def_label.setStyleSheet("font-weight: bold; font-size: 12px;")
-        contact_tag_def_layout.addWidget(contact_tag_def_label)
-        
-        contact_tag_def_list = QListWidget()
-        contact_tag_def_list.setObjectName("contact_tag_def_list")
-        for tag in self.contact_tag_definitions:
-            tag_name = tag.get("name", "")
-            tag_color = tag.get("color")
-            item = QListWidgetItem(f"🏷️ {tag_name}")
-            if tag_color:
-                item.setBackground(QColor(tag_color))
-                if QColor(tag_color).lightness() < 128:
-                    item.setForeground(QColor("white"))
-            contact_tag_def_list.addItem(item)
-        contact_tag_def_layout.addWidget(contact_tag_def_list)
-        
-        contact_tag_def_btn_layout = QHBoxLayout()
-        
-        btn_add_contact_tag_def = QPushButton("➕ Dodaj tag kontaktu")
-        btn_add_contact_tag_def.clicked.connect(lambda: self.add_tag_from_manager(contact_tag_def_list, "contact"))
-        contact_tag_def_btn_layout.addWidget(btn_add_contact_tag_def)
-        
-        btn_edit_contact_tag_def = QPushButton("✏️ Edytuj")
-        btn_edit_contact_tag_def.clicked.connect(lambda: self.edit_tag_from_manager(contact_tag_def_list, "contact"))
-        contact_tag_def_btn_layout.addWidget(btn_edit_contact_tag_def)
-        
-        btn_delete_contact_tag_def = QPushButton("🗑️ Usuń")
-        btn_delete_contact_tag_def.clicked.connect(lambda: self.delete_tag_from_manager(contact_tag_def_list, "contact"))
-        contact_tag_def_btn_layout.addWidget(btn_delete_contact_tag_def)
-        
-        contact_tag_def_layout.addLayout(contact_tag_def_btn_layout)
-        tabs.addTab(contact_tag_def_widget, "🏷️ Tagi kontaktów")
-        
-        # Tab 3: Przypisanie tagów do kontaktów
-        contact_assignment_widget = QWidget()
-        contact_assignment_layout = QVBoxLayout(contact_assignment_widget)
-        
-        contact_assignment_label = QLabel("Przypisz tagi do kontaktów:")
-        contact_assignment_label.setStyleSheet("font-weight: bold; font-size: 12px;")
-        contact_assignment_layout.addWidget(contact_assignment_label)
-        
-        contact_list = QListWidget()
-        contact_list.setObjectName("contact_list")
-        # Pobierz wszystkie unikalne adresy email z maili
-        all_emails = set()
-        for folder_mails in self.sample_mails.values():
-            for mail in folder_mails:
-                email = self.extract_email_address(mail.get("from", ""))
-                if email:
-                    all_emails.add(email)
-        
-        for email in sorted(all_emails):
-            name = self.extract_display_name_for_email(email)
-            display = f"{name} <{email}>" if name else email
-            item = QListWidgetItem(f"👤 {display}")
-            item.setData(Qt.ItemDataRole.UserRole, email)
-            
-            # Dodaj tagi do tooltipa i tekstu
-            if email in self.contact_tags and self.contact_tags[email]:
-                tags_str = ", ".join(self.contact_tags[email])
-                item.setToolTip(f"Tagi: {tags_str}")
-                item.setText(f"👤 {display} [{tags_str}]")
-            
-            contact_list.addItem(item)
-        contact_assignment_layout.addWidget(contact_list)
-        
-        contact_assignment_btn_layout = QHBoxLayout()
-        
-        btn_add_contact_tag = QPushButton("🏷️ Dodaj tag")
-        btn_add_contact_tag.clicked.connect(lambda: self.add_contact_tag(contact_list))
-        contact_assignment_btn_layout.addWidget(btn_add_contact_tag)
-        
-        btn_remove_contact_tag = QPushButton("❌ Usuń tag")
-        btn_remove_contact_tag.clicked.connect(lambda: self.remove_contact_tag(contact_list))
-        contact_assignment_btn_layout.addWidget(btn_remove_contact_tag)
-        
-        contact_assignment_layout.addLayout(contact_assignment_btn_layout)
-        tabs.addTab(contact_assignment_widget, "👥 Przypisanie")
-        
-        # Tab 4: Kolory kontaktów
-        contact_colors_widget = QWidget()
-        contact_colors_layout = QVBoxLayout(contact_colors_widget)
-        
-        contact_colors_label = QLabel("Kolory dla kontaktów:")
-        contact_colors_label.setStyleSheet("font-weight: bold; font-size: 12px;")
-        contact_colors_layout.addWidget(contact_colors_label)
-        
-        contact_colors_list = QListWidget()
-        contact_colors_list.setObjectName("contact_colors_list")
-        
-        for email in sorted(all_emails):
-            name = self.extract_display_name_for_email(email)
-            display = f"{name} <{email}>" if name else email
-            item = QListWidgetItem(f"👤 {display}")
-            item.setData(Qt.ItemDataRole.UserRole, email)
-            
-            # Zastosuj kolor jeśli jest ustawiony
-            if email in self.contact_colors:
-                item.setBackground(self.contact_colors[email])
-                if self.contact_colors[email].lightness() < 128:
-                    item.setForeground(QColor("white"))
-            
-            contact_colors_list.addItem(item)
-        contact_colors_layout.addWidget(contact_colors_list)
-        
-        contact_colors_btn_layout = QHBoxLayout()
-        
-        btn_set_color = QPushButton("🎨 Ustaw kolor")
-        btn_set_color.clicked.connect(lambda: self.set_contact_color(contact_colors_list))
-        contact_colors_btn_layout.addWidget(btn_set_color)
-        
-        btn_clear_color = QPushButton("🔄 Wyczyść kolor")
-        btn_clear_color.clicked.connect(lambda: self.clear_contact_color(contact_colors_list))
-        contact_colors_btn_layout.addWidget(btn_clear_color)
-        
-        contact_colors_layout.addLayout(contact_colors_btn_layout)
-        tabs.addTab(contact_colors_widget, "🎨 Kolory")
-        
-        # Przyciski dialogu
-        btn_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
-        btn_box.accepted.connect(dialog.accept)
-        btn_box.rejected.connect(dialog.reject)
-        layout.addWidget(btn_box)
-        
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            # Odśwież widok maili aby zastosować kolory
-            self.refresh_mails()
-            self.populate_contacts_tree()  # Odśwież drzewo kontaktów
-            self.show_status_message("Zmiany w tagach zostały zapisane", 2000)
+        """Otwiera dialog zarządzania tagami - karta Tagi"""
+        self.open_config(tab_index=4)  # Karta 4: Tagi
     
     def extract_display_name_for_email(self, email: str) -> str:
         """Znajduje nazwę wyświetlaną dla danego adresu email"""
@@ -4856,8 +5124,8 @@ class MailViewModule(QMainWindow):
             
             self.show_status_message(f"Wyczyszczono kolor dla: {email}", 2000)
 
-    def closeEvent(self, event):
-        """Obsługuje zamknięcie okna - czeka na zakończenie wątków"""
+    def cleanup(self):
+        """Cleanup przy zamykaniu widoku"""
         # Zapisz cache przed zamknięciem
         if hasattr(self, 'cache_integration'):
             print("[MailView] Zapisywanie danych do cache...")
@@ -4867,6 +5135,7 @@ class MailViewModule(QMainWindow):
         if hasattr(self, 'refresh_timer'):
             self.refresh_timer.stop()
         
+        # Zatrzymaj wątki
         if hasattr(self, 'email_fetcher') and self.email_fetcher is not None:
             try:
                 if self.email_fetcher.isRunning():
@@ -4874,7 +5143,269 @@ class MailViewModule(QMainWindow):
                     self.email_fetcher.wait(2000)  # Czekaj max 2 sekundy
             except RuntimeError:
                 pass  # Obiekt już usunięty
+        
+        # Odłącz sygnały
+        try:
+            if self.i18n and hasattr(self.i18n, 'language_changed'):
+                self.i18n.language_changed.disconnect(self.update_translations)
+        except:
+            pass
+
+    def closeEvent(self, event):
+        """Obsługuje zamknięcie okna - wywoływane tylko jeśli uruchomione jako standalone"""
+        self.cleanup()
         event.accept()
+    
+    def apply_theme(self):
+        """Aplikuje aktualny motyw"""
+        if not self.theme_manager:
+            logger.debug("[ProMail] ThemeManager not available, skipping theme application")
+            return
+        
+        colors = self.theme_manager.get_current_colors()
+        
+        logger.debug(f"[ProMail] Applying theme with colors: bg_main={colors.get('bg_main')}")
+        
+        # Przekaż motyw do sub-widgetów
+        if hasattr(self, 'queue_view'):
+            self.queue_view.apply_theme()
+        
+        # Pełny stylesheet dla modułu ProMail
+        self.setStyleSheet(f"""
+            /* Główny widget */
+            QWidget#mail_toolbar {{
+                background-color: {colors['bg_secondary']};
+                border-bottom: 1px solid {colors['border_light']};
+            }}
+            
+            /* Przyciski toolbar */
+            QPushButton#mail_new_btn,
+            QPushButton#mail_reply_btn,
+            QPushButton#mail_forward_btn,
+            QPushButton#mail_refresh_btn {{
+                background-color: {colors['accent_primary']};
+                color: white;
+                border: none;
+                padding: 6px 12px;
+                border-radius: 4px;
+                font-weight: bold;
+            }}
+            
+            QPushButton#mail_new_btn:hover,
+            QPushButton#mail_reply_btn:hover,
+            QPushButton#mail_forward_btn:hover,
+            QPushButton#mail_refresh_btn:hover {{
+                background-color: {colors['accent_hover']};
+            }}
+            
+            QPushButton#mail_toggle_queue_btn {{
+                background-color: #9C27B0;
+                color: white;
+                border: none;
+                padding: 6px 12px;
+                border-radius: 4px;
+                font-weight: bold;
+            }}
+            
+            QPushButton#mail_toggle_queue_btn:hover {{
+                background-color: #7B1FA2;
+            }}
+            
+            QPushButton#mail_toggle_queue_btn:checked {{
+                background-color: #E91E63;
+            }}
+            
+            QPushButton#mail_config_btn {{
+                background-color: {colors['bg_main']};
+                color: {colors['text_primary']};
+                border: 1px solid {colors['border_light']};
+                padding: 6px 12px;
+                border-radius: 4px;
+            }}
+            
+            QPushButton#mail_config_btn:hover {{
+                background-color: {colors['bg_secondary']};
+            }}
+            
+            QPushButton#mail_layout_btn {{
+                background-color: {colors['bg_main']};
+                color: {colors['text_primary']};
+                border: 1px solid {colors['border_light']};
+                padding: 4px 10px;
+                font-weight: bold;
+            }}
+            
+            /* Panel zawartości maila */
+            QWidget#mail_content_container {{
+                background-color: {colors['bg_main']};
+            }}
+            
+            QLabel#mail_subject_label {{
+                color: {colors['text_primary']};
+                font-weight: bold;
+                font-size: 12pt;
+            }}
+            
+            QLabel#mail_from_label,
+            QLabel#mail_to_label,
+            QLabel#mail_date_label {{
+                color: {colors['text_secondary']};
+            }}
+            
+            QLabel#mail_tag_label,
+            QLabel#mail_note_label {{
+                color: {colors['text_secondary']};
+            }}
+            
+            QTextEdit#mail_body_text {{
+                background-color: {colors['bg_main']};
+                color: {colors['text_primary']};
+                border: 1px solid {colors['border_light']};
+                padding: 8px;
+            }}
+            
+            /* Status label */
+            QLabel#mail_status_label {{
+                color: {colors['text_secondary']};
+                padding: 4px 8px;
+                background-color: {colors['bg_secondary']};
+            }}
+            
+            /* Drzewo folderów i listy */
+            QTreeWidget {{
+                background-color: {colors['bg_main']};
+                color: {colors['text_primary']};
+                border: 1px solid {colors['border_light']};
+                alternate-background-color: {colors['bg_secondary']};
+            }}
+            
+            QTreeWidget::item:selected {{
+                background-color: {colors['accent_primary']};
+                color: white;
+            }}
+            
+            QTreeWidget::item:hover {{
+                background-color: {colors['bg_secondary']};
+            }}
+            
+            QTableWidget {{
+                background-color: {colors['bg_main']};
+                color: {colors['text_primary']};
+                gridline-color: {colors['border_light']};
+                border: 1px solid {colors['border_light']};
+                alternate-background-color: {colors['bg_secondary']};
+            }}
+            
+            QTableWidget::item:selected {{
+                background-color: {colors['accent_primary']};
+                color: white;
+            }}
+            
+            QTableWidget::item:hover {{
+                background-color: {colors['bg_secondary']};
+            }}
+            
+            QHeaderView::section {{
+                background-color: {colors['bg_secondary']};
+                color: {colors['text_primary']};
+                padding: 5px;
+                border: 1px solid {colors['border_light']};
+            }}
+            
+            /* Pola wejściowe */
+            QLineEdit, QComboBox {{
+                background-color: {colors['bg_main']};
+                color: {colors['text_primary']};
+                border: 1px solid {colors['border_light']};
+                padding: 5px;
+                border-radius: 3px;
+            }}
+            
+            QLineEdit:focus, QComboBox:focus {{
+                border: 1px solid {colors['accent_primary']};
+            }}
+        """)
+    
+    def update_translations(self):
+        """Aktualizuje wszystkie teksty po zmianie języka"""
+        if not self.i18n:
+            return
+        
+        # Przyciski toolbar
+        if hasattr(self, 'new_mail_btn'):
+            self.new_mail_btn.setText(t('promail.button.new_mail', default='📧 Nowy'))
+            self.new_mail_btn.setToolTip(t('promail.button.new_mail', default='Utwórz nową wiadomość'))
+        
+        if hasattr(self, 'reply_btn'):
+            self.reply_btn.setText(t('promail.button.reply', default='↩️ Odpowiedz'))
+            self.reply_btn.setToolTip(t('promail.button.reply', default='Odpowiedz na wybraną wiadomość'))
+        
+        if hasattr(self, 'forward_btn'):
+            self.forward_btn.setText(t('promail.button.forward', default='➡️ Przekaż'))
+            self.forward_btn.setToolTip(t('promail.button.forward', default='Przekaż wybraną wiadomość'))
+        
+        if hasattr(self, 'refresh_btn'):
+            self.refresh_btn.setText(t('promail.button.refresh', default='🔄 Odśwież'))
+            self.refresh_btn.setToolTip(t('promail.button.refresh', default='Odśwież listę wiadomości'))
+        
+        if hasattr(self, 'config_btn'):
+            self.config_btn.setText(t('promail.button.settings', default='⚙️ Konfiguracja'))
+            self.config_btn.setToolTip(t('promail.button.settings_tooltip', default='Otwórz konfigurację ProMail (podpisy, filtry, autoresponder, kolumny, tagi)'))
+        
+        if hasattr(self, 'toggle_queue_btn'):
+            is_checked = self.toggle_queue_btn.isChecked()
+            if is_checked:
+                self.toggle_queue_btn.setText(t('promail.button.hide_queue', default='📋 Ukryj kolejkę'))
+            else:
+                self.toggle_queue_btn.setText(t('promail.button.show_queue', default='📋 Pokaż kolejkę'))
+        
+        # Status
+        if hasattr(self, 'status_label') and hasattr(self, 'displayed_mails'):
+            count = len(self.displayed_mails)
+            text = t('promail.status.mails_count', default='{count} wiadomości')
+            self.status_label.setText(text.format(count=count))
+        
+        # Foldery - odśwież drzewo folderów
+        if hasattr(self, 'tree'):
+            self.update_folder_labels()
+        
+        # Aktualizuj motyw (kolory mogły się zmienić przy zmianie języka lub motywu)
+        self.apply_theme()
+        
+        logger.debug("[ProMail] Translations and theme updated")
+    
+    def update_folder_labels(self):
+        """Aktualizuje etykiety folderów w drzewie"""
+        if not hasattr(self, 'tree'):
+            return
+        
+        # Mapa nazw folderów na klucze tłumaczeń
+        folder_translations = {
+            "Odebrane": "promail.folder.inbox",
+            "Wysłane": "promail.folder.sent",
+            "Szkice": "promail.folder.drafts",
+            "Spam": "promail.folder.spam",
+            "Kosz": "promail.folder.trash",
+            "Archiwum": "promail.folder.archive",
+            "Ulubione": "promail.folder.favorites"
+        }
+        
+        # Aktualizuj nazwy głównych folderów
+        for i in range(self.tree.topLevelItemCount()):
+            item = self.tree.topLevelItem(i)
+            if item:
+                current_text = item.text(0)
+                # Usuń emoji jeśli jest
+                folder_name = current_text.split(" ", 1)[-1] if " " in current_text else current_text
+                
+                if folder_name in folder_translations:
+                    translated = t(folder_translations[folder_name], default=folder_name)
+                    # Zachowaj emoji jeśli było
+                    if " " in current_text:
+                        emoji = current_text.split(" ", 1)[0]
+                        item.setText(0, f"{emoji} {translated}")
+                    else:
+                        item.setText(0, translated)
 
 
 def main():

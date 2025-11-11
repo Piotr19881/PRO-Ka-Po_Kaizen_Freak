@@ -310,7 +310,7 @@ class AssistantSettingsTab(QWidget):
               "Domyślne frazy można dezaktywować, ale nie usuwać.")
         )
         info_label.setWordWrap(True)
-        info_label.setStyleSheet("color: gray; font-style: italic;")
+        info_label.setObjectName("infoLabel")  # For theme styling
         layout.addWidget(info_label)
     
     def _load_methods(self):
@@ -592,6 +592,11 @@ class AssistantSettingsTab(QWidget):
             
             QLabel {{
                 color: {text_primary};
+            }}
+            
+            QLabel#infoLabel {{
+                color: {text_secondary};
+                font-style: italic;
             }}
             
             QListWidget {{

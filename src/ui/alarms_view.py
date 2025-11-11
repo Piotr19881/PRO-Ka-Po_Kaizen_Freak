@@ -18,6 +18,7 @@ import winsound
 from src.Modules.Alarm_module.alarms_logic import AlarmManager
 from src.Modules.Alarm_module.alarm_models import Alarm, Timer, AlarmRecurrence
 from ..utils.i18n_manager import I18nManager, t
+from ..utils.theme_manager import get_theme_manager
 
 
 
@@ -31,6 +32,7 @@ class TimerPopup(QWidget):
         super().__init__(parent)
         self.timer = timer
         self.is_paused = False
+        self.theme_manager = get_theme_manager()
         
         self.setWindowTitle(f"{t('timers.popup_title')}: {timer.label}")
         self.setWindowFlags(Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
@@ -49,6 +51,13 @@ class TimerPopup(QWidget):
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(label)
         
+        # Pobierz kolory z theme managera
+        colors = self.theme_manager.get_current_colors() if self.theme_manager else {}
+        error_color = colors.get('error_bg', '#D32F2F')
+        success_color = colors.get('success_bg', '#4CAF50')
+        bg_secondary = colors.get('bg_secondary', '#f0f0f0')
+        border_color = colors.get('border_light', '#cccccc')
+        
         # Duży wyświetlacz czasu - CZERWONE CYFRY 32pt pogrubione
         self.time_display = QLabel("00:00:00")
         time_font = QFont()
@@ -56,7 +65,7 @@ class TimerPopup(QWidget):
         time_font.setBold(True)
         self.time_display.setFont(time_font)
         self.time_display.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.time_display.setStyleSheet("color: #D32F2F;")  # Czerwony kolor
+        self.time_display.setStyleSheet(f"color: {error_color};")
         layout.addWidget(self.time_display)
         
         # Progress bar
@@ -66,16 +75,16 @@ class TimerPopup(QWidget):
         self.progress_bar.setValue(timer.remaining if timer.remaining else timer.duration)
         self.progress_bar.setTextVisible(False)
         self.progress_bar.setFixedHeight(20)
-        self.progress_bar.setStyleSheet("""
-            QProgressBar {
-                border: 2px solid #ccc;
+        self.progress_bar.setStyleSheet(f"""
+            QProgressBar {{
+                border: 2px solid {border_color};
                 border-radius: 5px;
-                background-color: #f0f0f0;
-            }
-            QProgressBar::chunk {
-                background-color: #4CAF50;
+                background-color: {bg_secondary};
+            }}
+            QProgressBar::chunk {{
+                background-color: {success_color};
                 border-radius: 3px;
-            }
+            }}
         """)
         layout.addWidget(self.progress_bar)
         
@@ -107,31 +116,30 @@ class TimerPopup(QWidget):
             # Aktualizuj progressbar (odwrotnie - maleje gdy czas ucieka)
             self.progress_bar.setValue(self.timer.remaining)
             
+            # Pobierz kolory
+            colors = self.theme_manager.get_current_colors() if self.theme_manager else {}
+            bg_secondary = colors.get('bg_secondary', '#f0f0f0')
+            border_color = colors.get('border_light', '#cccccc')
+            
             # Zmień kolor progressbara gdy mało czasu
             if self.timer.remaining <= 10:
-                self.progress_bar.setStyleSheet("""
-                    QProgressBar {
-                        border: 2px solid #ccc;
-                        border-radius: 5px;
-                        background-color: #f0f0f0;
-                    }
-                    QProgressBar::chunk {
-                        background-color: #F44336;
-                        border-radius: 3px;
-                    }
-                """)
+                chunk_color = colors.get('error_bg', '#F44336')  # Czerwony - krytyczne
             elif self.timer.remaining <= 60:
-                self.progress_bar.setStyleSheet("""
-                    QProgressBar {
-                        border: 2px solid #ccc;
-                        border-radius: 5px;
-                        background-color: #f0f0f0;
-                    }
-                    QProgressBar::chunk {
-                        background-color: #FF9800;
-                        border-radius: 3px;
-                    }
-                """)
+                chunk_color = colors.get('error_hover', '#FF9800')  # Pomarańczowy - ostrzeżenie
+            else:
+                chunk_color = colors.get('success_bg', '#4CAF50')  # Zielony - normalny
+                
+            self.progress_bar.setStyleSheet(f"""
+                QProgressBar {{
+                    border: 2px solid {border_color};
+                    border-radius: 5px;
+                    background-color: {bg_secondary};
+                }}
+                QProgressBar::chunk {{
+                    background-color: {chunk_color};
+                    border-radius: 3px;
+                }}
+            """)
     
     def _on_pause(self):
         """Obsłuż pauzę"""
@@ -155,6 +163,7 @@ class AlarmsView(QWidget):
         super().__init__(parent)
         self.i18n = i18n_manager
         self.alarm_manager = AlarmManager(data_dir)
+        self.theme_manager = get_theme_manager()
         
         # Media player dla dźwięków
         self.media_player = QMediaPlayer()
@@ -1061,3 +1070,25 @@ class AlarmsView(QWidget):
         # TODO: W przyszłości można dodać odświeżanie etykiet i przycisków
         # jeśli będą one przechowywane jako atrybuty
         logger.info("Alarms view translations updated")
+    
+    def apply_theme(self):
+        """Zastosuj motyw do widoku alarmów"""
+        if not self.theme_manager:
+            return
+        
+        colors = self.theme_manager.get_current_colors()
+        bg_main = colors.get('bg_main', '#FFFFFF')
+        text_primary = colors.get('text_primary', '#1A1A1A')
+        
+        self.setStyleSheet(f"""
+            AlarmsView {{
+                background-color: {bg_main};
+                color: {text_primary};
+            }}
+        """)
+        
+        # Odśwież listy aby zastosować kolory do widgetów
+        self._refresh_alarms_list()
+        self._refresh_timers_list()
+        
+        logger.info("[AlarmsView] Theme applied")

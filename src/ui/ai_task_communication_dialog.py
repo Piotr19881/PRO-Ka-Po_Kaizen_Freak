@@ -27,6 +27,7 @@ from src.Modules.AI_module.ai_logic import (
 )
 from src.Modules.Note_module.ai_note_connector import AIGenerationThread
 from src.utils.i18n_manager import t
+from src.utils.theme_manager import get_theme_manager
 
 
 class TaskAIPlanRequestDialog(QDialog):
@@ -39,10 +40,12 @@ class TaskAIPlanRequestDialog(QDialog):
 		self.ai_response: Optional[AIResponse] = None
 		self._generation_thread: Optional[AIGenerationThread] = None
 		self._settings: dict = {}
+		self.theme_manager = get_theme_manager()
 		self.setWindowTitle(t('ai.plan.dialog.title', 'Plan AI dla zadania'))
 		self.setModal(True)
 		self.setMinimumWidth(520)
 		self._build_ui()
+		self.apply_theme()
 
 	def _build_ui(self) -> None:
 		layout = QVBoxLayout(self)
@@ -205,6 +208,24 @@ class TaskAIPlanRequestDialog(QDialog):
 		self._cleanup_thread()
 		super().reject()
 
+	def apply_theme(self) -> None:
+		"""Apply current theme colors to dialog elements."""
+		if not self.theme_manager:
+			return
+
+		colors = self.theme_manager.get_current_colors()
+		
+		# Style the dialog background
+		bg_main = colors.get('bg_main', '#ffffff')
+		text_primary = colors.get('text_primary', '#000000')
+		
+		self.setStyleSheet(f"""
+			QDialog {{
+				background-color: {bg_main};
+				color: {text_primary};
+			}}
+		""")
+
 
 class TaskAIPlanResultDialog(QDialog):
 	"""Displays AI response with simple highlighting tools and action buttons."""
@@ -214,9 +235,11 @@ class TaskAIPlanResultDialog(QDialog):
 		self._task_title = task_title
 		self.ai_response = ai_response
 		self.selected_action: Optional[str] = None
+		self.theme_manager = get_theme_manager()
 		self.setWindowTitle(t('ai.plan.result.title', 'Odpowiedź AI'))
 		self.setMinimumSize(600, 420)
 		self._build_ui()
+		self.apply_theme()
 
 	def _build_ui(self) -> None:
 		layout = QVBoxLayout(self)
@@ -231,19 +254,23 @@ class TaskAIPlanResultDialog(QDialog):
 			f"🤖 {self.ai_response.provider.value} | {self.ai_response.model}"
 		)
 		info.setAlignment(Qt.AlignmentFlag.AlignCenter)
-		info.setStyleSheet('color: #6b6b6b; font-size: 11px;')
+		info.setObjectName("aiInfoLabel")  # For theme styling
 		layout.addWidget(info)
 
 		toolbar = QHBoxLayout()
 		toolbar.addWidget(QLabel(t('ai.plan.result.highlight', 'Podświetl zaznaczenie:')))
 
+		# Use theme-compatible highlight colors
+		colors = self.theme_manager.get_current_colors() if self.theme_manager else {}
+		border_color = colors.get('border_light', '#bdbdbd')
+		
 		for color, tooltip in [
 			('#FFF9C4', t('ai.plan.result.highlight_yellow', 'Żółty')),
 			('#C8E6C9', t('ai.plan.result.highlight_green', 'Zielony')),
 			('#BBDEFB', t('ai.plan.result.highlight_blue', 'Niebieski')),
 		]:
 			btn = QToolButton()
-			btn.setStyleSheet(f'background-color: {color}; border: 1px solid #bdbdbd;')
+			btn.setStyleSheet(f'background-color: {color}; border: 1px solid {border_color};')
 			btn.setToolTip(tooltip)
 			btn.clicked.connect(lambda _, c=color: self._apply_highlight(c))
 			toolbar.addWidget(btn)
@@ -297,6 +324,29 @@ class TaskAIPlanResultDialog(QDialog):
 
 	def get_html(self) -> str:
 		return self.result_edit.toHtml()
+
+	def apply_theme(self) -> None:
+		"""Apply current theme colors to dialog elements."""
+		if not self.theme_manager:
+			return
+
+		colors = self.theme_manager.get_current_colors()
+		
+		# Style the dialog background
+		bg_main = colors.get('bg_main', '#ffffff')
+		text_primary = colors.get('text_primary', '#000000')
+		text_secondary = colors.get('text_secondary', '#6b6b6b')
+		
+		self.setStyleSheet(f"""
+			QDialog {{
+				background-color: {bg_main};
+				color: {text_primary};
+			}}
+			QLabel#aiInfoLabel {{
+				color: {text_secondary};
+				font-size: 11px;
+			}}
+		""")
 
 
 def parse_plan_to_steps(plan_text: str) -> List[str]:

@@ -1,0 +1,14 @@
+[
+  {
+    "name": "Firmowe nihe",
+    "email": "piotr.prokop@promirbud.eu",
+    "password": "ZawszeDamyRade!1988",
+    "user_name": "Piotr Prokop",
+    "imap_server": "serwer2561389.home.pl",
+    "imap_port": 993,
+    "imap_ssl": true,
+    "smtp_server": "serwer2561389.home.pl",
+    "smtp_port": 587,
+    "smtp_ssl": true
+  }
+]

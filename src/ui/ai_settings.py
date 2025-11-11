@@ -16,6 +16,7 @@ from loguru import logger
 from ..utils.i18n_manager import t, get_i18n
 from ..config import AI_API_KEYS, AI_DEFAULT_PROVIDER, AI_SETTINGS_FILE, AI_CACHE_DIR, AI_TEMPERATURE, AI_TIMEOUT
 from ..Modules.AI_module import get_ai_manager, AIProvider
+from ..utils.theme_manager import get_theme_manager
 
 
 class AITestThread(QThread):
@@ -103,6 +104,7 @@ class AISettingsTab(QWidget):
         self.model_test_thread = None
         self.current_settings = self._load_settings()
         self.available_models = []
+        self.theme_manager = get_theme_manager()
         self._setup_ui()
         self._load_current_settings()
         get_i18n().language_changed.connect(self.update_translations)
@@ -176,7 +178,7 @@ class AISettingsTab(QWidget):
         api_layout.addWidget(self.test_button)
         
         self.models_label = QLabel("")
-        self.models_label.setStyleSheet("color: #2196F3;")
+        self.models_label.setObjectName("modelsLabel")  # For theme styling
         api_layout.addWidget(self.models_label)
         
         # Model selection (shown after successful test)
@@ -185,7 +187,7 @@ class AISettingsTab(QWidget):
         model_selection_layout.setContentsMargins(0, 10, 0, 0)
         
         self.model_label = QLabel("Wybierz model:")
-        self.model_label.setStyleSheet("font-weight: bold;")
+        self.model_label.setObjectName("modelLabel")  # For theme styling
         model_selection_layout.addWidget(self.model_label)
         
         self.model_combo = QComboBox()
@@ -195,7 +197,7 @@ class AISettingsTab(QWidget):
         # Test selected model button
         self.test_model_button = QPushButton("🧪 Test wybranego modelu")
         self.test_model_button.clicked.connect(self._test_selected_model)
-        self.test_model_button.setStyleSheet("background-color: #FF9800; color: white; font-weight: bold;")
+        self.test_model_button.setObjectName("testModelButton")  # For theme styling
         model_selection_layout.addWidget(self.test_model_button)
         
         # Model test result label
@@ -320,12 +322,14 @@ class AISettingsTab(QWidget):
         self.test_model_button.setEnabled(True)
         self.test_model_button.setText(t("ai.test_model"))
         
+        self.model_test_label.setText(message)
+        # Set property for theme styling
         if success:
-            self.model_test_label.setText(message)
-            self.model_test_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
+            self.model_test_label.setProperty("status", "success")
         else:
-            self.model_test_label.setText(message)
-            self.model_test_label.setStyleSheet("color: #f44336; font-weight: bold;")
+            self.model_test_label.setProperty("status", "error")
+        self.model_test_label.setStyleSheet("")  # Reset
+        self.apply_theme()  # Reapply theme
     
     def _on_test_completed(self, success, message):
         self.test_button.setEnabled(True)
@@ -430,8 +434,13 @@ class AISettingsTab(QWidget):
     
     def _show_status(self, message, success):
         self.status_label.setText(message)
-        color = "#4CAF50" if success else "#f44336"
-        self.status_label.setStyleSheet(f"background-color: {color}; color: white; padding: 8px; border-radius: 4px;")
+        # Set property for theme styling
+        if success:
+            self.status_label.setProperty("status", "success")
+        else:
+            self.status_label.setProperty("status", "error")
+        self.status_label.setStyleSheet("")  # Reset
+        self.apply_theme()  # Reapply theme to update colors
         if success:
             QTimer.singleShot(5000, lambda: self.status_label.setText(""))
     
@@ -547,6 +556,96 @@ class AISettingsTab(QWidget):
         if hasattr(self, 'get_key_label'):
             link = link_keys.get(provider, "")
             self.get_key_label.setText(f'<a href="{link}">{t("ai.get_key")}</a>' if link else "")
+    
+    def apply_theme(self):
+        """Zastosuj aktualny motyw do widgetów AI Settings"""
+        if not self.theme_manager:
+            return
+        
+        try:
+            colors = self.theme_manager.get_current_colors()
+            
+            # Style dla etykiety modeli
+            if hasattr(self, 'models_label'):
+                self.models_label.setStyleSheet(f"""
+                    QLabel#modelsLabel {{
+                        color: {colors.get('accent_primary', '#2196F3')};
+                        font-weight: 600;
+                    }}
+                """)
+            
+            # Style dla etykiety modelu
+            if hasattr(self, 'model_label'):
+                self.model_label.setStyleSheet(f"""
+                    QLabel#modelLabel {{
+                        color: {colors.get('text_primary', '#000000')};
+                        font-weight: bold;
+                    }}
+                """)
+            
+            # Style dla przycisku testowego modelu
+            if hasattr(self, 'test_model_button'):
+                self.test_model_button.setStyleSheet(f"""
+                    QPushButton#testModelButton {{
+                        background-color: {colors.get('accent_primary', '#FF9800')};
+                        color: white;
+                        border: none;
+                        border-radius: 4px;
+                        padding: 8px 16px;
+                        font-weight: bold;
+                    }}
+                    QPushButton#testModelButton:hover {{
+                        background-color: {colors.get('accent_hover', '#F57C00')};
+                    }}
+                    QPushButton#testModelButton:pressed {{
+                        background-color: {colors.get('accent_pressed', '#E65100')};
+                    }}
+                    QPushButton#testModelButton:disabled {{
+                        background-color: {colors.get('bg_secondary', '#F5F5F5')};
+                        color: {colors.get('text_secondary', '#7F8C8D')};
+                    }}
+                """)
+            
+            # Style dla etykiety wyniku testu modelu (z property status)
+            if hasattr(self, 'model_test_label'):
+                status = self.model_test_label.property("status")
+                if status == "success":
+                    color = "#4CAF50"  # Zielony dla sukcesu
+                elif status == "error":
+                    color = "#f44336"  # Czerwony dla błędu
+                else:
+                    color = colors.get('text_primary', '#000000')
+                
+                self.model_test_label.setStyleSheet(f"""
+                    QLabel {{
+                        color: {color};
+                        font-weight: bold;
+                    }}
+                """)
+            
+            # Style dla etykiety statusu (z property status)
+            if hasattr(self, 'status_label'):
+                status = self.status_label.property("status")
+                if status == "success":
+                    bg_color = "#4CAF50"
+                elif status == "error":
+                    bg_color = "#f44336"
+                else:
+                    bg_color = colors.get('bg_secondary', '#F5F5F5')
+                
+                self.status_label.setStyleSheet(f"""
+                    QLabel {{
+                        background-color: {bg_color};
+                        color: white;
+                        padding: 8px;
+                        border-radius: 4px;
+                    }}
+                """)
+            
+            logger.debug("[AISettingsTab] Theme applied successfully")
+            
+        except Exception as e:
+            logger.error(f"[AISettingsTab] Error applying theme: {e}")
 
 
 def initialize_ai_from_settings():

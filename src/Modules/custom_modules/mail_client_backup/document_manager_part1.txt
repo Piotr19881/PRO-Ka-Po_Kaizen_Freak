@@ -1,0 +1,45 @@
+"""
+Moduł menedżera dokumentów
+
+Funkcjonalność:
+- Zarządzanie ulubionymi plikami
+- Zarządzanie szablonami wiadomości  
+- Zarządzanie źródłami prawdy AI
+- Menu kontekstowe dla każdej kategorii
+- Eksport/import danych
+
+Autor: Moduł dla aplikacji komercyjnej
+Data: 2025-01-XX
+"""
+
+import json
+import os
+import shutil
+import subprocess
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QAction
+from PyQt6.QtWidgets import (
+    QAbstractItemView,
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QFileDialog,
+    QFormLayout,
+    QHBoxLayout,
+    QInputDialog,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMenu,
+    QMessageBox,
+    QPushButton,
+    QSpinBox,
+    QTabWidget,
+    QTextEdit,
+    QVBoxLayout,
+)

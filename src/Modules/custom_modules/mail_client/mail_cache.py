@@ -106,6 +106,40 @@ class MailCache:
                 uid = mail.get("_uid", f"mail-{hash(str(mail))}")
                 
                 try:
+                    # Przygotuj kopię maila bez danych binarnych dla JSON
+                    mail_for_json = {}
+                    for key, value in mail.items():
+                        # Pomiń dane binarne
+                        if isinstance(value, bytes):
+                            continue
+                        # Konwertuj inne typy na string jeśli to możliwe
+                        try:
+                            json.dumps(value)  # Test serializacji
+                            mail_for_json[key] = value
+                        except (TypeError, ValueError):
+                            # Nie da się serializować - pomiń
+                            continue
+                    
+                    # Bezpiecznie obsłuż attachments
+                    attachments_json = "[]"
+                    try:
+                        attachments = mail.get("attachments", [])
+                        # Jeśli attachments to lista, spróbuj ją serializować
+                        if isinstance(attachments, list):
+                            # Filtruj elementy z bytes
+                            safe_attachments = []
+                            for att in attachments:
+                                if isinstance(att, dict):
+                                    safe_att = {k: v for k, v in att.items() if not isinstance(v, bytes)}
+                                    safe_attachments.append(safe_att)
+                                elif not isinstance(att, bytes):
+                                    safe_attachments.append(att)
+                            attachments_json = json.dumps(safe_attachments)
+                        else:
+                            attachments_json = json.dumps([])
+                    except:
+                        attachments_json = "[]"
+                    
                     cursor.execute("""
                         INSERT OR REPLACE INTO mails 
                         (uid, folder, account, mail_from, mail_to, subject, date, body, 
@@ -123,8 +157,8 @@ class MailCache:
                         mail.get("size", ""),
                         1 if mail.get("starred") else 0,
                         1 if mail.get("read") else 0,
-                        json.dumps(mail.get("attachments", [])),
-                        json.dumps(mail)  # Pełny JSON jako backup
+                        attachments_json,
+                        json.dumps(mail_for_json)  # Pełny JSON bez danych binarnych
                     ))
                 except Exception as e:
                     print(f"Błąd zapisu maila do cache: {e}")

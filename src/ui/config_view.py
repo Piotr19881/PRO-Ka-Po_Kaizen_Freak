@@ -227,17 +227,43 @@ class GeneralSettingsTab(QWidget):
     def _open_color_dialog(self):
         """Otwórz dialog tworzenia własnej kompozycji"""
         dialog = StyleCreatorDialog(self)
+        
+        # NAPRAWIONE: Podłącz sygnał zapisania stylu do odświeżania listy
+        dialog.style_saved.connect(self._on_custom_style_saved)
+        
         if dialog.exec() == QDialog.DialogCode.Accepted:
             logger.info("Custom color scheme created successfully")
-            
-            # Odśwież listę dostępnych motywów
-            self._refresh_theme_lists()
             
             QMessageBox.information(
                 self,
                 t('dialog.info'),
                 t('style_creator.scheme_created')
             )
+    
+    def _on_custom_style_saved(self, style_name: str):
+        """Obsługa zapisu nowego własnego stylu"""
+        logger.info(f"[GeneralSettingsTab] Custom style saved: {style_name}")
+        
+        # Odśwież listę motywów
+        self.refresh_theme_list()
+        
+        # Ustaw nowy styl jako aktywny w layout1
+        index = self.combo_layout1.findText(f"⭐ {style_name}")
+        if index >= 0:
+            self.combo_layout1.setCurrentIndex(index)
+            logger.info(f"[GeneralSettingsTab] Set new custom style as active in layout1")
+        
+        # Zastosuj nowy motyw do aplikacji
+        self.theme_manager.apply_theme(style_name)
+        logger.info(f"[GeneralSettingsTab] Applied new theme: {style_name}")
+        
+        # Odśwież UI
+        self.apply_theme()
+        
+        # Emituj sygnał o zmianie ustawień (propagacja do całej aplikacji)
+        from ..core.config import load_settings
+        settings = load_settings()
+        self.settings_changed.emit(settings)
     
     def _refresh_theme_lists(self):
         """Odśwież listy dostępnych motywów"""
@@ -277,6 +303,15 @@ class GeneralSettingsTab(QWidget):
         # Ustaw wartości
         lang_index = language_map.get(settings.get('language', 'pl'), 0)
         self.combo_language.setCurrentIndex(lang_index)
+        
+        # NAPRAWIONE: Wyczyść combo przed dodaniem motywów (unikaj duplikatów)
+        self.combo_layout1.clear()
+        self.combo_layout2.clear()
+        
+        # Pobierz i dodaj dostępne motywy
+        available_themes = self.theme_manager.get_available_themes()
+        self.combo_layout1.addItems(available_themes)
+        self.combo_layout2.addItems(available_themes)
         
         # Ustaw schematy kolorów
         scheme1 = settings.get('color_scheme_1', 'light')
@@ -721,12 +756,221 @@ class GeneralSettingsTab(QWidget):
         
         # Przycisk zapisz
         self.btn_save.setText(t('button.save'))
-        self.show_main_label.setText(t('settings.shortcut_show_main'))
         
-        # Przycisk zapisz
-        self.btn_save.setText(t('button.save'))
+        # NAPRAWIONE: Odśwież listę motywów (unikaj duplikatów)
+        current_scheme1 = self.combo_layout1.currentText()
+        current_scheme2 = self.combo_layout2.currentText()
+        
+        self.combo_layout1.clear()
+        self.combo_layout2.clear()
+        
+        available_themes = self.theme_manager.get_available_themes()
+        self.combo_layout1.addItems(available_themes)
+        self.combo_layout2.addItems(available_themes)
+        
+        # Przywróć poprzednie wybory
+        index1 = self.combo_layout1.findText(current_scheme1)
+        if index1 >= 0:
+            self.combo_layout1.setCurrentIndex(index1)
+        
+        index2 = self.combo_layout2.findText(current_scheme2)
+        if index2 >= 0:
+            self.combo_layout2.setCurrentIndex(index2)
         
         logger.info("Settings tab translations updated")
+    
+    def refresh_theme_list(self):
+        """Odśwież listę dostępnych motywów (np. po dodaniu własnego stylu)"""
+        try:
+            # Zapamiętaj aktualne wybory
+            current_scheme1 = self.combo_layout1.currentText()
+            current_scheme2 = self.combo_layout2.currentText()
+            
+            # Wyczyść i załaduj ponownie
+            self.combo_layout1.clear()
+            self.combo_layout2.clear()
+            
+            # Odśwież listę motywów w theme_manager (jeśli metoda istnieje)
+            # W przeciwnym razie po prostu pobierz ponownie listę
+            available_themes = self.theme_manager.get_available_themes()
+            self.combo_layout1.addItems(available_themes)
+            self.combo_layout2.addItems(available_themes)
+            
+            # Przywróć poprzednie wybory (jeśli nadal istnieją)
+            index1 = self.combo_layout1.findText(current_scheme1)
+            if index1 >= 0:
+                self.combo_layout1.setCurrentIndex(index1)
+            elif self.combo_layout1.count() > 0:
+                self.combo_layout1.setCurrentIndex(0)
+            
+            index2 = self.combo_layout2.findText(current_scheme2)
+            if index2 >= 0:
+                self.combo_layout2.setCurrentIndex(index2)
+            elif self.combo_layout2.count() > 1:
+                self.combo_layout2.setCurrentIndex(1)
+            elif self.combo_layout2.count() > 0:
+                self.combo_layout2.setCurrentIndex(0)
+            
+            logger.info("[GeneralSettingsTab] Theme list refreshed successfully")
+            
+        except Exception as e:
+            logger.error(f"[GeneralSettingsTab] Error refreshing theme list: {e}")
+    
+    def apply_theme(self):
+        """Zastosuj aktualny motyw do widgetów w karcie ustawień ogólnych"""
+        if not self.theme_manager:
+            return
+        
+        try:
+            colors = self.theme_manager.get_current_colors()
+            
+            # Style dla głównych grup
+            group_style = f"""
+                QGroupBox {{
+                    background-color: {colors.get('bg_main', '#FFFFFF')};
+                    color: {colors.get('text_primary', '#000000')};
+                    border: 2px solid {colors.get('border_light', '#DDD')};
+                    border-radius: 6px;
+                    margin-top: 12px;
+                    padding-top: 15px;
+                    font-weight: 600;
+                }}
+                QGroupBox::title {{
+                    subcontrol-origin: margin;
+                    subcontrol-position: top left;
+                    padding: 0 10px;
+                    background-color: {colors.get('bg_main', '#FFFFFF')};
+                    color: {colors.get('text_primary', '#000000')};
+                }}
+            """
+            
+            self.colors_group.setStyleSheet(group_style)
+            self.language_group.setStyleSheet(group_style)
+            self.system_group.setStyleSheet(group_style)
+            self.sounds_group.setStyleSheet(group_style)
+            self.shortcuts_group.setStyleSheet(group_style)
+            
+            # Style dla przycisków
+            button_style = f"""
+                QPushButton {{
+                    background-color: {colors.get('accent_primary', '#FF9800')};
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    padding: 8px 16px;
+                    font-weight: 600;
+                }}
+                QPushButton:hover {{
+                    background-color: {colors.get('accent_hover', '#F57C00')};
+                }}
+                QPushButton:pressed {{
+                    background-color: {colors.get('accent_pressed', '#E65100')};
+                }}
+            """
+            
+            self.btn_custom_colors.setStyleSheet(button_style)
+            self.btn_save.setStyleSheet(button_style)
+            
+            # Style dla combo boxów
+            combo_style = f"""
+                QComboBox {{
+                    background-color: {colors.get('bg_main', '#FFFFFF')};
+                    color: {colors.get('text_primary', '#000000')};
+                    border: 2px solid {colors.get('border_light', '#DDD')};
+                    border-radius: 4px;
+                    padding: 4px 8px;
+                }}
+                QComboBox:hover {{
+                    border-color: {colors.get('accent_primary', '#FF9800')};
+                }}
+                QComboBox::drop-down {{
+                    border: none;
+                    width: 20px;
+                }}
+                QComboBox::down-arrow {{
+                    image: none;
+                    border-left: 4px solid transparent;
+                    border-right: 4px solid transparent;
+                    border-top: 6px solid {colors.get('text_primary', '#000000')};
+                    margin-right: 5px;
+                }}
+            """
+            
+            self.combo_layout1.setStyleSheet(combo_style)
+            self.combo_layout2.setStyleSheet(combo_style)
+            self.combo_language.setStyleSheet(combo_style)
+            self.combo_sound1.setStyleSheet(combo_style)
+            self.combo_sound2.setStyleSheet(combo_style)
+            
+            # Style dla checkboxów
+            checkbox_style = f"""
+                QCheckBox {{
+                    color: {colors.get('text_primary', '#000000')};
+                    spacing: 8px;
+                }}
+                QCheckBox::indicator {{
+                    width: 18px;
+                    height: 18px;
+                    border: 2px solid {colors.get('border_dark', '#888')};
+                    border-radius: 3px;
+                    background-color: {colors.get('bg_main', '#FFFFFF')};
+                }}
+                QCheckBox::indicator:checked {{
+                    background-color: {colors.get('accent_primary', '#FF9800')};
+                    border-color: {colors.get('accent_primary', '#FF9800')};
+                }}
+                QCheckBox::indicator:hover {{
+                    border-color: {colors.get('accent_hover', '#F57C00')};
+                }}
+            """
+            
+            self.check_autostart.setStyleSheet(checkbox_style)
+            self.check_background.setStyleSheet(checkbox_style)
+            self.check_notifications.setStyleSheet(checkbox_style)
+            self.check_sound.setStyleSheet(checkbox_style)
+            
+            # Style dla input fields
+            input_style = f"""
+                QLineEdit {{
+                    background-color: {colors.get('bg_main', '#FFFFFF')};
+                    color: {colors.get('text_primary', '#000000')};
+                    border: 2px solid {colors.get('border_light', '#DDD')};
+                    border-radius: 4px;
+                    padding: 4px 8px;
+                }}
+                QLineEdit:focus {{
+                    border-color: {colors.get('accent_primary', '#FF9800')};
+                }}
+            """
+            
+            self.input_shortcut_quick_add.setStyleSheet(input_style)
+            self.input_shortcut_show_main.setStyleSheet(input_style)
+            
+            # Style dla małych przycisków (browse, play)
+            small_button_style = f"""
+                QPushButton {{
+                    background-color: {colors.get('bg_secondary', '#F5F5F5')};
+                    color: {colors.get('text_primary', '#000000')};
+                    border: 1px solid {colors.get('border_light', '#DDD')};
+                    border-radius: 4px;
+                    padding: 4px 8px;
+                }}
+                QPushButton:hover {{
+                    background-color: {colors.get('accent_hover', '#F57C00')};
+                    color: white;
+                    border-color: {colors.get('accent_hover', '#F57C00')};
+                }}
+            """
+            
+            self.btn_sound1_browse.setStyleSheet(small_button_style)
+            self.btn_sound2_browse.setStyleSheet(small_button_style)
+            self.btn_sound1_play.setStyleSheet(small_button_style)
+            self.btn_sound2_play.setStyleSheet(small_button_style)
+            
+            logger.debug("[GeneralSettingsTab] Theme applied successfully")
+            
+        except Exception as e:
+            logger.error(f"[GeneralSettingsTab] Error applying theme: {e}")
 
 
 class EnvironmentSettingsTab(QWidget):
@@ -736,6 +980,7 @@ class EnvironmentSettingsTab(QWidget):
     
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.theme_manager = get_theme_manager()
         self._setup_ui()
         self._load_settings()
         self._connect_signals()
@@ -1059,17 +1304,20 @@ class EnvironmentSettingsTab(QWidget):
         delete_btn.setToolTip(t('environment.delete_button', 'Usuń przycisk'))
         delete_btn.setMaximumWidth(30)
         delete_btn.setMinimumHeight(25)
-        delete_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #dc3545;
+        colors = self.theme_manager.get_current_colors() if self.theme_manager else {}
+        error_bg = colors.get('error_bg', '#dc3545')
+        error_hover = colors.get('error_hover', '#c82333')
+        delete_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {error_bg};
                 color: white;
                 border: none;
                 border-radius: 3px;
                 font-size: 14px;
-            }
-            QPushButton:hover {
-                background-color: #c82333;
-            }
+            }}
+            QPushButton:hover {{
+                background-color: {error_hover};
+            }}
         """)
         delete_btn.clicked.connect(lambda: self._on_delete_custom_button(row))
         
@@ -1360,6 +1608,62 @@ class EnvironmentSettingsTab(QWidget):
         # TODO: Zaimplementuj pełne odświeżanie wszystkich tekstów
         # Na razie tylko podstawowe elementy z fallbackami są już zaimplementowane w _setup_ui()
         logger.debug("Environment tab translations updated")
+    
+    def apply_theme(self):
+        """Zastosuj aktualny motyw do widgetów w karcie środowiska"""
+        from ..utils.theme_manager import get_theme_manager
+        
+        theme_manager = get_theme_manager()
+        if not theme_manager:
+            return
+        
+        try:
+            colors = theme_manager.get_current_colors()
+            
+            # Style dla przycisków akcji
+            button_style = f"""
+                QPushButton {{
+                    background-color: {colors.get('accent_primary', '#FF9800')};
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    padding: 8px 16px;
+                    font-weight: 600;
+                }}
+                QPushButton:hover {{
+                    background-color: {colors.get('accent_hover', '#F57C00')};
+                }}
+                QPushButton:pressed {{
+                    background-color: {colors.get('accent_pressed', '#E65100')};
+                }}
+            """
+            
+            if hasattr(self, 'save_btn'):
+                self.save_btn.setStyleSheet(button_style)
+            
+            if hasattr(self, 'reset_btn'):
+                reset_style = f"""
+                    QPushButton {{
+                        background-color: {colors.get('bg_secondary', '#F5F5F5')};
+                        color: {colors.get('text_primary', '#000000')};
+                        border: 2px solid {colors.get('border_light', '#DDD')};
+                        border-radius: 4px;
+                        padding: 8px 16px;
+                        font-weight: 600;
+                    }}
+                    QPushButton:hover {{
+                        background-color: {colors.get('border_light', '#DDD')};
+                    }}
+                """
+                self.reset_btn.setStyleSheet(reset_style)
+            
+            if hasattr(self, 'add_custom_button_btn'):
+                self.add_custom_button_btn.setStyleSheet(button_style)
+            
+            logger.debug("[EnvironmentSettingsTab] Theme applied successfully")
+            
+        except Exception as e:
+            logger.error(f"[EnvironmentSettingsTab] Error applying theme: {e}")
 
 
 class SettingsView(QWidget):
@@ -1447,3 +1751,40 @@ class SettingsView(QWidget):
         self.tab_environment.update_translations()
         
         logger.info("Settings view translations updated")
+    
+    def apply_theme(self):
+        """Zastosuj motyw do widoku ustawień i wszystkich kart"""
+        try:
+            # Zastosuj motyw do każdej karty, która ma metodę apply_theme
+            if hasattr(self.tab_general, 'apply_theme'):
+                self.tab_general.apply_theme()
+                logger.debug("[SettingsView] Applied theme to General tab")
+            
+            if hasattr(self.tab_ai, 'apply_theme'):
+                self.tab_ai.apply_theme()
+                logger.debug("[SettingsView] Applied theme to AI tab")
+            
+            if hasattr(self.tab_assistant, 'apply_theme'):
+                self.tab_assistant.apply_theme()
+                logger.debug("[SettingsView] Applied theme to Assistant tab")
+            
+            if hasattr(self.tab_email, 'apply_theme'):
+                self.tab_email.apply_theme()
+                logger.debug("[SettingsView] Applied theme to Email tab")
+            
+            if hasattr(self.tab_environment, 'apply_theme'):
+                self.tab_environment.apply_theme()
+                logger.debug("[SettingsView] Applied theme to Environment tab")
+            
+            logger.info("[SettingsView] Theme applied to all tabs successfully")
+        except Exception as e:
+            logger.error(f"[SettingsView] Error applying theme: {e}")
+    
+    def show_email_settings(self):
+        """Przełącz na kartę ustawień kont e-mail"""
+        # Znajdź indeks karty "Konta E-mail" (tab_email)
+        for i in range(self.tabs.count()):
+            if self.tabs.widget(i) == self.tab_email:
+                self.tabs.setCurrentIndex(i)
+                logger.info("[SettingsView] Switched to Email Accounts tab")
+                break

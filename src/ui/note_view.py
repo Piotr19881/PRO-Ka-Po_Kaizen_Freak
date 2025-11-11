@@ -1637,45 +1637,27 @@ class NoteView(QWidget):
         logger.info(f"[NOTES] Current theme: {theme}")
         # print(f"[DEBUG] Current theme: {theme}")
         
-        # print("[DEBUG] Calling _extract_theme_colors...")
-        # EKSTRAHUJ KOLORY Z AKTUALNEGO MOTYWU APLIKACJI
-        # (zamiast hardkodowania używamy kolorów z ThemeManager)
-        colors = self._extract_theme_colors(current_stylesheet, theme)
-        # print("[DEBUG] _extract_theme_colors completed!")
+        # Pobierz kolory z ThemeManager zamiast hardcode
+        colors = self.theme_manager.get_current_colors() if self.theme_manager else {}
         
-        # HARDCODE - bezpośrednie ustalenie kolorów na podstawie layout'u
-        current_layout = self.theme_manager.current_layout if self.theme_manager else 2
-        # print(f"[DEBUG] Current layout: {current_layout}")
+        # Layout-dependent colors
+        panel_bg = colors.get('bg_main', '#ffffff')
+        main_bg = colors.get('bg_secondary', '#f8f9fa')
+        text_color = colors.get('text_primary', '#212529')
+        border_color = colors.get('border_light', '#dee2e6')
+        button_color = colors.get('accent_primary', '#0d6efd')
+        text_secondary = colors.get('text_secondary', '#6c757d')
+        hover_bg = colors.get('accent_hover', '#e9ecef')
         
-        if current_layout == 1:  # Layout 1 = jasny (light mode)
-            panel_bg = "#ffffff"      # Białe tło dla sekcji
-            main_bg = "#f8f9fa"       # Jasno szare tło główne
-            text_color = "#212529"    # Ciemny tekst
-            border_color = "#dee2e6"  # Jasna ramka
-            button_color = "#0d6efd"  # Niebieski przycisk
-        else:  # Layout 2 = ciemny (dark mode)  
-            panel_bg = "#2d3748"      # Ciemno szare tło dla sekcji
-            main_bg = "#1a202c"       # Bardzo ciemne tło główne
-            text_color = "#e2e8f0"    # Jasny tekst
-            border_color = "#4a5568"  # Ciemna ramka
-            button_color = "#4299e1"  # Jasnoniebieski przycisk
-            
-        # print(f"[DEBUG] Using hardcoded colors: panel_bg={panel_bg}, layout={current_layout}")
-        
-        # Zastąp wyekstraktowane kolory hardcode'em
+        # Zastosuj kolory
         bg_secondary = panel_bg
         bg_main = main_bg
         text_primary = text_color
-        border_color = border_color
         primary_color = button_color
-        
-        # Pozostałe kolory (możemy też je hardkodować jeśli potrzeba)
         accent_color = primary_color
-        active_color = "#ff6b35"
+        active_color = colors.get('error_bg', '#ff6b35')
         bg_input = panel_bg
-        text_secondary = "#6c757d" if current_layout == 1 else "#a0aec0"
         border_focus = primary_color
-        hover_bg = "#e9ecef" if current_layout == 1 else "#374151"
         
         # === GŁÓWNY WIDGET ===
         self.setStyleSheet(f"""

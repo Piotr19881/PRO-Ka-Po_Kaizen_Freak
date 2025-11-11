@@ -626,11 +626,15 @@ class AISummaryDialog(QDialog):
             f"{note_content}"
         )
         
+        # Get accent color from theme for AI summaries
+        colors = self.theme_manager.get_current_colors() if hasattr(self, 'theme_manager') and self.theme_manager else {}
+        note_color = colors.get('accent_primary', '#9C27B0')  # Fallback to purple
+        
         try:
             new_note_id = main_window.notes_view.db.create_note(
                 title=note_title,
                 content=note_content,
-                color="#9C27B0"  # Fioletowy dla podsumowań AI
+                color=note_color  # Use theme color for AI summaries
             )
             
             logger.info(f"[AISummary] Created note {new_note_id} from summary")

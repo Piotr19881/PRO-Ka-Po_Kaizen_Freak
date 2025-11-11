@@ -58,6 +58,27 @@ class MailQueueCard(QFrame):
         except:
             self.setStyleSheet("MailQueueCard { background-color: #FFFFFF; border-radius: 8px; }")
     
+    def update_background_color_themed(self, age_colors: dict):
+        """Aktualizuje kolor tła używając kolorów z motywu"""
+        date_str = self.newest_mail.get("date", "")
+        try:
+            if date_str:
+                mail_date = datetime.strptime(date_str[:16], "%Y-%m-%d %H:%M")
+                age_days = (datetime.now() - mail_date).days
+                
+                if age_days > 7:
+                    bg_color = age_colors.get('old', '#FFEBEE')
+                elif age_days > 3:
+                    bg_color = age_colors.get('medium', '#FFF3E0')
+                elif age_days > 1:
+                    bg_color = age_colors.get('recent', '#FFF9C4')
+                else:
+                    bg_color = age_colors.get('new', '#E8F5E9')
+                
+                self.setStyleSheet(f"MailQueueCard {{ background-color: {bg_color}; border-radius: 8px; }}")
+        except:
+            self.setStyleSheet("MailQueueCard { background-color: #FFFFFF; border-radius: 8px; }")
+    
     def init_ui(self):
         """Inicjalizuje interfejs karty"""
         main_layout = QVBoxLayout(self)
@@ -310,8 +331,51 @@ class QueueView(QWidget):
         self.parent_view = parent_view
         self.cards: List[MailQueueCard] = []
         
+        # ThemeManager (będzie pełna integracja w ETAPIE 3)
+        try:
+            from src.utils.theme_manager import get_theme_manager
+            self.theme_manager = get_theme_manager()
+        except:
+            self.theme_manager = None
+        
         self.init_ui()
         self.load_queue()
+    
+    def apply_theme(self):
+        """Aplikuje motyw do widoku kolejki"""
+        if not self.theme_manager:
+            return
+        
+        colors = self.theme_manager.get_current_colors()
+        
+        # Dynamiczne kolory tła dla kart (age-based)
+        # Będą używane przez MailQueueCard.update_background_color()
+        self.age_colors = {
+            'old': colors.get('queue_old', '#FFEBEE'),      # Stare - czerwonawy
+            'medium': colors.get('queue_medium', '#FFF3E0'), # Średnie - pomarańczowy  
+            'recent': colors.get('queue_recent', '#FFF9C4'), # Niedawne - żółty
+            'new': colors.get('queue_new', '#E8F5E9')        # Nowe - zielony
+        }
+        
+        # Zastosuj stylesheet
+        self.setStyleSheet(f"""
+            QLabel {{
+                color: {colors.get('text_primary', '#000000')};
+            }}
+            
+            QComboBox {{
+                background-color: {colors.get('bg_main', '#FFFFFF')};
+                color: {colors.get('text_primary', '#000000')};
+                border: 1px solid {colors.get('border_light', '#BDBDBD')};
+                padding: 6px;
+            }}
+            
+            /* Odśwież karty z nowymi kolorami */
+        """)
+        
+        # Odśwież kolory wszystkich istniejących kart
+        for card in self.cards:
+            card.update_background_color_themed(self.age_colors)
     
     def init_ui(self):
         """Inicjalizuje interfejs"""

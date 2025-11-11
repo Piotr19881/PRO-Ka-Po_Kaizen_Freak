@@ -15,6 +15,7 @@ from loguru import logger
 
 from ..utils.i18n_manager import t, get_i18n
 from ..core.config import config
+from ..utils.theme_manager import get_theme_manager
 
 
 class ColorPickerWidget(QWidget):
@@ -26,6 +27,7 @@ class ColorPickerWidget(QWidget):
         super().__init__(parent)
         self.current_color = initial_color
         self.label_text = label
+        self.theme_manager = get_theme_manager()
         self._setup_ui()
     
     def _setup_ui(self):
@@ -54,24 +56,46 @@ class ColorPickerWidget(QWidget):
         layout.addStretch()
     
     def _update_button_color(self):
-        """Aktualizuj kolor przycisku"""
+        """Aktualizuj kolor przycisku - NAPRAWIONE: używa ThemeManager"""
+        # Pobierz kolory z ThemeManager dla obramowań
+        border_default = "#888"
+        border_hover = "#555"
+        
+        if self.theme_manager:
+            colors = self.theme_manager.get_current_colors()
+            border_default = colors.get('border_dark', '#888')
+            border_hover = colors.get('text_primary', '#555')
+        
         self.color_button.setStyleSheet(f"""
             QPushButton {{
                 background-color: {self.current_color};
-                border: 2px solid #888;
+                border: 2px solid {border_default};
                 border-radius: 4px;
             }}
             QPushButton:hover {{
-                border: 2px solid #555;
+                border: 2px solid {border_hover};
             }}
         """)
     
     def _on_text_changed(self, text: str):
-        """Obsługa zmiany tekstu w polu"""
-        if text.startswith('#') and len(text) in [4, 7]:
-            self.current_color = text
-            self._update_button_color()
-            self.color_changed.emit(text)
+        """Obsługa zmiany tekstu w polu - NAPRAWIONE: pełna walidacja HEX"""
+        # Sprawdź podstawowy format
+        if not text.startswith('#'):
+            return
+        
+        # Sprawdź długość (krótka forma #RGB lub pełna #RRGGBB)
+        if len(text) not in [4, 7]:
+            return
+        
+        # Sprawdź czy wszystkie znaki po # to prawidłowe hex (0-9, A-F, a-f)
+        hex_part = text[1:]  # Usuń #
+        if not all(c in '0123456789ABCDEFabcdef' for c in hex_part):
+            return
+        
+        # Kolor jest prawidłowy
+        self.current_color = text.upper()  # Normalizuj do wielkich liter
+        self._update_button_color()
+        self.color_changed.emit(self.current_color)
     
     def _open_color_dialog(self):
         """Otwórz dialog wyboru koloru"""
@@ -106,10 +130,15 @@ class ColorPickerWidget(QWidget):
 class StyleCreatorDialog(QDialog):
     """Dialog do tworzenia własnych kompozycji kolorystycznych"""
     
+    # Sygnał emitowany po zapisaniu nowego stylu
+    style_saved = pyqtSignal(str)  # Nazwa zapisanego stylu
+    
     def __init__(self, parent=None):
         super().__init__(parent)
         self.color_pickers = {}
         self.scheme_name = ""
+        self._preview_active = False  # Flaga stanu podglądu
+        self._previous_theme = None  # Zapamiętaj poprzedni motyw
         self._setup_window()
         self._setup_ui()
         self._connect_signals()
@@ -619,7 +648,7 @@ QGroupBox::title {{
         return qss
     
     def _preview_style(self):
-        """Podgląd stylu"""
+        """Podgląd stylu - NAPRAWIONE: globalny podgląd z możliwością powrotu"""
         if not self.name_input.text().strip():
             QMessageBox.warning(
                 self,
@@ -628,18 +657,104 @@ QGroupBox::title {{
             )
             return
         
-        qss = self._generate_qss()
+        from ..utils.theme_manager import get_theme_manager
+        theme_manager = get_theme_manager()
         
-        # Zastosuj styl do dialogu jako podgląd
-        self.setStyleSheet(qss)
+        if not theme_manager:
+            # Fallback: zastosuj tylko do dialogu
+            qss = self._generate_qss()
+            self.setStyleSheet(qss)
+            QMessageBox.information(
+                self,
+                t('dialog.info'),
+                t('style_creator.preview_applied')
+            )
+            return
         
-        QMessageBox.information(
-            self,
-            t('dialog.info'),
-            t('style_creator.preview_applied')
-        )
+        if not self._preview_active:
+            # Włącz podgląd
+            # Zapamiętaj aktualny motyw (fallback: pobierz z current_layout)
+            self._previous_theme = getattr(theme_manager, 'current_theme', None)
+            if not self._previous_theme:
+                # Spróbuj pobrać z current_layout
+                current_layout = theme_manager.get_current_layout()
+                self._previous_theme = theme_manager.get_layout_scheme(current_layout)
+            
+            # Generuj i zapisz tymczasowy plik QSS
+            qss = self._generate_qss()
+            temp_theme_path = config.THEMES_DIR / "temp_preview.qss"
+            
+            try:
+                with open(temp_theme_path, 'w', encoding='utf-8') as f:
+                    f.write(qss)
+                
+                # Zastosuj globalnie
+                theme_manager.apply_theme("temp_preview")
+                
+                self._preview_active = True
+                self.btn_preview.setText(t('style_creator.preview_cancel', 'Wyłącz podgląd'))
+                
+                QMessageBox.information(
+                    self,
+                    t('dialog.info'),
+                    t('style_creator.preview_applied_global', 
+                      'Podgląd zastosowany globalnie!\n\nKliknij ponownie aby wrócić do poprzedniego motywu.')
+                )
+                
+                logger.info("Global style preview applied")
+                
+            except Exception as e:
+                logger.error(f"Error applying global preview: {e}")
+                QMessageBox.warning(
+                    self,
+                    t('dialog.error'),
+                    f"Błąd podczas podglądu: {e}"
+                )
+        else:
+            # Wyłącz podgląd - wróć do poprzedniego motywu
+            if self._previous_theme:
+                theme_manager.apply_theme(self._previous_theme)
+            
+            # Usuń tymczasowy plik
+            temp_theme_path = config.THEMES_DIR / "temp_preview.qss"
+            if temp_theme_path.exists():
+                try:
+                    temp_theme_path.unlink()
+                except Exception as e:
+                    logger.warning(f"Could not delete temp preview file: {e}")
+            
+            self._preview_active = False
+            self.btn_preview.setText(t('style_creator.preview'))
+            
+            QMessageBox.information(
+                self,
+                t('dialog.info'),
+                t('style_creator.preview_cancelled', 'Przywrócono poprzedni motyw.')
+            )
+            
+            logger.info("Style preview cancelled")
+    
+    def closeEvent(self, event):
+        """Obsługa zamknięcia okna - wyłącz podgląd jeśli aktywny"""
+        if self._preview_active:
+            # Przywróć poprzedni motyw
+            from ..utils.theme_manager import get_theme_manager
+            theme_manager = get_theme_manager()
+            
+            if theme_manager and self._previous_theme:
+                theme_manager.apply_theme(self._previous_theme)
+            
+            # Usuń tymczasowy plik
+            temp_theme_path = config.THEMES_DIR / "temp_preview.qss"
+            if temp_theme_path.exists():
+                try:
+                    temp_theme_path.unlink()
+                except Exception as e:
+                    logger.warning(f"Could not delete temp preview file on close: {e}")
+            
+            logger.info("Preview disabled on dialog close")
         
-        logger.info("Style preview applied")
+        super().closeEvent(event)
     
     def _save_style(self):
         """Zapisz styl do pliku"""
@@ -688,6 +803,9 @@ QGroupBox::title {{
             )
             
             logger.info(f"Custom style saved: {scheme_name} -> {theme_file}")
+            
+            # NAPRAWIONE: Emituj sygnał o zapisaniu stylu
+            self.style_saved.emit(scheme_name)
             
             self.accept()
             
