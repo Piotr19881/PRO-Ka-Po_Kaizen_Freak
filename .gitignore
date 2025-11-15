@@ -285,3 +285,41 @@ column_widths.json
 
 # Baza CallCryptor (szyfrowane rozmowy)
 data/callcryptor.db*
+
+# ===== BACKEND I SERWER (NIE DLA REPO PUBLICZNEGO) =====
+# Cały folder Render_upload - zawiera backend, klucze, migracje
+Render_upload/
+
+# Dodatkowe pliki konfiguracyjne z wrażliwymi danymi
+*.env
+*.env.local
+*.env.production
+.env.*
+config/secrets.json
+config/database.json
+
+# Pliki synchronizacji
+sync_payload.json
+
+# Logi z potencjalnie wrażliwymi danymi
+logs/
+*.log
+
+# Foldery tymczasowe z danymi użytkownika
+temp/
+cache/
+tmp/
+
+# Pliki binarne i kompilowane
+*.pyc
+*.pyo
+*.so
+*.dll
+*.exe
+
+# Bazy danych lokalne
+*.db
+*.sqlite
+*.sqlite3
+data/*.db
+local_database/
