@@ -6,10 +6,10 @@ from pathlib import Path
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QStackedWidget, QFrame,
-    QLineEdit, QTableWidget, QMenu
+    QLineEdit, QTableWidget, QMenu, QSystemTrayIcon
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QTimer
-from PyQt6.QtGui import QFont, QMouseEvent, QAction, QKeySequence, QShortcut
+from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QTimer, QUrl
+from PyQt6.QtGui import QFont, QMouseEvent, QAction, QKeySequence, QShortcut, QIcon, QPixmap, QPainter
 from loguru import logger
 
 from ..utils.i18n_manager import t, get_i18n
@@ -32,6 +32,9 @@ from .pro_app_view import ProAppView
 from .p_web_view import PWebView
 from .quickboard_view import QuickBoardView
 from ..Modules.pro_app.module_viewer import ModuleViewer
+from ..Modules.custom_modules.Shortcuts import ShortcutsWidget
+from ..Modules.custom_modules.PFile import PFileWidget
+from ..Modules.custom_modules.TeamWork import TeamWorkModule
 
 
 class CustomTitleBar(QWidget):
@@ -79,7 +82,7 @@ class CustomTitleBar(QWidget):
         # === ŚRODEK: Nazwa aplikacji ===
         layout.addStretch()
         
-        self.title_label = QLabel("📒 PRO-Ka-Po Kaizen Freak")
+        self.title_label = QLabel("🚀 PRO-Ka-Po Kaizen Freak")
         self.title_label.setObjectName("titleBarLabel")
         title_font = QFont()
         title_font.setPointSize(12)
@@ -146,15 +149,12 @@ class CustomTitleBar(QWidget):
         
         # Lista kart ustawień (zgodna z config_view.py)
         settings_tabs = [
-            (t('user_menu.settings.general'), 0),
-            (t('user_menu.settings.tasks'), 1),
-            (t('user_menu.settings.kanban'), 2),
-            (t('user_menu.settings.custom'), 3),
-            (t('user_menu.settings.callcryptor'), 4),
-            (t('user_menu.settings.assistant'), 5),
-            (t('user_menu.settings.ai'), 6),
-            (t('user_menu.settings.email_accounts'), 7),
-            (t('user_menu.settings.about'), 8),
+            (t('user_menu.settings.general', 'Ogólne'), 0),
+            (t('user_menu.settings.assistant', 'Asystent'), 1),
+            (t('user_menu.settings.ai', 'AI'), 2),
+            (t('user_menu.settings.email_accounts', 'Konta E-mail'), 3),
+            (t('user_menu.settings.environment', 'Środowisko'), 4),
+            (t('user_menu.settings.about', 'O aplikacji'), 5),
         ]
         
         for tab_name, tab_index in settings_tabs:
@@ -234,6 +234,102 @@ class CustomTitleBar(QWidget):
             # Sprawdź obecny stan z NavigationBar jeśli dostępny
             tooltip = t('nav.hide_more') if self.nav_toggle_btn.text() == "▲" else t('nav.show_more')
             self.nav_toggle_btn.setToolTip(tooltip)
+    
+    def apply_theme(self):
+        """Zastosuj motyw z poprawioną czytelnością tekstu"""
+        try:
+            from ..utils.theme_manager import get_theme_manager
+            theme_manager = get_theme_manager()
+            colors = theme_manager.get_current_colors()
+            
+            # Kolor tła paska tytułowego - lekko ciemniejszy niż tło główne dla kontrastu
+            bg_color = colors.get('bg_secondary', '#2C2C2C')
+            text_color = colors.get('text_primary', '#FFFFFF')
+            accent_color = colors.get('accent_primary', '#4CAF50')
+            
+            # Upewnij się że tekst jest dobrze widoczny - wymuś wysoki kontrast
+            # Jeśli tło jest jasne, użyj ciemnego tekstu
+            from PyQt6.QtGui import QColor
+            bg_qcolor = QColor(bg_color)
+            # Oblicz jasność (0-255)
+            brightness = (bg_qcolor.red() * 299 + bg_qcolor.green() * 587 + bg_qcolor.blue() * 114) / 1000
+            
+            if brightness > 128:
+                # Jasne tło - użyj ciemnego tekstu
+                text_color = '#000000'
+                button_hover = '#E0E0E0'
+            else:
+                # Ciemne tło - użyj jasnego tekstu
+                text_color = '#FFFFFF'
+                button_hover = '#404040'
+            
+            # Style CSS z wysokim kontrastem
+            title_bar_style = f"""
+                QWidget#customTitleBar {{
+                    background-color: {bg_color};
+                    border-bottom: 2px solid {accent_color};
+                }}
+                
+                QLabel#titleBarLabel {{
+                    color: {text_color};
+                    font-weight: bold;
+                    font-size: 12pt;
+                    padding: 0 10px;
+                }}
+                
+                QPushButton#titleBarUserButton,
+                QPushButton#titleBarThemeButton {{
+                    background-color: transparent;
+                    color: {text_color};
+                    border: 1px solid {accent_color};
+                    border-radius: 17px;
+                    font-size: 16pt;
+                }}
+                
+                QPushButton#titleBarUserButton:hover,
+                QPushButton#titleBarThemeButton:hover {{
+                    background-color: {button_hover};
+                    border: 2px solid {accent_color};
+                }}
+                
+                QPushButton#minimizeButton,
+                QPushButton#maximizeButton {{
+                    background-color: transparent;
+                    color: {text_color};
+                    border: none;
+                    font-size: 18pt;
+                    font-weight: bold;
+                }}
+                
+                QPushButton#minimizeButton:hover,
+                QPushButton#maximizeButton:hover {{
+                    background-color: {button_hover};
+                }}
+                
+                QPushButton#closeButton {{
+                    background-color: transparent;
+                    color: {text_color};
+                    border: none;
+                    font-size: 18pt;
+                    font-weight: bold;
+                }}
+                
+                QPushButton#closeButton:hover {{
+                    background-color: #E53935;
+                    color: #FFFFFF;
+                }}
+            """
+            
+            self.setStyleSheet(title_bar_style)
+            
+            # Zaktualizuj również kolor tekstu bezpośrednio
+            self.title_label.setStyleSheet(f"color: {text_color}; font-weight: bold; font-size: 12pt;")
+            
+            logger.debug(f"[CustomTitleBar] Applied theme with text color: {text_color} on background: {bg_color}")
+            
+        except Exception as e:
+            logger.warning(f"[CustomTitleBar] Could not apply theme: {e}")
+
 
 
 class ManagementBar(QWidget):
@@ -346,6 +442,8 @@ class MainWindow(QMainWindow):
         self.on_token_refreshed = on_token_refreshed  # Callback dla odświeżonych tokenów
         self._quick_add_shortcut: QShortcut | None = None
         self._toggle_nav_shortcut: QShortcut | None = None
+        self._fullscreen_shortcut: QShortcut | None = None  # Skrót F11 dla trybu pełnoekranowego
+        self._is_fullscreen = False  # Stan trybu pełnoekranowego
         self.theme_manager = get_theme_manager()  # Theme manager
         
         # Słownik przechowujący custom module viewers
@@ -363,6 +461,106 @@ class MainWindow(QMainWindow):
         self._initialize_theme_icon()
         self._initialize_status_led()
         self._initialize_assistant()
+        self._initialize_system_tray()
+        self._initialize_global_shortcuts()
+    
+    def _initialize_global_shortcuts(self):
+        """Inicjalizuj manager globalnych skrótów klawiszowych"""
+        from ..utils.global_shortcuts import get_shortcuts_manager
+        from ..core.config import load_settings
+        
+        # Pobierz singleton manager
+        self.shortcuts_manager = get_shortcuts_manager(self)
+        
+        # Podłącz signal do przełączania widoków
+        self.shortcuts_manager.shortcut_activated.connect(self._on_global_shortcut)
+        
+        # Załaduj skróty z konfiguracji
+        settings = load_settings()
+        env_config = settings.get('environment', {})
+        buttons_config = env_config.get('buttons_config', [])
+        
+        if buttons_config:
+            self.shortcuts_manager.load_shortcuts_from_config(buttons_config)
+        
+        logger.info("Global shortcuts manager initialized")
+    
+    def _on_global_shortcut(self, module_id: str):
+        """Obsługa globalnego skrótu - przełącz na moduł"""
+        logger.info(f"Global shortcut triggered for module: {module_id}")
+        
+        # Przełącz widok
+        if hasattr(self, 'navigation_bar'):
+            self.navigation_bar.switch_to_view(module_id)
+    
+    def _initialize_system_tray(self):
+        """Inicjalizuj system tray icon"""
+        # Utwórz system tray icon
+        self.tray_icon = QSystemTrayIcon(self)
+        
+        # Utwórz ikonę z emoji 🚀
+        pixmap = QPixmap(64, 64)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        
+        painter = QPainter(pixmap)
+        painter.setFont(QFont("Segoe UI Emoji", 48))
+        painter.drawText(pixmap.rect(), Qt.AlignmentFlag.AlignCenter, "🚀")
+        painter.end()
+        
+        self.tray_icon.setIcon(QIcon(pixmap))
+        
+        # Utwórz menu kontekstowe
+        tray_menu = QMenu()
+        
+        show_action = tray_menu.addAction("Pokaż")
+        show_action.triggered.connect(self._show_from_tray)
+        
+        tray_menu.addSeparator()
+        
+        quit_action = tray_menu.addAction("Zakończ")
+        quit_action.triggered.connect(self._quit_application)
+        
+        self.tray_icon.setContextMenu(tray_menu)
+        
+        # Podwójne kliknięcie na ikonie przywraca okno
+        self.tray_icon.activated.connect(self._on_tray_activated)
+        
+        # Pokaż ikonę w zasobniku
+        self.tray_icon.show()
+        
+        logger.info("System tray icon initialized")
+        self.tray_icon.show()
+        
+        logger.info("System tray icon initialized")
+    
+    def _on_tray_activated(self, reason):
+        """Obsługa kliknięcia na ikonę w zasobniku"""
+        if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
+            self._show_from_tray()
+    
+    def _show_from_tray(self):
+        """Przywróć okno z zasobnika systemowego"""
+        self.show()
+        self.activateWindow()
+        if self.isMinimized():
+            self.showNormal()
+    
+    def _quit_application(self):
+        """Wymuszaj zakończenie aplikacji (cleanup i zamknięcie)"""
+        logger.info("Quit application requested from tray menu")
+        
+        # Zapisz, że użytkownik chce zamknąć aplikację (a nie zminimalizować)
+        self._force_quit = True
+        
+        # Ukryj ikonę tray
+        if hasattr(self, 'tray_icon'):
+            self.tray_icon.hide()
+        
+        # Zamknij okno (to wywoła closeEvent z _force_quit=True)
+        self.close()
+        
+        # Jeśli close() nie zadziałało (okno ukryte), wymuś zamknięcie aplikacji
+        QApplication.quit()
     
     def _initialize_theme_icon(self):
         """Ustaw ikonę motywu zgodnie z aktualnym layoutem"""
@@ -426,6 +624,11 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'habit_view'):
             self.habit_view.set_user_data(user_data)
             logger.info("[MAIN] ✅ Habit tracker synchronization enabled")
+        
+        # Przekaż dane użytkownika do TeamWorkModule
+        if hasattr(self, 'teamwork_view') and hasattr(self.teamwork_view, 'set_user_data'):
+            self.teamwork_view.set_user_data(user_data)
+            logger.info("[MAIN] ✅ TeamWork module initialized with user data")
         
         # Przekaż dane użytkownika do TasksManager aby włączyć synchronizację
         if hasattr(self, 'tasks_manager'):
@@ -670,20 +873,83 @@ class MainWindow(QMainWindow):
         # Odznacz wszystkie przyciski nawigacji (ustawienia są teraz w menu)
         for btn in self.navigation_bar.buttons.values():
             btn.setChecked(False)
-        
-        # Ukryj quick input w ustawieniach
-        self.quick_input.setVisible(False)
     
     def _show_help(self):
-        """Pokaż okno pomocy"""
+        """Pokaż okno pomocy - otwórz stronę index.html w MinimalBrowserWidget"""
         logger.info("Help requested")
-        # TODO: Implementacja okna pomocy
+
+        # Ścieżka do pliku pomocy
+        help_file_path = Path(__file__).parent.parent.parent / "help_files" / "index.html"
+
+        # Sprawdź czy plik istnieje
+        if not help_file_path.exists():
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                self,
+                t('help.title', 'Pomoc'),
+                t('help.file_not_found', f'Plik pomocy nie został znaleziony:\n{help_file_path}')
+            )
+            logger.error(f"Help file not found: {help_file_path}")
+            return
+
+        # Użyj MinimalBrowserWidget do wyświetlenia pomocy
+        self._open_help_in_minimal_browser(help_file_path)
+
+    def _open_help_in_minimal_browser(self, help_file_path: Path):
+        """Otwiera plik pomocy w MinimalBrowserWidget"""
+        from ..Modules.p_web.p_web_single import MinimalBrowserWidget
+
+        # Sprawdź czy viewer dla pomocy już istnieje
+        if 'help' in self.custom_module_views:
+            viewer = self.custom_module_views['help']
+            self.content_stack.setCurrentWidget(viewer)
+            logger.info("Switched to existing help browser view")
+            return
+
+        # Utwórz nowy MinimalBrowserWidget dla pomocy
+        try:
+            # Konwertuj ścieżkę na URL file:// - upewnij się że używasz forward slashes
+            file_url = f"file:///{help_file_path.as_posix().replace('\\', '/')}"
+
+            logger.info(f"Loading help file URL: {file_url}")
+            logger.info(f"Help file exists: {help_file_path.exists()}")
+
+            browser_widget = MinimalBrowserWidget(file_url, parent=self)
+
+            # Dodaj do content_stack i zapisz referencję
+            self.content_stack.addWidget(browser_widget)
+            self.custom_module_views['help'] = browser_widget
+            self.content_stack.setCurrentWidget(browser_widget)
+
+            logger.info(f"Opened help file in minimal browser: {file_url}")
+        except Exception as e:
+            logger.error(f"Error opening help in minimal browser: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.critical(
+                self,
+                t('help.title', 'Błąd'),
+                t('help.error_message', f'Nie udało się otworzyć pomocy:\n{str(e)}')
+            )
+            self.content_stack.setCurrentWidget(self.main_content)
+
+    def _open_help_in_system_browser(self, help_file_path: Path):
+        """Otwiera plik pomocy w systemowej przeglądarce"""
+        from PyQt6.QtGui import QDesktopServices
         from PyQt6.QtWidgets import QMessageBox
-        QMessageBox.information(
-            self,
-            t('help.title'),
-            t('help.coming_soon')
-        )
+
+        file_url = QUrl.fromLocalFile(str(help_file_path))
+
+        if QDesktopServices.openUrl(file_url):
+            logger.info(f"Opened help file in system browser: {file_url.toString()}")
+        else:
+            QMessageBox.warning(
+                self,
+                t('help.title', 'Pomoc'),
+                t('help.open_failed', 'Nie udało się otworzyć pliku pomocy.')
+            )
+            logger.error("Failed to open help file in system browser")
     
     def _setup_window(self):
         """Konfiguracja okna"""
@@ -932,6 +1198,52 @@ class MainWindow(QMainWindow):
             error_layout.addWidget(error_label)
             self.content_stack.addWidget(self.promail_view)
         
+        # Widok FastKey (Shortcuts)
+        try:
+            self.shortcuts_view = ShortcutsWidget(parent=self)
+            # Połącz sygnał status_message z głównym statusBar
+            self.shortcuts_view.status_message.connect(
+                lambda msg, timeout: self.statusBar().showMessage(msg, timeout)
+            )
+            self.content_stack.addWidget(self.shortcuts_view)
+            logger.info("ShortcutsWidget (FastKey) initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize ShortcutsWidget: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            self.shortcuts_view = None
+        
+        # Widok P-File (File Management)
+        try:
+            logger.info("[PFILE INIT] Starting PFileWidget initialization...")
+            self.pfile_view = PFileWidget(parent=self)
+            logger.info("[PFILE INIT] PFileWidget instance created")
+            # Połącz sygnał status_message z głównym statusBar
+            self.pfile_view.status_message.connect(
+                lambda msg: self.statusBar().showMessage(msg, 5000)
+            )
+            logger.info("[PFILE INIT] status_message signal connected")
+            self.content_stack.addWidget(self.pfile_view)
+            logger.info("PFileWidget initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize PFileWidget: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            self.pfile_view = None
+        
+        # Widok TeamWork (Team Collaboration)
+        try:
+            logger.info("[TEAMWORK INIT] Starting TeamWorkModule initialization...")
+            self.teamwork_view = TeamWorkModule(parent=self)
+            logger.info("[TEAMWORK INIT] TeamWorkModule instance created")
+            self.content_stack.addWidget(self.teamwork_view)
+            logger.info("TeamWorkModule initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize TeamWorkModule: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            self.teamwork_view = None
+        
         main_layout.addWidget(self.content_stack, stretch=1)
         
         # Separator
@@ -993,6 +1305,11 @@ class MainWindow(QMainWindow):
         """Połączenie sygnałów i slotów"""
         self.navigation_bar.view_changed.connect(self._on_view_changed)
         self.navigation_bar.second_row_toggled.connect(self._on_nav_row_toggled)  # Nowe połączenie
+        
+        # Skrót klawiszowy F11 dla trybu pełnoekranowego
+        self._fullscreen_shortcut = QShortcut(QKeySequence("F11"), self)
+        self._fullscreen_shortcut.setContext(Qt.ShortcutContext.ApplicationShortcut)
+        self._fullscreen_shortcut.activated.connect(self._toggle_fullscreen)
         
         # TaskBar signals - tylko jeśli TaskBar istnieje
         if hasattr(self, 'quick_input') and self.quick_input:
@@ -1108,16 +1425,34 @@ class MainWindow(QMainWindow):
         """Obsługa zmiany widoczności drugiego rzędu (z NavigationBar) - placeholder dla przyszłych funkcji"""
         logger.info(f"Second navigation row toggled: {is_visible}")
     
+    def _toggle_fullscreen(self):
+        """Przełącza tryb pełnoekranowy (F11) - pasek nawigacyjny pozostaje widoczny"""
+        if self._is_fullscreen:
+            # Wyjdź z trybu pełnoekranowego
+            self.showNormal()
+            self._is_fullscreen = False
+            # Przywróć pasek tytułowy
+            if hasattr(self, 'title_bar'):
+                self.title_bar.setVisible(True)
+            # Pasek nawigacyjny zawsze widoczny
+            logger.info("[MainWindow] Exited fullscreen mode")
+        else:
+            # Przejdź do trybu pełnoekranowego
+            self.showFullScreen()
+            self._is_fullscreen = True
+            # Ukryj tylko pasek tytułowy, zostaw pasek nawigacyjny
+            if hasattr(self, 'title_bar'):
+                self.title_bar.setVisible(False)
+            # Pasek nawigacyjny pozostaje widoczny
+            logger.info("[MainWindow] Entered fullscreen mode - navigation bar visible")
+    
     def _on_view_changed(self, view_name: str):
         """Obsługa zmiany widoku"""
         logger.info(f"View changed to: {view_name}")
-        
+
         # Przełącz widok w zależności od wybranego przycisku
         if view_name == 'settings':
             self.content_stack.setCurrentWidget(self.settings_view)
-            # Ukryj bottom section (TaskBar) w ustawieniach - nie ma sensu dodawać zadań w settings
-            if hasattr(self, 'bottom_section_container'):
-                self.bottom_section_container.setVisible(False)
         elif view_name == 'alarms':
             self.content_stack.setCurrentWidget(self.alarms_view)
             # TaskBar visibility będzie kontrolowana z settings
@@ -1184,6 +1519,29 @@ class MainWindow(QMainWindow):
             else:
                 logger.warning("ProMail view not initialized")
                 self.content_stack.setCurrentWidget(self.main_content)
+        elif view_name == 'fastkey':
+            if hasattr(self, 'shortcuts_view') and self.shortcuts_view:
+                self.content_stack.setCurrentWidget(self.shortcuts_view)
+            else:
+                logger.warning("ShortcutsWidget (FastKey) not initialized")
+                self.content_stack.setCurrentWidget(self.main_content)
+        elif view_name == 'pfile':
+            if hasattr(self, 'pfile_view') and self.pfile_view:
+                self.content_stack.setCurrentWidget(self.pfile_view)
+            else:
+                logger.warning("PFileWidget not initialized")
+                self.content_stack.setCurrentWidget(self.main_content)
+        elif view_name == 'teamwork':
+            if hasattr(self, 'teamwork_view') and self.teamwork_view:
+                self.content_stack.setCurrentWidget(self.teamwork_view)
+                # Aktywuj moduł przy wejściu
+                self.teamwork_view.activate()
+            else:
+                logger.warning("TeamWorkModule not initialized")
+                self.content_stack.setCurrentWidget(self.main_content)
+        elif view_name == 'help':
+            # Obsługa przycisku pomocy z navigation bar
+            self._show_help()
         elif view_name.startswith('custom_'):
             # Obsługa custom buttons
             self._handle_custom_button(view_name)
@@ -1225,6 +1583,9 @@ class MainWindow(QMainWindow):
         elif custom_type == 'external_app':
             # Obsługa aplikacji zewnętrznej
             self._launch_external_app(custom_path)
+        elif custom_type == 'web_page':
+            # Obsługa strony internetowej
+            self._open_web_page(button_id, custom_path)
         else:
             logger.warning(f"Unknown custom_type: {custom_type}")
             self.content_stack.setCurrentWidget(self.main_content)
@@ -1313,6 +1674,37 @@ class MainWindow(QMainWindow):
                 t('external_app.error_title', 'Błąd'),
                 t('external_app.error_message', f'Nie udało się uruchomić aplikacji:\n{str(e)}')
             )
+    
+    def _open_web_page(self, button_id: str, url: str):
+        """Otwiera stronę internetową w prostej przeglądarce"""
+        from ..Modules.p_web.p_web_single import MinimalBrowserWidget
+        
+        # Sprawdź czy viewer dla tego URL już istnieje
+        if button_id in self.custom_module_views:
+            viewer = self.custom_module_views[button_id]
+            self.content_stack.setCurrentWidget(viewer)
+            logger.info(f"Switched to existing browser view: {button_id}")
+            return
+        
+        # Utwórz nowy MinimalBrowserWidget
+        try:
+            browser_widget = MinimalBrowserWidget(url, parent=self)
+            
+            # Dodaj do content_stack i zapisz referencję
+            self.content_stack.addWidget(browser_widget)
+            self.custom_module_views[button_id] = browser_widget
+            self.content_stack.setCurrentWidget(browser_widget)
+            
+            logger.info(f"Opened web page: {button_id} - {url}")
+        except Exception as e:
+            logger.error(f"Error opening web page {url}: {e}")
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.critical(
+                self,
+                t('web_page.error_title', 'Błąd'),
+                t('web_page.error_message', f'Nie udało się otworzyć strony:\n{str(e)}')
+            )
+            self.content_stack.setCurrentWidget(self.main_content)
     
     def _on_task_added(self, payload: dict):
         """Obsługuje dodanie zadania z paska szybkiego wprowadzania."""
@@ -1540,6 +1932,14 @@ class MainWindow(QMainWindow):
                     local_db=self.task_local_db
                 )
                 logger.info("[TaskBar] Data sources updated and configuration reloaded")
+            
+            # FIXED: Zaktualizuj quick_task_dialog używając set_data_sources()
+            if hasattr(self, 'quick_task_dialog') and self.quick_task_dialog:
+                self.quick_task_dialog.set_data_sources(
+                    task_logic=self.task_logic,
+                    local_db=self.task_local_db
+                )
+                logger.info("[QuickTaskDialog] Data sources updated and configuration reloaded")
             
             logger.info(f"✅ Tasks sync enabled for user: {user_data.get('email')}")
             
@@ -1781,7 +2181,34 @@ class MainWindow(QMainWindow):
             traceback.print_exc()
     
     def closeEvent(self, event):
-        """Obsługa zamknięcia okna - cleanup zasobów"""
+        """Obsługa zamknięcia okna - cleanup zasobów lub minimalizacja do zasobnika"""
+        from ..core.config import load_settings
+        
+        # Sprawdź czy użytkownik wymusza zamknięcie (z menu tray) czy po prostu zamyka okno
+        if not hasattr(self, '_force_quit'):
+            self._force_quit = False
+        
+        # Sprawdź ustawienie "praca w tle"
+        settings = load_settings()
+        run_in_background = settings.get('run_in_background', True)
+        
+        if run_in_background and not self._force_quit:
+            # Ukryj okno do zasobnika systemowego zamiast zamykać
+            logger.info("Minimizing to system tray (run in background enabled)")
+            event.ignore()  # Anuluj zamknięcie
+            self.hide()  # Ukryj okno
+            
+            # Pokaż powiadomienie w zasobniku
+            if hasattr(self, 'tray_icon') and self.tray_icon:
+                self.tray_icon.showMessage(
+                    "PRO-Ka-Po",
+                    "Aplikacja działa w tle. Kliknij dwukrotnie ikonę w zasobniku aby przywrócić.",
+                    QSystemTrayIcon.MessageIcon.Information,
+                    2000
+                )
+            return
+        
+        # Pełne zamknięcie aplikacji - cleanup zasobów
         logger.info("MainWindow closing - cleaning up resources...")
         
         try:

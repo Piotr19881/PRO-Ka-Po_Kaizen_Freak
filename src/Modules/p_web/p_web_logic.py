@@ -465,6 +465,15 @@ class PWebLogic:
     # Ulubione
     # ======================
     
+    def get_favorites(self) -> List[Dict]:
+        """
+        Zwraca listę ulubionych zakładek
+        
+        Returns:
+            List[Dict]: Lista zakładek oznaczonych jako ulubione
+        """
+        return [b for b in self.data['bookmarks'] if b.get('favorite', False)]
+    
     def toggle_favorite(self, bookmark_data: Dict) -> tuple[bool, str]:
         """
         Przełącza status ulubionej dla zakładki

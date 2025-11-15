@@ -270,13 +270,17 @@ class TasksWebSocketClient(QThread):
         """Zatrzymaj WebSocket client"""
         self._running = False
         
-        if self._websocket and not self._websocket.closed:
-            # Zamknij połączenie
-            if self._loop and self._loop.is_running():
-                asyncio.run_coroutine_threadsafe(
-                    self._websocket.close(),
-                    self._loop
-                )
+        # Sprawdź czy websocket istnieje i czy można go zamknąć
+        if self._websocket:
+            try:
+                # Zamknij połączenie jeśli loop działa
+                if self._loop and self._loop.is_running():
+                    asyncio.run_coroutine_threadsafe(
+                        self._websocket.close(),
+                        self._loop
+                    )
+            except Exception as e:
+                logger.debug(f"Error closing websocket: {e}")
         
         # Zatrzymaj wątek
         self.quit()

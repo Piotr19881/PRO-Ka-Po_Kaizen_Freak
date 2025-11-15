@@ -192,6 +192,7 @@ class AISettingsTab(QWidget):
         
         self.model_combo = QComboBox()
         self.model_combo.setMinimumHeight(30)
+        self.model_combo.currentIndexChanged.connect(self._on_model_selected)
         model_selection_layout.addWidget(self.model_combo)
         
         # Test selected model button
@@ -248,6 +249,7 @@ class AISettingsTab(QWidget):
         
         # Connect signals
         self.provider_combo.currentIndexChanged.connect(self._on_provider_changed)
+        self.model_combo.currentIndexChanged.connect(self._on_model_selected)
         self._on_provider_changed(0)
         
         # Initialize translations
@@ -316,6 +318,12 @@ class AISettingsTab(QWidget):
         self.model_test_thread = AIModelTestThread(provider, api_key, selected_model)
         self.model_test_thread.test_completed.connect(self._on_model_test_completed)
         self.model_test_thread.start()
+    
+    def _on_model_selected(self, index):
+        """Auto-save settings when user selects a model from dropdown"""
+        if index >= 0 and self.model_combo.count() > 0:
+            # Auto-save to ensure model selection is persisted
+            self._save_settings()
     
     def _on_model_test_completed(self, success, message):
         """Handle model test completion"""

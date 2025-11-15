@@ -1,0 +1,12 @@
+/* Simple language switcher UI */
+#lang-switcher-root{position:fixed;right:18px;top:18px;z-index:99999;font-family:Arial,Helvetica,sans-serif}
+.ls-box{background:rgba(255,255,255,0.95);border:1px solid rgba(0,0,0,0.08);padding:8px 10px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.08);display:flex;gap:8px;align-items:center}
+.ls-select{padding:6px;border-radius:6px;border:1px solid #ddd;background:#fff;font-size:13px}
+.ls-btn{padding:6px 8px;border-radius:6px;border:1px solid #3498db;background:#3498db;color:#fff;font-weight:600;cursor:pointer;font-size:13px}
+.ls-btn.secondary{background:#f1f1f1;color:#333;border-color:#ccc}
+.ls-status{font-size:12px;color:#666;margin-left:6px}
+.ls-hidden{display:none}
+.ls-small{font-size:12px;padding:5px 7px}
+
+/* avoid overlapping on very small screens */
+@media (max-width:420px){#lang-switcher-root{left:8px;right:8px;top:auto;bottom:12px} .ls-box{justify-content:space-between;width:100%}}

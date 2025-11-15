@@ -1,0 +1,1328 @@
+<!DOCTYPE html><!DOCTYPE html>
+
+<html lang="pl"><html lang="pl">
+
+<head><head>
+
+    <meta charset="UTF-8">    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Pomoc - TeamWork</title>    <title>Pomoc - TeamWork (Moduł Współpracy Zespołowej)</title>
+
+    <style>    <style>
+
+        * {        * {
+
+            margin: 0;            margin: 0;
+
+            padding: 0;            padding: 0;
+
+            box-sizing: border-box;            box-sizing: border-box;
+
+        }        }
+
+                
+
+        body {        body {
+
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+
+            line-height: 1.6;            line-height: 1.6;
+
+            color: #333;            color: #333;
+
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+
+            padding: 20px;            padding: 20px;
+
+        }        }
+
+                
+
+        .container {        .container {
+
+            max-width: 900px;            max-width: 1000px;
+
+            margin: 0 auto;            margin: 0 auto;
+
+            background: white;            background: white;
+
+            border-radius: 15px;            border-radius: 15px;
+
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+
+            overflow: hidden;            overflow: hidden;
+
+        }        }
+
+                
+
+        .header {        .header {
+
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+
+            color: white;            color: white;
+
+            padding: 40px;            padding: 40px;
+
+            text-align: center;            text-align: center;
+
+        }        }
+
+                
+
+        .header h1 {        .header h1 {
+
+            font-size: 2.5em;            font-size: 2.5em;
+
+            margin-bottom: 10px;            margin-bottom: 10px;
+
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+
+        }        }
+
+                
+
+        .header .icon {        .header .icon {
+
+            font-size: 4em;            font-size: 4em;
+
+            margin-bottom: 20px;            margin-bottom: 20px;
+
+        }        }
+
+                
+
+        .header p {        .header p {
+
+            font-size: 1.1em;            font-size: 1.2em;
+
+            opacity: 0.95;            opacity: 0.95;
+
+        }        }
+
+                
+
+        .content {        .content {
+
+            padding: 40px;            padding: 40px;
+
+        }        }
+
+                
+
+        .section {        .section {
+
+            margin-bottom: 35px;            margin-bottom: 40px;
+
+        }        }
+
+                
+
+        .section h2 {        .section h2 {
+
+            color: #764ba2;            color: #764ba2;
+
+            font-size: 1.8em;            font-size: 1.8em;
+
+            margin-bottom: 15px;            margin-bottom: 20px;
+
+            padding-bottom: 10px;            padding-bottom: 10px;
+
+            border-bottom: 3px solid #764ba2;            border-bottom: 3px solid #764ba2;
+
+        }        }
+
+                
+
+        .section h3 {        .section h3 {
+
+            color: #667eea;            color: #667eea;
+
+            font-size: 1.3em;            font-size: 1.4em;
+
+            margin-top: 20px;            margin-top: 25px;
+
+            margin-bottom: 10px;            margin-bottom: 15px;
+
+        }        }
+
+                
+
+        .section p {        .section h4 {
+
+            margin-bottom: 12px;            color: #666;
+
+            text-align: justify;            font-size: 1.2em;
+
+        }            margin-top: 20px;
+
+                    margin-bottom: 10px;
+
+        .feature-grid {        }
+
+            display: grid;        
+
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));        .section p {
+
+            gap: 20px;            margin-bottom: 15px;
+
+            margin: 20px 0;            text-align: justify;
+
+        }        }
+
+                
+
+        .feature-card {        .feature-grid {
+
+            background: linear-gradient(135deg, #f5f7ff 0%, #e8ecff 100%);            display: grid;
+
+            padding: 20px;            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+
+            border-radius: 10px;            gap: 20px;
+
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);            margin: 25px 0;
+
+            transition: transform 0.3s ease;        }
+
+        }        
+
+                .feature-card {
+
+        .feature-card:hover {            background: linear-gradient(135deg, #f5f7ff 0%, #e8ecff 100%);
+
+            transform: translateY(-5px);            padding: 25px;
+
+        }            border-radius: 10px;
+
+                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+
+        .feature-card .emoji {            transition: transform 0.3s ease, box-shadow 0.3s ease;
+
+            font-size: 2.5em;        }
+
+            margin-bottom: 10px;        
+
+            display: block;        .feature-card:hover {
+
+        }            transform: translateY(-5px);
+
+                    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+
+        .feature-card h3 {        }
+
+            color: #764ba2;        
+
+            font-size: 1.2em;        .feature-card .emoji {
+
+            margin-bottom: 8px;            font-size: 2.5em;
+
+            margin-top: 0;            margin-bottom: 15px;
+
+        }            display: block;
+
+                }
+
+        .feature-card p {        
+
+            color: #555;        .feature-card h3 {
+
+            font-size: 0.95em;            color: #764ba2;
+
+            margin: 0;            font-size: 1.3em;
+
+        }            margin-bottom: 10px;
+
+                    margin-top: 0;
+
+        .info-box {        }
+
+            background: #e8f4f8;        
+
+            border-left: 4px solid #17a2b8;        .feature-card p {
+
+            padding: 15px 20px;            color: #555;
+
+            margin: 15px 0;            font-size: 0.95em;
+
+            border-radius: 5px;        }
+
+        }        
+
+                .info-box {
+
+        .tip-box {            background: #f8f9fa;
+
+            background: #fff9e6;            border-left: 4px solid #667eea;
+
+            border-left: 4px solid #ffc107;            padding: 15px 20px;
+
+            padding: 15px 20px;            margin: 15px 0;
+
+            margin: 15px 0;            border-radius: 5px;
+
+            border-radius: 5px;        }
+
+        }        
+
+                .warning-box {
+
+        .step-list {            background: #fff3cd;
+
+            counter-reset: step-counter;            border-left: 4px solid #ffc107;
+
+            list-style: none;            padding: 15px 20px;
+
+            margin: 20px 0;            margin: 15px 0;
+
+        }            border-radius: 5px;
+
+                }
+
+        .step-list li {        
+
+            counter-increment: step-counter;        .tip-box {
+
+            margin-bottom: 20px;            background: #d1ecf1;
+
+            padding-left: 50px;            border-left: 4px solid #17a2b8;
+
+            position: relative;            padding: 15px 20px;
+
+        }            margin: 15px 0;
+
+                    border-radius: 5px;
+
+        .step-list li::before {        }
+
+            content: counter(step-counter);        
+
+            position: absolute;        .step-list {
+
+            left: 0;            counter-reset: step-counter;
+
+            top: 0;            list-style: none;
+
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);            margin: 20px 0;
+
+            color: white;        }
+
+            width: 35px;        
+
+            height: 35px;        .step-list li {
+
+            border-radius: 50%;            counter-increment: step-counter;
+
+            display: flex;            margin-bottom: 25px;
+
+            align-items: center;            padding-left: 60px;
+
+            justify-content: center;            position: relative;
+
+            font-weight: bold;        }
+
+            font-size: 1.1em;        
+
+        }        .step-list li::before {
+
+                    content: counter(step-counter);
+
+        ul.bullet-list {            position: absolute;
+
+            list-style: none;            left: 0;
+
+            margin: 15px 0;            top: 0;
+
+            padding-left: 0;            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+
+        }            color: white;
+
+                    width: 40px;
+
+        ul.bullet-list li {            height: 40px;
+
+            padding-left: 25px;            border-radius: 50%;
+
+            margin-bottom: 8px;            display: flex;
+
+            position: relative;            align-items: center;
+
+        }            justify-content: center;
+
+                    font-weight: bold;
+
+        ul.bullet-list li::before {            font-size: 1.2em;
+
+            content: "▶";        }
+
+            position: absolute;        
+
+            left: 0;        ul.bullet-list {
+
+            color: #764ba2;            list-style: none;
+
+            font-size: 0.7em;            margin: 15px 0;
+
+        }            padding-left: 0;
+
+                }
+
+        .button {        
+
+            display: inline-block;        ul.bullet-list li {
+
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);            padding-left: 30px;
+
+            color: white;            margin-bottom: 10px;
+
+            padding: 6px 14px;            position: relative;
+
+            border-radius: 5px;        }
+
+            font-weight: bold;        
+
+            margin: 0 3px;        ul.bullet-list li::before {
+
+            font-size: 0.9em;            content: "▶";
+
+        }            position: absolute;
+
+                    left: 0;
+
+        .footer {            color: #764ba2;
+
+            background: #f8f9fa;            font-size: 0.8em;
+
+            padding: 25px;        }
+
+            text-align: center;        
+
+            color: #666;        .button {
+
+        }            display: inline-block;
+
+    </style>            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+
+</head>            color: white;
+
+<body>            padding: 8px 16px;
+
+    <div class="container">            border-radius: 5px;
+
+        <div class="header">            font-weight: bold;
+
+            <div class="icon">👥</div>            margin: 0 3px;
+
+            <h1>TeamWork</h1>            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+
+            <p>Współpraca zespołowa - instrukcja obsługi</p>        }
+
+        </div>        
+
+        table {
+
+        <div class="content">            width: 100%;
+
+            <!-- WPROWADZENIE -->            border-collapse: collapse;
+
+            <div class="section">            margin: 20px 0;
+
+                <h2>📋 Czym jest TeamWork?</h2>        }
+
+                <p>        
+
+                    TeamWork to moduł do współpracy w zespole. Pozwala na tworzenie grup projektowych,        table th {
+
+                    wymianę wiadomości, przesyłanie plików, zarządzanie zadaniami i śledzenie postępów prac.            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+
+                    Wszystkie dane są automatycznie zapisywane w chmurze.            color: white;
+
+                </p>            padding: 12px;
+
+            text-align: left;
+
+                <div class="feature-grid">        }
+
+                    <div class="feature-card">        
+
+                        <span class="emoji">🏢</span>        table td {
+
+                        <h3>Grupy robocze</h3>            padding: 12px;
+
+                        <p>Twórz zespoły projektowe i zapraszaj współpracowników</p>            border-bottom: 1px solid #ddd;
+
+                    </div>        }
+
+                    <div class="feature-card">        
+
+                        <span class="emoji">💬</span>        table tr:hover {
+
+                        <h3>Wiadomości</h3>            background: #f5f7ff;
+
+                        <p>Rozmawiaj w wątkach tematycznych z historią</p>        }
+
+                    </div>        
+
+                    <div class="feature-card">        .footer {
+
+                        <span class="emoji">📁</span>            background: #f8f9fa;
+
+                        <h3>Pliki</h3>            padding: 30px;
+
+                        <p>Udostępniaj dokumenty, zdjęcia i inne pliki</p>            text-align: center;
+
+                    </div>            color: #666;
+
+                    <div class="feature-card">        }
+
+                        <span class="emoji">✅</span>        
+
+                        <h3>Zadania</h3>        .footer p {
+
+                        <p>Przypisuj zadania z terminami i śledź postępy</p>            margin: 5px 0;
+
+                    </div>        }
+
+                </div>        
+
+            </div>        .icon-inline {
+
+            display: inline-block;
+
+            <!-- JAK ZACZĄĆ -->            vertical-align: middle;
+
+            <div class="section">            margin: 0 5px;
+
+                <h2>🚀 Jak zacząć?</h2>        }
+
+                    </style>
+
+                <h3>Pierwsze kroki</h3></head>
+                        <link rel="stylesheet" href="assets/lang-switcher.css">
+                        <script defer src="assets/lang-switcher.js"></script>
+                    </head>
+                <ol class="step-list"><body>
+
+                    <li>    <div class="container">
+
+                        <strong>Otwórz moduł TeamWork</strong><br>        <div class="header">
+
+                        Kliknij przycisk <span class="button">TeamWork</span> w menu głównym aplikacji.            <div class="icon">👥</div>
+
+                    </li>            <h1>TeamWork</h1>
+
+                    <li>            <p>Moduł Współpracy Zespołowej</p>
+
+                        <strong>Utwórz swoją pierwszą grupę</strong><br>            <p style="font-size: 0.9em; margin-top: 10px;">Zarządzanie projektami, komunikacja i współpraca w zespole</p>
+
+                        Kliknij przycisk <span class="button">Utwórz grupę</span>, wpisz nazwę (np. "Mój projekt")         </div>
+
+                        i opcjonalnie dodaj opis.
+
+                    </li>        <div class="content">
+
+                    <li>            <!-- WPROWADZENIE -->
+
+                        <strong>Dodaj pierwszy wątek</strong><br>            <div class="section">
+
+                        Wybierz utworzoną grupę, kliknij <span class="button">Utwórz wątek</span>,                 <h2>📋 Co to jest TeamWork?</h2>
+
+                        wpisz tytuł (np. "Planowanie") i zapisz.                <p>
+
+                    </li>                    <strong>TeamWork</strong> to zaawansowany moduł współpracy zespołowej zintegrowany z PRO-Ka-Po Kaizen Freak.
+
+                    <li>                    Umożliwia tworzenie grup roboczych, zarządzanie projektami, wymianę plików, komunikację w czasie rzeczywistym
+
+                        <strong>Rozpocznij pracę!</strong><br>                    oraz śledzenie postępów zadań - wszystko zsynchronizowane z chmurą poprzez API FastAPI i PostgreSQL.
+
+                        Możesz teraz wysyłać wiadomości, dodawać pliki i tworzyć zadania.                </p>
+
+                    </li>
+
+                </ol>                <div class="feature-grid">
+
+                    <div class="feature-card">
+
+                <div class="tip-box">                        <span class="emoji">🏢</span>
+
+                    <strong>💡 Wskazówka:</strong> Jako twórca grupy masz pełne uprawnienia do zarządzania nią.                        <h3>Grupy Robocze</h3>
+
+                    Możesz zapraszać inne osoby i przydzielać im role.                        <p>Twórz nieograniczoną liczbę grup roboczych z różnymi zespołami i projektami</p>
+
+                </div>                    </div>
+
+            </div>                    <div class="feature-card">
+
+                        <span class="emoji">💬</span>
+
+            <!-- INTERFEJS -->                        <h3>Wątki Dyskusji</h3>
+
+            <div class="section">                        <p>Organizuj rozmowy w tematyczne wątki z historią wiadomości</p>
+
+                <h2>🖥️ Jak się poruszać po module?</h2>                    </div>
+
+                                    <div class="feature-card">
+
+                <h3>Lewa strona - Drzewo grup</h3>                        <span class="emoji">✅</span>
+
+                <p>Po lewej stronie zobaczysz listę swoich grup i wątków:</p>                        <h3>Zarządzanie Zadaniami</h3>
+
+                <ul class="bullet-list">                        <p>Twórz zadania, przypisuj odpowiedzialnych i śledź terminy</p>
+
+                    <li>Kliknij na nazwę grupy, aby ją rozwinąć i zobaczyć wątki</li>                    </div>
+
+                    <li>Kliknij na wątek, aby otworzyć jego zawartość</li>                    <div class="feature-card">
+
+                    <li>Użyj przycisku <span class="button">Zarządzanie zespołami</span> aby zobaczyć wszystkie grupy</li>                        <span class="emoji">📁</span>
+
+                </ul>                        <h3>Wymiana Plików</h3>
+
+                        <p>Uploaduj pliki do Backblaze B2 i udostępniaj je zespołowi</p>
+
+                <h3>Górna część środka - Członkowie</h3>                    </div>
+
+                <p>                    <div class="feature-card">
+
+                    Tutaj zobaczysz listę osób należących do wybranej grupy. Możesz sprawdzić kto ma jaką rolę                        <span class="emoji">📊</span>
+
+                    (właściciel, administrator, członek).                        <h3>Wykres Gantta</h3>
+
+                </p>                        <p>Wizualizuj harmonogram zadań na wykresie Gantta</p>
+
+                    </div>
+
+                <h3>Główna część - Zakładki z treścią</h3>                    <div class="feature-card">
+
+                <p>W środku znajdziesz zakładki z różnymi funkcjami:</p>                        <span class="emoji">🔗</span>
+
+                <ul class="bullet-list">                        <h3>Linki Współdzielenia</h3>
+
+                    <li><strong>Rozmowy</strong> - historia wiadomości w wątku</li>                        <p>Generuj linki zaproszeń do grup z definiowanymi rolami</p>
+
+                    <li><strong>Załączone pliki</strong> - wszystkie udostępnione pliki</li>                    </div>
+
+                    <li><strong>Zadania</strong> - lista zadań do wykonania</li>                </div>
+
+                    <li><strong>Linki</strong> - zapisane adresy internetowe</li>            </div>
+
+                    <li><strong>Ważne</strong> - wszystko oznaczone gwiazdką</li>
+
+                </ul>            <!-- STRUKTURA MODUŁU -->
+
+            </div>            <div class="section">
+
+                <h2>🗂️ Struktura Modułu</h2>
+
+            <!-- WIADOMOŚCI -->                <p>Moduł TeamWork składa się z trzech głównych paneli:</p>
+
+            <div class="section">
+
+                <h2>💬 Rozmowy</h2>                <h3>1. Panel Struktury Zespołów (Lewa Strona)</h3>
+
+                                <ul class="bullet-list">
+
+                <h3>Jak wysłać wiadomość?</h3>                    <li><strong>Drzewo grup i wątków</strong> - hierarchiczna struktura wszystkich grup roboczych</li>
+
+                <ol class="step-list">                    <li><strong>Przyciski zarządzania</strong>:
+
+                    <li>Wybierz wątek z drzewa po lewej stronie</li>                        <ul style="margin-top: 10px; list-style: circle; margin-left: 30px;">
+
+                    <li>Przejdź do zakładki <strong>Rozmowy</strong></li>                            <li><span class="button">Zarządzanie zespołami</span> - tworzenie nowych grup</li>
+
+                    <li>Wpisz swoją wiadomość w polu na dole</li>                            <li><span class="button">Utwórz grupę</span> - szybkie dodanie grupy</li>
+
+                    <li>Kliknij <span class="button">Odpowiedź</span></li>                            <li><span class="button">Utwórz wątek</span> - nowy wątek w wybranej grupie</li>
+
+                </ol>                            <li><span class="button">Zaproszenia</span> - zarządzanie zaproszeniami</li>
+
+                        </ul>
+
+                <h3>Co możesz zrobić z wiadomościami?</h3>                    </li>
+
+                <ul class="bullet-list">                    <li><strong>Wyszukiwanie</strong> - filtrowanie grup i wątków</li>
+
+                    <li><strong>Oznacz jako ważną</strong> - kliknij gwiazdkę ⭐ obok wiadomości</li>                </ul>
+
+                    <li><strong>Odpowiedz</strong> - użyj przycisku <span class="button">Odpowiedź</span></li>
+
+                    <li><strong>Zobacz ważne</strong> - przejdź do zakładki "Ważne" aby zobaczyć wszystkie oznaczone wiadomości</li>                <h3>2. Panel Członków (Górna Część Środka)</h3>
+
+                </ul>                <ul class="bullet-list">
+
+                    <li>Lista wszystkich członków wybranej grupy</li>
+
+                <div class="info-box">                    <li>Role członków (Owner, Admin, Member)</li>
+
+                    <strong>ℹ️ Dobra praktyka:</strong> Oznaczaj gwiazdką najważniejsze wiadomości,                     <li>Możliwość zarządzania uprawnieniami (tylko dla Owner/Admin)</li>
+
+                    np. decyzje, ustalenia czy terminy. Będziesz mógł je łatwo odnaleźć w zakładce "Ważne".                    <li>Przycisk <span class="button">Zarządzaj</span> do edycji członków</li>
+
+                </div>                </ul>
+
+            </div>
+
+                <h3>3. Panel Treści (Główna Część)</h3>
+
+            <!-- PLIKI -->                <p>Panel z zakładkami zawierający:</p>
+
+            <div class="section">                <ul class="bullet-list">
+
+                <h2>📁 Pliki</h2>                    <li><strong>📝 Rozmowy</strong> - historia wiadomości w wątku</li>
+
+                                    <li><strong>📎 Załączone pliki</strong> - pliki udostępnione w wątku</li>
+
+                <h3>Jak dodać plik?</h3>                    <li><strong>✅ Zadania</strong> - lista zadań i wykres Gantta</li>
+
+                <ol class="step-list">                    <li><strong>🔗 Linki</strong> - zapisane linki w wątku</li>
+
+                    <li>Przejdź do zakładki <strong>Załączone pliki</strong></li>                    <li><strong>⭐ Ważne</strong> - agregacja ważnych elementów (wiadomości, pliki, zadania)</li>
+
+                    <li>Kliknij przycisk <span class="button">Upload File</span></li>                </ul>
+
+                    <li>Wybierz plik z dysku (max 50 MB)</li>            </div>
+
+                    <li>Poczekaj aż plik się prześle do chmury</li>
+
+                </ol>            <!-- ROZPOCZĘCIE PRACY -->
+
+            <div class="section">
+
+                <h3>Zarządzanie plikami</h3>                <h2>🚀 Rozpoczęcie Pracy</h2>
+
+                <ul class="bullet-list">
+
+                    <li><strong>Pobierz plik</strong> - kliknij <span class="button">Pobierz</span> obok pliku</li>                <h3>Pierwsze Uruchomienie</h3>
+
+                    <li><strong>Usuń plik</strong> - kliknij <span class="button">Usuń</span> (tylko jeśli jesteś autorem lub właścicielem grupy)</li>                <ol class="step-list">
+
+                    <li><strong>Oznacz jako ważny</strong> - kliknij gwiazdkę ⭐</li>                    <li>
+
+                </ul>                        <strong>Uruchom moduł TeamWork</strong><br>
+
+                        Kliknij przycisk <span class="button">TeamWork</span> w menu głównym aplikacji.
+
+                <div class="tip-box">                    </li>
+
+                    <strong>💡 Wskazówka:</strong> Możesz przesyłać dokumenty Word, Excel, PDF, zdjęcia JPG/PNG,                    <li>
+
+                    pliki ZIP i wiele innych. Ważne: plik nie może przekroczyć 50 MB.                        <strong>Zaloguj się do systemu</strong><br>
+
+                </div>                        Moduł automatycznie użyje tokenów autoryzacyjnych z PRO-Ka-Po. Jeśli nie jesteś zalogowany,
+
+            </div>                        system poprosi o uwierzytelnienie.
+
+                    </li>
+
+            <!-- ZADANIA -->                    <li>
+
+            <div class="section">                        <strong>Stwórz pierwszą grupę</strong><br>
+
+                <h2>✅ Zadania</h2>                        Kliknij <span class="button">Utwórz grupę</span> i wypełnij formularz:
+
+                                        <ul style="margin-top: 10px; list-style: circle; margin-left: 30px;">
+
+                <h3>Jak utworzyć zadanie?</h3>                            <li>Nazwa grupy (np. "Projekt Alpha")</li>
+
+                <ol class="step-list">                            <li>Opis grupy (opcjonalnie)</li>
+
+                    <li>Przejdź do zakładki <strong>Zadania</strong></li>                        </ul>
+
+                    <li>Kliknij <span class="button">+ Zadanie</span></li>                    </li>
+
+                    <li>Wypełnij formularz:                    <li>
+
+                        <ul style="margin-top: 10px; list-style: circle; margin-left: 30px;">                        <strong>Utwórz pierwszy wątek</strong><br>
+
+                            <li>Tytuł zadania (np. "Przygotować raport")</li>                        Wybierz grupę w drzewie, kliknij <span class="button">Utwórz wątek</span> i podaj:
+
+                            <li>Opis (opcjonalnie)</li>                        <ul style="margin-top: 10px; list-style: circle; margin-left: 30px;">
+
+                            <li>Kto ma to zrobić?</li>                            <li>Tytuł wątku (np. "Sprint Planning - Listopad 2025")</li>
+
+                            <li>Kiedy ma być gotowe? (termin)</li>                            <li>Grupę docelową</li>
+
+                            <li>Priorytet (niski/średni/wysoki)</li>                            <li>Pierwszą wiadomość (opcjonalnie)</li>
+
+                        </ul>                        </ul>
+
+                    </li>                    </li>
+
+                    <li>Kliknij <span class="button">Zapisz</span></li>                </ol>
+
+                </ol>
+
+                <div class="tip-box">
+
+                <h3>Praca z zadaniami</h3>                    <strong>💡 Wskazówka:</strong> Jako Owner grupy masz pełne uprawnienia - możesz zarządzać członkami,
+
+                <ul class="bullet-list">                    przyznawać role Admin oraz usuwać grupę. Inne osoby mogą dołączyć przez linki zaproszeń.
+
+                    <li><strong>Oznacz jako ukończone</strong> - zaznacz checkbox obok zadania</li>                </div>
+
+                    <li><strong>Zobacz szczegóły</strong> - kliknij na zadanie</li>            </div>
+
+                    <li><strong>Edytuj zadanie</strong> - otwórz zadanie i zmień dane</li>
+
+                    <li><strong>Usuń zadanie</strong> - kliknij <span class="button">Usuń</span></li>            <!-- FUNKCJE SZCZEGÓŁOWE -->
+
+                </ul>            <div class="section">
+
+                <h2>⚙️ Główne Funkcje</h2>
+
+                <h3>Wykres Gantta</h3>
+
+                <p>                <h3>📝 Rozmowy (Wiadomości)</h3>
+
+                    Wykres Gantta pokazuje wszystkie zadania na osi czasu. Możesz zobaczyć:                <ul class="bullet-list">
+
+                </p>                    <li><strong>Wysyłanie wiadomości</strong> - wpisz tekst i naciśnij <span class="button">Odpowiedź</span></li>
+
+                <ul class="bullet-list">                    <li><strong>Kolory wiadomości</strong> - każda wiadomość może mieć własny kolor tła (ustawiany przy tworzeniu)</li>
+
+                    <li>Które zadania są w trakcie realizacji (niebieski kolor)</li>                    <li><strong>Automatyczny kontrast</strong> - kolor tekstu jest automatycznie dostosowywany do tła (czarny na jasnym, biały na ciemnym)</li>
+
+                    <li>Które są już ukończone (zielony kolor)</li>                    <li><strong>Oznaczanie jako ważne</strong> - kliknij <span class="icon-inline">⭐</span> przy wiadomości</li>
+
+                    <li>Które są przeterminowane (czerwony kolor)</li>                    <li><strong>Edycja wiadomości</strong> - przycisk <span class="button">Odpowiedź</span> przy własnych wiadomościach</li>
+
+                    <li>Kiedy kończy się termin każdego zadania</li>                    <li><strong>Historia</strong> - wszystkie wiadomości są automatycznie zapisywane w bazie PostgreSQL</li>
+
+                </ul>                </ul>
+
+                <p>
+
+                    Aby zobaczyć wykres, kliknij przycisk <span class="button">Pokaż wykres Gantta</span>                 <h3>📁 Pliki</h3>
+
+                    w zakładce Zadania.                <ul class="bullet-list">
+
+                </p>                    <li><strong>Upload plików</strong> - kliknij <span class="button">Upload File</span> w zakładce "Załączone pliki"</li>
+
+            </div>                    <li><strong>Obsługiwane typy</strong> - dokumenty, obrazy, PDF, arkusze kalkulacyjne, pliki ZIP</li>
+
+                    <li><strong>Limit rozmiaru</strong> - maksymalnie 50 MB na plik</li>
+
+            <!-- CZŁONKOWIE -->                    <li><strong>Przechowywanie</strong> - pliki są uploadowane do Backblaze B2 (cloud storage)</li>
+
+            <div class="section">                    <li><strong>Pobieranie</strong> - kliknij <span class="button">Pobierz</span> przy pliku</li>
+
+                <h2>👥 Zarządzanie zespołem</h2>                    <li><strong>Usuwanie</strong> - przycisk <span class="button">Usuń</span> (tylko autor lub owner grupy)</li>
+
+                                    <li><strong>Oznaczanie ważnych</strong> - gwiazda <span class="icon-inline">⭐</span> przy pliku</li>
+
+                <h3>Role w grupie</h3>                </ul>
+
+                <ul class="bullet-list">
+
+                    <li><strong>Właściciel (Owner)</strong> - może wszystko, w tym usunąć grupę i zarządzać administratorami</li>                <div class="warning-box">
+
+                    <li><strong>Administrator (Admin)</strong> - może zarządzać wątkami, zadaniami, plikami i członkami</li>                    <strong>⚠️ Uwaga:</strong> Usunięcie pliku z TeamWork usuwa go również z Backblaze B2.
+
+                    <li><strong>Członek (Member)</strong> - może pisać wiadomości, dodawać pliki i zadania</li>                    Operacja jest nieodwracalna - upewnij się, że nie potrzebujesz już tego pliku.
+
+                </ul>                </div>
+
+
+
+                <h3>Jak zaprosić nową osobę?</h3>                <h3>✅ Zadania i Wykres Gantta</h3>
+
+                <ol class="step-list">
+
+                    <li>Kliknij przycisk <span class="button">Zaproszenia</span></li>                <h4>Tworzenie Zadań</h4>
+
+                    <li>Wybierz grupę, do której chcesz zaprosić</li>                <ol class="step-list">
+
+                    <li>Kliknij <span class="button">Generuj link</span></li>                    <li>Przejdź do zakładki <strong>Zadania</strong></li>
+
+                    <li>Wybierz jaką rolę ma dostać nowa osoba (Admin lub Member)</li>                    <li>Kliknij <span class="button">+ Zadanie</span> lub <span class="button">Utwórz zadanie</span></li>
+
+                    <li>Skopiuj wygenerowany link i wyślij go zapraszanej osobie (np. mailem lub komunikatorem)</li>                    <li>Wypełnij formularz:
+
+                    <li>Osoba kliknie w link i automatycznie dołączy do grupy</li>                        <ul style="margin-top: 10px; list-style: circle; margin-left: 30px;">
+
+                </ol>                            <li>Tytuł zadania</li>
+
+                            <li>Opis (opcjonalnie)</li>
+
+                <h3>Jak zmienić rolę członka?</h3>                            <li>Osoba odpowiedzialna</li>
+
+                <p>Jeśli jesteś właścicielem lub administratorem:</p>                            <li>Data wykonania (due date)</li>
+
+                <ol class="step-list">                            <li>Priorytet (Niski / Średni / Wysoki)</li>
+
+                    <li>Kliknij <span class="button">Zarządzaj</span> w panelu członków</li>                            <li>Czy jest ważne? (checkbox)</li>
+
+                    <li>Znajdź osobę na liście</li>                        </ul>
+
+                    <li>Zmień jej rolę na Admin lub Member</li>                    </li>
+
+                    <li>Zapisz zmiany</li>                </ol>
+
+                </ol>
+
+                <h4>Zarządzanie Zadaniami</h4>
+
+                <div class="info-box">                <ul class="bullet-list">
+
+                    <strong>ℹ️ Pamiętaj:</strong> Tylko właściciel grupy może przekazać komuś rolę właściciela                    <li><strong>Oznaczanie jako ukończone</strong> - checkbox przy zadaniu</li>
+
+                    lub usunąć całą grupę. Administrator nie może usuwać grupy ani zmieniać właściciela.                    <li><strong>Edycja</strong> - kliknij na zadanie aby edytować szczegóły</li>
+
+                </div>                    <li><strong>Usuwanie</strong> - przycisk <span class="button">Usuń</span> (tylko twórca lub owner)</li>
+
+            </div>                    <li><strong>Filtrowanie</strong>:
+
+                        <ul style="margin-top: 10px; list-style: circle; margin-left: 30px;">
+
+            <!-- ZAKŁADKA WAŻNE -->                            <li>Wszystkie zadania</li>
+
+            <div class="section">                            <li>Aktywne (nieukończone)</li>
+
+                <h2>⭐ Zakładka "Ważne"</h2>                            <li>Ukończone</li>
+
+                <p>                            <li>Ważne</li>
+
+                    Zakładka <strong>Ważne</strong> to Twoje centrum najważniejszych informacji.                         </ul>
+
+                    Znajdziesz tu wszystko, co oznaczyłeś gwiazdką:                    </li>
+
+                </p>                </ul>
+
+                <ul class="bullet-list">
+
+                    <li>💬 Ważne wiadomości</li>                <h4>Wykres Gantta</h4>
+
+                    <li>📁 Ważne pliki</li>                <p>
+
+                    <li>✅ Ważne zadania</li>                    Wykres Gantta automatycznie wizualizuje wszystkie zadania w wątku na osi czasu.
+
+                </ul>                    Każde zadanie jest przedstawione jako pasek od daty utworzenia do terminu wykonania (due date).
+
+                <p>                </p>
+
+                    Dzięki temu nie musisz szukać kluczowych informacji - wszystko masz w jednym miejscu!                <ul class="bullet-list">
+
+                </p>                    <li><strong>Kolory</strong>:
+
+                        <ul style="margin-top: 10px; list-style: circle; margin-left: 30px;">
+
+                <div class="tip-box">                            <li>🟢 Zielony - zadanie ukończone</li>
+
+                    <strong>💡 Wskazówka:</strong> Oznaczaj gwiazdką wszystko, co jest naprawdę ważne dla projektu:                            <li>🔴 Czerwony - zadanie po terminie (przeterminowane)</li>
+
+                    decyzje, terminy, kluczowe dokumenty. To Twoja "tablica korkowa" najważniejszych spraw.                            <li>🔵 Niebieski - zadanie aktywne w terminie</li>
+
+                </div>                        </ul>
+
+            </div>                    </li>
+
+                    <li><strong>Przełączanie widoku</strong> - kliknij <span class="button">Pokaż wykres Gantta</span> / <span class="button">Ukryj wykres Gantta</span></li>
+
+            <!-- WSKAZÓWKI -->                    <li><strong>Harmonogram</strong> - oś czasu z podziałem na dni/tygodnie</li>
+
+            <div class="section">                </ul>
+
+                <h2>💡 Przydatne wskazówki</h2>
+
+                                <h3>👥 Zarządzanie Członkami</h3>
+
+                <h3>Dobra organizacja</h3>
+
+                <ul class="bullet-list">                <h4>Role w Grupie</h4>
+
+                    <li>Twórz osobne grupy dla różnych projektów</li>                <table>
+
+                    <li>W każdej grupie twórz wątki tematyczne (np. "Marketing", "Technologia", "Finanse")</li>                    <thead>
+
+                    <li>Regularnie oznaczaj ważne wiadomości gwiazdką</li>                        <tr>
+
+                    <li>Aktualizuj status zadań - odznaczaj ukończone</li>                            <th>Rola</th>
+
+                </ul>                            <th>Uprawnienia</th>
+
+                        </tr>
+
+                <h3>Skuteczna komunikacja</h3>                    </thead>
+
+                <ul class="bullet-list">                    <tbody>
+
+                    <li>Pisz jasne, konkretne wiadomości</li>                        <tr>
+
+                    <li>Używaj wątków tematycznych - nie mieszaj spraw w jednym wątku</li>                            <td><strong>Owner</strong></td>
+
+                    <li>Przy ważnych decyzjach oznaczaj wiadomość gwiazdką</li>                            <td>Pełne uprawnienia - zarządzanie grupą, członkami, usuwanie grupy, przekazywanie roli Owner</td>
+
+                    <li>Dodawaj pliki bezpośrednio do wątku, zamiast przesyłać mailem</li>                        </tr>
+
+                </ul>                        <tr>
+
+                            <td><strong>Admin</strong></td>
+
+                <h3>Zarządzanie zadaniami</h3>                            <td>Zarządzanie wątkami, zadaniami, plikami; dodawanie/usuwanie członków (bez Owner)</td>
+
+                <ul class="bullet-list">                        </tr>
+
+                    <li>Ustawiaj realistyczne terminy wykonania</li>                        <tr>
+
+                    <li>Przypisuj zadania konkretnym osobom</li>                            <td><strong>Member</strong></td>
+
+                    <li>Używaj wykres Gantta do planowania harmonogramu</li>                            <td>Tworzenie wątków, dodawanie wiadomości, uploadowanie plików, tworzenie zadań</td>
+
+                    <li>Sprawdzaj regularnie zakładkę "Ważne" - są tam priorytetowe zadania</li>                        </tr>
+
+                </ul>                    </tbody>
+
+            </div>                </table>
+
+
+
+            <!-- ROZWIĄZYWANIE PROBLEMÓW -->                <h4>Zapraszanie Nowych Członków</h4>
+
+            <div class="section">                <ol class="step-list">
+
+                <h2>🔧 Co zrobić gdy coś nie działa?</h2>                    <li>
+
+                                        <strong>Wygeneruj link zaproszenia</strong><br>
+
+                <h3>Nie mogę się zalogować / błąd "Unauthorized"</h3>                        Kliknij <span class="button">Zaproszenia</span> → wybierz grupę → kliknij <span class="button">Generuj link</span>
+
+                <ul class="bullet-list">                    </li>
+
+                    <li>Wyloguj się i zaloguj ponownie w aplikacji PRO-Ka-Po</li>                    <li>
+
+                    <li>Uruchom moduł TeamWork jeszcze raz</li>                        <strong>Wybierz domyślną rolę</strong><br>
+
+                </ul>                        Określ, czy nowi członkowie dołączą jako Admin czy Member
+
+                    </li>
+
+                <h3>Nie widzę grup / wątków</h3>                    <li>
+
+                <ul class="bullet-list">                        <strong>Skopiuj link</strong><br>
+
+                    <li>Sprawdź połączenie z internetem - moduł działa tylko online</li>                        System wygeneruje unikalny URL - wyślij go potencjalnym członkom
+
+                    <li>Kliknij przycisk odświeżania (F5)</li>                    </li>
+
+                    <li>Poczekaj chwilę - serwer może się uruchamiać</li>                    <li>
+
+                </ul>                        <strong>Nowy członek klika w link</strong><br>
+
+                        Po zalogowaniu zostanie automatycznie dodany do grupy z wybraną rolą
+
+                <h3>Nie mogę wysłać pliku</h3>                    </li>
+
+                <ul class="bullet-list">                </ol>
+
+                    <li>Sprawdź czy plik nie jest za duży (max 50 MB)</li>
+
+                    <li>Upewnij się, że plik nie jest otwarty w innym programie</li>                <div class="info-box">
+
+                    <li>Spróbuj ponownie za chwilę</li>                    <strong>ℹ️ Informacja:</strong> Linki zaproszeń są jednorazowe i wygasają po użyciu.
+
+                </ul>                    Możesz wygenerować wiele linków z różnymi rolami dla różnych osób.
+
+                </div>
+
+                <h3>Tekst wiadomości jest niewidoczny</h3>
+
+                <ul class="bullet-list">                <h3>⭐ Zakładka "Ważne"</h3>
+
+                    <li>To problem z kontrastem - zostanie automatycznie naprawiony przy kolejnym wczytaniu</li>                <p>
+
+                    <li>Jeśli problem się powtarza, odśwież zakładkę Rozmowy</li>                    Zakładka <strong>Ważne</strong> automatycznie agreguje wszystkie elementy oznaczone gwiazdką:
+
+                </ul>                </p>
+
+                <ul class="bullet-list">
+
+                <div class="info-box">                    <li>💬 Ważne wiadomości</li>
+
+                    <strong>ℹ️ Ważne:</strong> Moduł TeamWork wymaga stałego połączenia z internetem.                     <li>📁 Ważne pliki</li>
+
+                    Jeśli widzisz błędy, najpierw sprawdź czy masz internet.                    <li>✅ Ważne zadania</li>
+
+                </div>                </ul>
+
+            </div>                <p>
+
+                    To Twoje osobiste centrum kluczowych informacji w projekcie - wszystko w jednym miejscu!
+
+            <!-- FAQ -->                </p>
+
+            <div class="section">            </div>
+
+                <h2>❓ Najczęściej zadawane pytania</h2>
+
+                            <!-- SYNCHRONIZACJA -->
+
+                <h3>Czy mogę używać TeamWork bez internetu?</h3>            <div class="section">
+
+                <p>Nie, moduł działa wyłącznie online - wymaga połączenia z serwerem.</p>                <h2>☁️ Synchronizacja i Baza Danych</h2>
+
+
+
+                <h3>Ile grup mogę utworzyć?</h3>                <h3>Architektura Backend</h3>
+
+                <p>Nie ma limitu - możesz tworzyć tyle grup ile potrzebujesz.</p>                <ul class="bullet-list">
+
+                    <li><strong>FastAPI</strong> - RESTful API obsługujące wszystkie operacje CRUD</li>
+
+                <h3>Czy usunięcie grupy można cofnąć?</h3>                    <li><strong>PostgreSQL 14+</strong> - relacyjna baza danych przechowująca:
+
+                <p>Nie, usunięcie grupy jest nieodwracalne. Usuwane są wszystkie wątki, wiadomości, pliki i zadania w tej grupie.</p>                        <ul style="margin-top: 10px; list-style: circle; margin-left: 30px;">
+
+                            <li>Grupy robocze (work_groups)</li>
+
+                <h3>Jak mogę opuścić grupę?</h3>                            <li>Wątki dyskusji (topics)</li>
+
+                <p>Skontaktuj się z właścicielem lub administratorem grupy, aby Cię usunął. Członkowie nie mogą sami opuszczać grup.</p>                            <li>Wiadomości (messages)</li>
+
+                            <li>Zadania (tasks)</li>
+
+                <h3>Czy inne osoby widzą moje prywatne grupy?</h3>                            <li>Pliki (topic_files - metadata)</li>
+
+                <p>Nie, grupy są prywatne. Widzą je tylko zaproszeni członkowie.</p>                            <li>Członkostwo w grupach (group_members)</li>
+
+                            <li>Linki współdzielenia (share_links)</li>
+
+                <h3>Co się dzieje gdy plik jest edytowany przez kilka osób jednocześnie?</h3>                        </ul>
+
+                <p>Każda osoba widzi swoje zmiany po ich zapisaniu. Nie ma współdzielonej edycji -                     </li>
+
+                każdy może dodawać nowe wiadomości, pliki i zadania niezależnie.</p>                    <li><strong>Backblaze B2</strong> - cloud storage dla plików (binarne dane)</li>
+
+            </div>                    <li><strong>JWT Authentication</strong> - bezpieczna autoryzacja z tokenami dostępu</li>
+
+        </div>                </ul>
+
+
+
+        <div class="footer">                <h3>Automatyczna Synchronizacja</h3>
+
+            <p><strong>PRO-Ka-Po Kaizen Freak</strong></p>                <ul class="bullet-list">
+
+            <p>Moduł TeamWork - Współpraca Zespołowa</p>                    <li>Wszystkie dane są <strong>automatycznie synchronizowane</strong> z chmurą w czasie rzeczywistym</li>
+
+            <p style="font-size: 0.9em; color: #999; margin-top: 10px;">                    <li>Każda operacja (dodanie wiadomości, upload pliku, utworzenie zadania) natychmiast trafia do PostgreSQL</li>
+
+                Wersja 5.2 | Ostatnia aktualizacja: Listopad 2025                    <li>Brak trybu offline - wymagane stałe połączenie z internetem</li>
+
+            </p>                    <li>Wieloosobowy dostęp - wielu użytkowników może pracować jednocześnie na tej samej grupie</li>
+
+        </div>                </ul>
+
+    </div>
+
+</body>                <div class="warning-box">
+
+</html>                    <strong>⚠️ Uwaga:</strong> Moduł TeamWork działa wyłącznie online. Wymaga aktywnego połączenia
+
+                    z serwerem API i bazą danych PostgreSQL. Upewnij się, że masz dostęp do internetu przed rozpoczęciem pracy.
+                </div>
+
+                <h3>Bezpieczeństwo Danych</h3>
+                <ul class="bullet-list">
+                    <li>🔒 Wszystkie połączenia szyfrowane SSL/TLS</li>
+                    <li>🔑 Autoryzacja JWT z refreshem tokenów</li>
+                    <li>👤 Kontrola dostępu oparta na rolach (RBAC)</li>
+                    <li>📝 Audyt operacji - każda akcja zapisuje user_id i timestamp</li>
+                    <li>🗑️ Soft delete dla krytycznych danych (is_active flag)</li>
+                </ul>
+            </div>
+
+            <!-- SKRÓTY KLAWISZOWE -->
+            <div class="section">
+                <h2>⌨️ Skróty Klawiszowe</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Skrót</th>
+                            <th>Akcja</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><kbd>Ctrl + N</kbd></td>
+                            <td>Nowa grupa robocza</td>
+                        </tr>
+                        <tr>
+                            <td><kbd>Ctrl + T</kbd></td>
+                            <td>Nowy wątek w wybranej grupie</td>
+                        </tr>
+                        <tr>
+                            <td><kbd>Ctrl + Enter</kbd></td>
+                            <td>Wyślij wiadomość (w polu tekstowym)</td>
+                        </tr>
+                        <tr>
+                            <td><kbd>Ctrl + U</kbd></td>
+                            <td>Upload pliku</td>
+                        </tr>
+                        <tr>
+                            <td><kbd>Ctrl + F</kbd></td>
+                            <td>Szukaj w grupach/wątkach</td>
+                        </tr>
+                        <tr>
+                            <td><kbd>F5</kbd></td>
+                            <td>Odśwież listę grup</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- ROZWIĄZYWANIE PROBLEMÓW -->
+            <div class="section">
+                <h2>🔧 Rozwiązywanie Problemów</h2>
+
+                <h3>❌ Błąd: "HTTP 401: Unauthorized"</h3>
+                <ul class="bullet-list">
+                    <li><strong>Przyczyna:</strong> Token autoryzacyjny wygasł lub jest nieprawidłowy</li>
+                    <li><strong>Rozwiązanie:</strong>
+                        <ol style="margin-top: 10px; margin-left: 30px;">
+                            <li>Wyloguj się z aplikacji PRO-Ka-Po</li>
+                            <li>Zaloguj się ponownie</li>
+                            <li>Uruchom moduł TeamWork ponownie</li>
+                        </ol>
+                    </li>
+                </ul>
+
+                <h3>❌ Błąd: "Nie udało się pobrać listy członków"</h3>
+                <ul class="bullet-list">
+                    <li><strong>Przyczyna:</strong> Brak połączenia z serwerem API lub błąd bazy danych</li>
+                    <li><strong>Rozwiązanie:</strong>
+                        <ol style="margin-top: 10px; margin-left: 30px;">
+                            <li>Sprawdź połączenie z internetem</li>
+                            <li>Zweryfikuj dostępność serwera (render.com może być w trakcie restartu)</li>
+                            <li>Poczekaj 1-2 minuty i spróbuj ponownie</li>
+                        </ol>
+                    </li>
+                </ul>
+
+                <h3>❌ Błąd: "HTTP 404: Not Found"</h3>
+                <ul class="bullet-list">
+                    <li><strong>Przyczyna:</strong> Zasób (grupa, wątek, plik) został usunięty przez innego użytkownika</li>
+                    <li><strong>Rozwiązanie:</strong> Odśwież listę grup (F5) i sprawdź aktualny stan danych</li>
+                </ul>
+
+                <h3>❌ Upload pliku nie działa</h3>
+                <ul class="bullet-list">
+                    <li>Sprawdź rozmiar pliku (max 50 MB)</li>
+                    <li>Upewnij się, że plik nie jest zablokowany przez inną aplikację</li>
+                    <li>Zweryfikuj połączenie z Backblaze B2 (logi w konsoli)</li>
+                </ul>
+
+                <h3>❌ Wiadomości mają niski kontrast (nieczytelne)</h3>
+                <ul class="bullet-list">
+                    <li><strong>Przyczyna:</strong> Automatyczny kontrast nie zadziałał lub używasz starej wersji</li>
+                    <li><strong>Rozwiązanie:</strong> Od wersji 5.2+ moduł automatycznie dobiera kolor tekstu
+                        (czarny na jasnym tle, biały na ciemnym). Upewnij się, że masz najnowszą wersję aplikacji.</li>
+                </ul>
+
+                <div class="tip-box">
+                    <strong>💡 Wskazówka:</strong> Logi błędów są zapisywane w folderze <code>logs/</code> aplikacji.
+                    W razie problemów sprawdź plik <code>teamwork_module.log</code> lub <code>api_client.log</code>.
+                </div>
+            </div>
+
+            <!-- FAQ -->
+            <div class="section">
+                <h2>❓ Najczęściej Zadawane Pytania (FAQ)</h2>
+
+                <h3>Q: Czy mogę używać TeamWork bez internetu?</h3>
+                <p><strong>A:</strong> Nie, TeamWork działa wyłącznie online i wymaga stałego połączenia z API i bazą PostgreSQL.</p>
+
+                <h3>Q: Ile grup mogę utworzyć?</h3>
+                <p><strong>A:</strong> Nie ma limitu liczby grup. Możesz tworzyć nieograniczoną liczbę grup roboczych.</p>
+
+                <h3>Q: Czy mogę usunąć grupę?</h3>
+                <p><strong>A:</strong> Tak, ale tylko jako Owner grupy. Usunięcie grupy usuwa wszystkie wątki, wiadomości, zadania i pliki w tej grupie (nieodwracalne!).</p>
+
+                <h3>Q: Jak zmienić rolę członka grupy?</h3>
+                <p><strong>A:</strong> Kliknij <span class="button">Zarządzaj</span> w panelu członków, wybierz osobę i zmień jej rolę. Wymaga uprawnień Owner lub Admin.</p>
+
+                <h3>Q: Czy pliki są przechowywane lokalnie?</h3>
+                <p><strong>A:</strong> Nie, wszystkie pliki są uploadowane do Backblaze B2 (cloud storage). W bazie PostgreSQL przechowywane są tylko metadane (nazwa, rozmiar, URL).</p>
+
+                <h3>Q: Jak działa automatyczny kontrast tekstu?</h3>
+                <p><strong>A:</strong> System oblicza względną jasność (luminance) koloru tła według standardu WCAG 2.0.
+                    Jeśli luminance > 0.5 (jasne tło), używa czarnego tekstu. Dla ciemnego tła - białego tekstu.</p>
+
+                <h3>Q: Co się stanie jak dwóch użytkowników edytuje ten sam wątek?</h3>
+                <p><strong>A:</strong> System obsługuje współbieżność - każda osoba widzi swoje zmiany natychmiast po zapisaniu.
+                    Baza PostgreSQL zapewnia spójność danych (ACID compliance).</p>
+
+                <h3>Q: Czy mogę eksportować dane z TeamWork?</h3>
+                <p><strong>A:</strong> Obecnie brak wbudowanej funkcji eksportu. Możesz pobierać pliki pojedynczo lub użyć API
+                    do eksportu danych poprzez zewnętrzne skrypty.</p>
+            </div>
+
+            <!-- TECHNOLOGIE -->
+            <div class="section">
+                <h2>🛠️ Technologie i Architektura</h2>
+
+                <h3>Frontend (Klient)</h3>
+                <ul class="bullet-list">
+                    <li><strong>PyQt6</strong> - framework GUI dla Pythona</li>
+                    <li><strong>requests</strong> - biblioteka HTTP do komunikacji z API</li>
+                    <li><strong>TeamWorkAPIClient</strong> - wrapper API z automatycznym refreshem tokenów</li>
+                    <li><strong>Logger</strong> - system logowania zdarzeń</li>
+                </ul>
+
+                <h3>Backend (Serwer)</h3>
+                <ul class="bullet-list">
+                    <li><strong>FastAPI</strong> - nowoczesny framework API dla Pythona</li>
+                    <li><strong>SQLAlchemy 2.0</strong> - ORM do PostgreSQL</li>
+                    <li><strong>Pydantic</strong> - walidacja danych i schematy API</li>
+                    <li><strong>JWT</strong> - tokeny dostępu i autoryzacja</li>
+                    <li><strong>Alembic</strong> - migracje bazy danych</li>
+                    <li><strong>Backblaze B2 SDK</strong> - integracja z cloud storage</li>
+                </ul>
+
+                <h3>Baza Danych (PostgreSQL)</h3>
+                <ul class="bullet-list">
+                    <li>Schema: <code>s02_teamwork</code></li>
+                    <li>Tabele: work_groups, topics, messages, tasks, topic_files, group_members, share_links</li>
+                    <li>Relacje: Foreign Keys z ON DELETE CASCADE</li>
+                    <li>Indeksy: na user_id, group_id, topic_id dla wydajności</li>
+                    <li>Timezone-aware timestamps (UTC)</li>
+                </ul>
+
+                <h3>Deployment</h3>
+                <ul class="bullet-list">
+                    <li><strong>Render.com</strong> - hosting API FastAPI</li>
+                    <li><strong>Render PostgreSQL</strong> - zarządzana baza danych</li>
+                    <li><strong>Backblaze B2</strong> - S3-compatible object storage</li>
+                    <li><strong>SSL/TLS</strong> - szyfrowane połączenia HTTPS</li>
+                </ul>
+            </div>
+
+            <!-- KONTAKT I WSPARCIE -->
+            <div class="section">
+                <h2>📞 Wsparcie i Kontakt</h2>
+                <p>
+                    W razie problemów lub pytań dotyczących modułu TeamWork:
+                </p>
+                <ul class="bullet-list">
+                    <li>📧 Email: <strong>support@pro-ka-po.pl</strong></li>
+                    <li>📖 Dokumentacja techniczna: <code>docs/TEAMWORK_ARCHITECTURE.md</code></li>
+                    <li>🐛 Zgłaszanie bugów: GitHub Issues (jeśli dostępne)</li>
+                    <li>💬 Społeczność: Forum PRO-Ka-Po (jeśli dostępne)</li>
+                </ul>
+
+                <div class="info-box">
+                    <strong>ℹ️ Wersja modułu:</strong> TeamWork v5.2.0 (Listopad 2025)<br>
+                    <strong>Ostatnia aktualizacja dokumentacji:</strong> 14.11.2025
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p><strong>PRO-Ka-Po Kaizen Freak</strong></p>
+            <p>Moduł TeamWork - Współpraca Zespołowa</p>
+            <p style="font-size: 0.9em; color: #999; margin-top: 10px;">
+                © 2025 PRO-Ka-Po. Wszystkie prawa zastrzeżone.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

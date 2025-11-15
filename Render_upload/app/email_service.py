@@ -319,6 +319,181 @@ class EmailService:
         """
         
         return self.send_email(to_email, t['subject'], html_content, text_content)
+    
+    def send_file_share_email(
+        self,
+        to_email: str,
+        sender_name: str,
+        file_name: str,
+        download_url: str,
+        file_size: int,
+        expires_at: str,
+        language: str = 'pl'
+    ) -> bool:
+        """
+        Wysyła email z linkiem do pobrania udostępnionego pliku
+        
+        Args:
+            to_email: Adres email odbiorcy
+            sender_name: Imię/nazwa osoby udostępniającej
+            file_name: Nazwa udostępnionego pliku
+            download_url: URL do pobrania pliku
+            file_size: Rozmiar pliku w bajtach
+            expires_at: Data wygaśnięcia linku (ISO format)
+            language: Język emaila (pl/en/de)
+        
+        Returns:
+            True jeśli wysłano pomyślnie
+        """
+        # Formatowanie rozmiaru pliku
+        if file_size < 1024:
+            size_str = f"{file_size} B"
+        elif file_size < 1024 * 1024:
+            size_str = f"{file_size / 1024:.1f} KB"
+        else:
+            size_str = f"{file_size / (1024 * 1024):.1f} MB"
+        
+        # Parsowanie daty wygaśnięcia
+        try:
+            from dateutil import parser
+            expires_date = parser.parse(expires_at)
+            expires_formatted = expires_date.strftime("%Y-%m-%d %H:%M")
+        except:
+            expires_formatted = expires_at
+        
+        # Tłumaczenia
+        translations = {
+            'pl': {
+                'subject': f'{sender_name} udostępnił Ci plik',
+                'greeting': 'Witaj!',
+                'message': f'<strong>{sender_name}</strong> udostępnił Ci plik:',
+                'file_info': 'Informacje o pliku:',
+                'file_name_label': 'Nazwa pliku:',
+                'file_size_label': 'Rozmiar:',
+                'expires_label': 'Link wygasa:',
+                'download_button': '⬇️ Pobierz plik',
+                'or_copy': 'Lub skopiuj ten link do przeglądarki:',
+                'security_note': '🔒 Ten link jest ważny tylko przez ograniczony czas.',
+                'footer': 'Wiadomość wysłana z aplikacji PRO-Ka-Po Kaizen Freak'
+            },
+            'en': {
+                'subject': f'{sender_name} shared a file with you',
+                'greeting': 'Hello!',
+                'message': f'<strong>{sender_name}</strong> shared a file with you:',
+                'file_info': 'File information:',
+                'file_name_label': 'File name:',
+                'file_size_label': 'Size:',
+                'expires_label': 'Link expires:',
+                'download_button': '⬇️ Download file',
+                'or_copy': 'Or copy this link to your browser:',
+                'security_note': '🔒 This link is valid only for a limited time.',
+                'footer': 'Message sent from PRO-Ka-Po Kaizen Freak application'
+            },
+            'de': {
+                'subject': f'{sender_name} hat eine Datei mit Ihnen geteilt',
+                'greeting': 'Hallo!',
+                'message': f'<strong>{sender_name}</strong> hat eine Datei mit Ihnen geteilt:',
+                'file_info': 'Dateiinformationen:',
+                'file_name_label': 'Dateiname:',
+                'file_size_label': 'Größe:',
+                'expires_label': 'Link läuft ab:',
+                'download_button': '⬇️ Datei herunterladen',
+                'or_copy': 'Oder kopieren Sie diesen Link in Ihren Browser:',
+                'security_note': '🔒 Dieser Link ist nur für begrenzte Zeit gültig.',
+                'footer': 'Nachricht gesendet von der PRO-Ka-Po Kaizen Freak Anwendung'
+            }
+        }
+        
+        t = translations.get(language, translations['pl'])
+        
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
+                .content {{ background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }}
+                .file-info {{ background: white; border-radius: 10px; padding: 20px; margin: 20px 0; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }}
+                .file-info-row {{ display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }}
+                .file-info-row:last-child {{ border-bottom: none; }}
+                .label {{ font-weight: bold; color: #666; }}
+                .value {{ color: #333; }}
+                .download-btn {{ display: inline-block; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 25px; font-weight: bold; margin: 20px 0; }}
+                .download-btn:hover {{ opacity: 0.9; }}
+                .link-box {{ background: #f0f0f0; padding: 15px; border-radius: 5px; word-break: break-all; font-family: monospace; font-size: 12px; margin: 10px 0; }}
+                .security {{ background: #e3f2fd; border-left: 4px solid #2196f3; padding: 15px; margin: 20px 0; border-radius: 5px; }}
+                .footer {{ text-align: center; color: #666; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>📎 Udostępniono plik</h1>
+                </div>
+                <div class="content">
+                    <h2>{t['greeting']}</h2>
+                    <p>{t['message']}</p>
+                    
+                    <div class="file-info">
+                        <h3>{t['file_info']}</h3>
+                        <div class="file-info-row">
+                            <span class="label">{t['file_name_label']}</span>
+                            <span class="value">{file_name}</span>
+                        </div>
+                        <div class="file-info-row">
+                            <span class="label">{t['file_size_label']}</span>
+                            <span class="value">{size_str}</span>
+                        </div>
+                        <div class="file-info-row">
+                            <span class="label">{t['expires_label']}</span>
+                            <span class="value">{expires_formatted}</span>
+                        </div>
+                    </div>
+                    
+                    <div style="text-align: center;">
+                        <a href="{download_url}" class="download-btn">{t['download_button']}</a>
+                    </div>
+                    
+                    <p><small>{t['or_copy']}</small></p>
+                    <div class="link-box">{download_url}</div>
+                    
+                    <div class="security">
+                        {t['security_note']}
+                    </div>
+                </div>
+                <div class="footer">
+                    <p>{t['footer']}</p>
+                    <p>© 2025 PRO-Ka-Po Kaizen Freak</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        text_content = f"""
+        {t['greeting']}
+        
+        {t['message']}
+        
+        {t['file_info']}
+        {t['file_name_label']} {file_name}
+        {t['file_size_label']} {size_str}
+        {t['expires_label']} {expires_formatted}
+        
+        {t['download_button']}
+        {download_url}
+        
+        {t['security_note']}
+        
+        ---
+        {t['footer']}
+        © 2025 PRO-Ka-Po Kaizen Freak
+        """
+        
+        return self.send_email(to_email, t['subject'], html_content, text_content)
 
 
 # Singleton instance

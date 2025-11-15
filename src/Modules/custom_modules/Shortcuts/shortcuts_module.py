@@ -59,6 +59,18 @@ from PyQt6.QtGui import (
     QKeyEvent, QFocusEvent, QShowEvent, QPaintEvent, QMouseEvent
 )
 
+# Import modułów lokalnych
+try:
+    from .shortcuts_config import ShortcutsConfig
+    # TODO: Po usunięciu duplikatów klas z tego pliku, odkomentuj:
+    # from .widgets import ShortcutCaptureWidget, TemplateContextMenu, ShortcutsContextMenu
+except ImportError:
+    # Standalone execution
+    from shortcuts_config import ShortcutsConfig
+
+config = ShortcutsConfig()
+
+
 
 class ShortcutCaptureWidget(QWidget):
     """Widget do przechwytywania kombinacji klawiszy - NOWE BEZPIECZNE PODEJŚCIE"""
@@ -82,7 +94,9 @@ class ShortcutCaptureWidget(QWidget):
         
         # Przycisk do rozpoczęcia przechwytywania
         self.capture_btn = QPushButton("🎯 Przechwytuj")
-        self.capture_btn.setStyleSheet("background-color: #2196F3; color: white; font-weight: bold; padding: 5px;")
+        self.capture_btn.setProperty('class', config.get_style_class('capture_btn'))
+        self.capture_btn.style().unpolish(self.capture_btn)
+        self.capture_btn.style().polish(self.capture_btn)
         self.capture_btn.clicked.connect(self.start_capture)
         layout.addWidget(self.capture_btn)
         
@@ -108,9 +122,13 @@ class ShortcutCaptureWidget(QWidget):
         self.capturing = True
         self.current_keys.clear()
         self.display_field.setText("⏳ Naciśnij kombinację klawiszy...")
-        self.display_field.setStyleSheet("background-color: #FFF9C4; font-weight: bold;")
+        self.display_field.setProperty('class', config.get_style_class('display_field_capturing'))
+        self.display_field.style().unpolish(self.display_field)
+        self.display_field.style().polish(self.display_field)
         self.capture_btn.setText("⏹ Stop")
-        self.capture_btn.setStyleSheet("background-color: #f44336; color: white; font-weight: bold; padding: 5px;")
+        self.capture_btn.setProperty('class', config.get_style_class('capture_btn_active'))
+        self.capture_btn.style().unpolish(self.capture_btn)
+        self.capture_btn.style().polish(self.capture_btn)
         
         # Uruchom timer
         self.capture_timer.start(50)  # Sprawdzaj co 50ms
@@ -119,9 +137,13 @@ class ShortcutCaptureWidget(QWidget):
         """Zatrzymuje przechwytywanie"""
         self.capturing = False
         self.capture_timer.stop()
-        self.display_field.setStyleSheet("")
+        self.display_field.setProperty('class', config.get_style_class('display_field'))
+        self.display_field.style().unpolish(self.display_field)
+        self.display_field.style().polish(self.display_field)
         self.capture_btn.setText("🎯 Przechwytuj")
-        self.capture_btn.setStyleSheet("background-color: #2196F3; color: white; font-weight: bold; padding: 5px;")
+        self.capture_btn.setProperty('class', config.get_style_class('capture_btn'))
+        self.capture_btn.style().unpolish(self.capture_btn)
+        self.capture_btn.style().polish(self.capture_btn)
     
     def check_keys(self):
         """Sprawdza aktualnie wciśnięte klawisze używając Windows API"""
@@ -245,28 +267,7 @@ class TemplateContextMenu(QMenu):
     
     def __init__(self, templates, parent=None):
         super().__init__(parent)
-        self.setStyleSheet("""
-            QMenu {
-                background-color: white;
-                border: 2px solid #2196F3;
-                border-radius: 8px;
-                padding: 5px;
-            }
-            QMenu::item {
-                background-color: transparent;
-                padding: 8px 25px;
-                border-radius: 4px;
-                color: #333;
-            }
-            QMenu::item:selected {
-                background-color: #2196F3;
-                color: white;
-            }
-            QMenu::item:hover {
-                background-color: #64B5F6;
-                color: white;
-            }
-        """)
+        self.setProperty('class', config.get_style_class('template_menu'))
         
         # Dodaj szablony do menu
         for template in templates:
@@ -293,28 +294,7 @@ class ShortcutsContextMenu(QMenu):
     
     def __init__(self, menu_items, parent=None):
         super().__init__(parent)
-        self.setStyleSheet("""
-            QMenu {
-                background-color: white;
-                border: 2px solid #FF9800;
-                border-radius: 8px;
-                padding: 5px;
-            }
-            QMenu::item {
-                background-color: transparent;
-                padding: 8px 25px;
-                border-radius: 4px;
-                color: #333;
-            }
-            QMenu::item:selected {
-                background-color: #FF9800;
-                color: white;
-            }
-            QMenu::item:hover {
-                background-color: #FFB74D;
-                color: white;
-            }
-        """)
+        self.setProperty('class', config.get_style_class('shortcuts_menu'))
         
         # Dodaj pozycje do menu
         for item in menu_items:
@@ -395,7 +375,7 @@ class ClickRecorderOverlay(QWidget):
         
         # Przezroczyste tło z delikatną mgłą
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setStyleSheet("background: transparent;")
+        self.setProperty('class', config.get_style_class('overlay'))
         
         # Włącz śledzenie myszy
         self.setMouseTracking(True)
@@ -1434,16 +1414,39 @@ class ClickTestOverlay(QWidget):
         self.close()
 
 
-class ShortcutsModule(QMainWindow):
-    """Główny moduł Shortcuts"""
+class ShortcutsModule(QWidget):
+    """Główny moduł Shortcuts - zrefaktoryzowany jako Widget"""
     
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Moduł Shortcuts - Skróty klawiszowe")
-        self.setMinimumSize(1000, 600)
+    # Sygnały dla komunikacji z głównym oknem
+    status_message = pyqtSignal(str, int)  # message, timeout
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        
+        # Integracja z menedżerami aplikacji
+        try:
+            from ....utils import get_theme_manager, get_i18n
+            self.theme_manager = get_theme_manager()
+            self.i18n = get_i18n()
+        except ImportError:
+            # Fallback dla standalone execution
+            self.theme_manager = None
+            self.i18n = None
+        
+        # Menedżer danych
+        try:
+            from .shortcuts_data_manager import ShortcutsDataManager
+            from .shortcuts_config import ShortcutsConfig
+        except ImportError:
+            # Standalone execution
+            from shortcuts_data_manager import ShortcutsDataManager
+            from shortcuts_config import ShortcutsConfig
+        
+        self.data_manager = ShortcutsDataManager()
+        self.config = ShortcutsConfig
         
         # Dane
-        self.shortcuts = []
+        self.shortcuts = self.data_manager.load_shortcuts()
         self.editing_index = None  # Indeks edytowanego skrótu (None = dodawanie nowego)
         
         # System skrótów
@@ -1455,9 +1458,6 @@ class ShortcutsModule(QMainWindow):
         self.menu_signal.show_menu.connect(self.display_dynamic_menu)
         ActionExecutor.menu_signal = self.menu_signal
         
-        # Ładowanie danych
-        self.load_data()
-        
         # UI
         self.init_ui()
         
@@ -1465,8 +1465,22 @@ class ShortcutsModule(QMainWindow):
         self.hotkey_listener = HotkeyListener(self.get_active_shortcuts)
         self.hotkey_listener.hotkey_triggered.connect(self.on_hotkey_triggered)
         
+        # Połączenia sygnałów menedżerów
+        if self.i18n:
+            self.i18n.language_changed.connect(self.update_ui_texts)
+        if self.theme_manager:
+            # Theme manager może mieć różne nazwy sygnału
+            try:
+                self.theme_manager.theme_changed.connect(self.apply_theme)
+            except:
+                pass
+        
         # Odśwież listę po uruchomieniu
         self.refresh_shortcuts_list()
+        
+        # Zastosuj początkowy motyw i teksty
+        self.apply_theme()
+        self.update_ui_texts()
 
     def on_hotkey_triggered(self, name):
         """Wywoływane po wykryciu globalnego skrótu klawiszowego."""
@@ -1503,17 +1517,17 @@ class ShortcutsModule(QMainWindow):
             ):
                 delimiter = self.hotkey_listener.pop_phrase_trigger(original_name)
 
-            self.statusBar().showMessage(f"Wykonywanie skrótu: {original_name}...", 2000)
+            self.emit_status(f"Wykonywanie skrótu: {original_name}...", 2000)
             success, message = ActionExecutor.execute(shortcut_to_run)
             if success:
-                self.statusBar().showMessage(f"Skrót '{original_name}' wykonany: {message}", 4000)
+                self.emit_status(f"Skrót '{original_name}' wykonany: {message}", 4000)
             else:
-                self.statusBar().showMessage(f"Błąd skrótu '{original_name}': {message}", 5000)
+                self.emit_status(f"Błąd skrótu '{original_name}': {message}", 5000)
 
             if shortcut_to_run.get('shortcut_type') == 'Magiczna fraza':
                 self._reinsert_magic_delimiter(delimiter, shortcut_to_run)
         else:
-            self.statusBar().showMessage(f"Nie znaleziono skrótu o nazwie: {original_name}", 3000)
+            self.emit_status(f"Nie znaleziono skrótu o nazwie: {original_name}", 3000)
 
     def _reinsert_magic_delimiter(self, delimiter, shortcut):
         """Odtwarza naciśnięty klawisz wyzwalający po wykonaniu akcji magicznej frazy."""
@@ -1569,35 +1583,26 @@ class ShortcutsModule(QMainWindow):
     
     def init_ui(self):
         """Inicjalizacja interfejsu użytkownika"""
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-        
-        main_layout = QVBoxLayout()
-        central_widget.setLayout(main_layout)
+        # Główny layout bezpośrednio na widget (nie przez central_widget)
+        main_layout = QVBoxLayout(self)
         
         # Nagłówek z przyciskiem sterowania
         header_layout = QHBoxLayout()
         
-        header_label = QLabel("Zarządzanie skrótami klawiszowymi")
-        header_label.setStyleSheet("font-size: 16pt; font-weight: bold; padding: 10px;")
-        header_layout.addWidget(header_label)
+        self.header_label = QLabel("Zarządzanie skrótami klawiszowymi")
+        self.header_label.setProperty('class', self.config.get_style_class('header_label'))
+        header_layout.addWidget(self.header_label)
         
         header_layout.addStretch()
         
         # Status systemu
         self.system_status_label = QLabel("System WYŁĄCZONY")
-        self.system_status_label.setStyleSheet(
-            "font-size: 12pt; padding: 8px; background-color: #f44336; color: white; "
-            "border-radius: 4px; font-weight: bold;"
-        )
+        self.system_status_label.setProperty('class', self.config.get_style_class('status_inactive'))
         header_layout.addWidget(self.system_status_label)
         
         # Przycisk włącz/wyłącz
         self.toggle_system_btn = QPushButton("▶ URUCHOM SYSTEM")
-        self.toggle_system_btn.setStyleSheet(
-            "font-size: 12pt; padding: 10px 20px; background-color: #4CAF50; "
-            "color: white; border: none; border-radius: 4px; font-weight: bold;"
-        )
+        self.toggle_system_btn.setProperty('class', self.config.get_style_class('btn_start'))
         self.toggle_system_btn.clicked.connect(self.toggle_system)
         header_layout.addWidget(self.toggle_system_btn)
         
@@ -1620,8 +1625,8 @@ class ShortcutsModule(QMainWindow):
         
         main_layout.addWidget(splitter)
         
-        # Pasek statusu
-        self.statusBar().showMessage("Gotowy")
+        # Status początkowy
+        self.emit_status("Gotowy")
     
     def create_left_panel(self):
         """Tworzy lewą sekcję - formularz dodawania skrótu"""
@@ -1629,7 +1634,8 @@ class ShortcutsModule(QMainWindow):
         layout = QVBoxLayout()
         
         # Nazwa skrótu
-        layout.addWidget(QLabel("Nazwa skrótu:"))
+        self.label_name = QLabel("Nazwa skrótu:")
+        layout.addWidget(self.label_name)
         self.name_input = QLineEdit()
         self.name_input.setPlaceholderText("np. Otwórz Notatnik")
         layout.addWidget(self.name_input)
@@ -1637,7 +1643,8 @@ class ShortcutsModule(QMainWindow):
         layout.addSpacing(10)
         
         # Rodzaj skrótu
-        layout.addWidget(QLabel("Rodzaj skrótu:"))
+        self.label_shortcut_type = QLabel("Rodzaj skrótu:")
+        layout.addWidget(self.label_shortcut_type)
         self.shortcut_type_combo = QComboBox()
         self.shortcut_type_combo.addItems([
             "Kombinacja klawiszy",
@@ -1650,7 +1657,8 @@ class ShortcutsModule(QMainWindow):
         layout.addSpacing(10)
         
         # Skrót/fraza
-        layout.addWidget(QLabel("Skrót/Fraza:"))
+        self.label_shortcut = QLabel("Skrót/Fraza:")
+        layout.addWidget(self.label_shortcut)
         
         # Nowy widget do przechwytywania skrótów (z przyciskiem)
         self.shortcut_input = ShortcutCaptureWidget()
@@ -1659,7 +1667,8 @@ class ShortcutsModule(QMainWindow):
         layout.addSpacing(10)
         
         # Tryb skrótu
-        layout.addWidget(QLabel("Tryb skrótu:"))
+        self.label_action_type = QLabel("Tryb skrótu:")
+        layout.addWidget(self.label_action_type)
         self.action_type_combo = QComboBox()
         self.action_type_combo.addItems([
             "Wklej tekst",
@@ -1677,7 +1686,8 @@ class ShortcutsModule(QMainWindow):
         layout.addSpacing(10)
         
         # Wartość akcji (tekst/ścieżka/komenda/sekwencja)
-        layout.addWidget(QLabel("Wartość akcji:"))
+        self.label_action_value = QLabel("Wartość akcji:")
+        layout.addWidget(self.label_action_value)
         action_layout = QHBoxLayout()
         
         self.action_input = QTextEdit()
@@ -1698,7 +1708,7 @@ class ShortcutsModule(QMainWindow):
         self.btn_test_clicks = QPushButton("Testuj sekwencję")
         self.btn_test_clicks.clicked.connect(self.test_click_sequence)
         self.btn_test_clicks.setVisible(False)
-        self.btn_test_clicks.setStyleSheet("background-color: #2196F3; color: white;")
+        self.btn_test_clicks.setProperty('class', config.get_style_class('btn_test_clicks'))
         action_buttons_layout.addWidget(self.btn_test_clicks)
         
         action_buttons_layout.addStretch()
@@ -1713,9 +1723,9 @@ class ShortcutsModule(QMainWindow):
         self.templates_widget.setLayout(templates_layout)
         self.templates_widget.setVisible(False)
         
-        templates_header = QLabel("Szablony tekstowe w menu:")
-        templates_header.setStyleSheet("font-weight: bold; color: #2196F3;")
-        templates_layout.addWidget(templates_header)
+        self.templates_header = QLabel("Szablony tekstowe w menu:")
+        self.templates_header.setProperty('class', config.get_style_class('templates_header'))
+        templates_layout.addWidget(self.templates_header)
         
         # Tabela szablonów
         self.templates_table = QTableWidget()
@@ -1728,19 +1738,19 @@ class ShortcutsModule(QMainWindow):
         # Przyciski zarządzania szablonami
         templates_buttons = QHBoxLayout()
         
-        btn_add_template = QPushButton("➕ Dodaj szablon")
-        btn_add_template.clicked.connect(self.add_template)
-        btn_add_template.setStyleSheet("background-color: #4CAF50; color: white;")
-        templates_buttons.addWidget(btn_add_template)
+        self.btn_add_template = QPushButton("➕ Dodaj szablon")
+        self.btn_add_template.clicked.connect(self.add_template)
+        self.btn_add_template.setProperty('class', config.get_style_class('btn_add_template'))
+        templates_buttons.addWidget(self.btn_add_template)
         
-        btn_edit_template = QPushButton("✏ Edytuj")
-        btn_edit_template.clicked.connect(self.edit_template)
-        templates_buttons.addWidget(btn_edit_template)
+        self.btn_edit_template = QPushButton("✏ Edytuj")
+        self.btn_edit_template.clicked.connect(self.edit_template)
+        templates_buttons.addWidget(self.btn_edit_template)
         
-        btn_delete_template = QPushButton("🗑 Usuń")
-        btn_delete_template.clicked.connect(self.delete_template)
-        btn_delete_template.setStyleSheet("background-color: #f44336; color: white;")
-        templates_buttons.addWidget(btn_delete_template)
+        self.btn_delete_template = QPushButton("🗑 Usuń")
+        self.btn_delete_template.clicked.connect(self.delete_template)
+        self.btn_delete_template.setProperty('class', config.get_style_class('btn_delete_template'))
+        templates_buttons.addWidget(self.btn_delete_template)
         
         templates_layout.addLayout(templates_buttons)
         
@@ -1752,9 +1762,9 @@ class ShortcutsModule(QMainWindow):
         self.shortcuts_menu_widget.setLayout(shortcuts_menu_layout)
         self.shortcuts_menu_widget.setVisible(False)
         
-        shortcuts_menu_header = QLabel("Pozycje w menu skrótów:")
-        shortcuts_menu_header.setStyleSheet("font-weight: bold; color: #FF9800;")
-        shortcuts_menu_layout.addWidget(shortcuts_menu_header)
+        self.shortcuts_menu_header = QLabel("Pozycje w menu skrótów:")
+        self.shortcuts_menu_header.setProperty('class', config.get_style_class('shortcuts_menu_header'))
+        shortcuts_menu_layout.addWidget(self.shortcuts_menu_header)
         
         # Tabela pozycji menu
         self.shortcuts_menu_table = QTableWidget()
@@ -1769,19 +1779,19 @@ class ShortcutsModule(QMainWindow):
         # Przyciski zarządzania pozycjami menu
         shortcuts_menu_buttons = QHBoxLayout()
         
-        btn_add_menu_item = QPushButton("➕ Dodaj pozycję")
-        btn_add_menu_item.clicked.connect(self.add_shortcuts_menu_item)
-        btn_add_menu_item.setStyleSheet("background-color: #FF9800; color: white;")
-        shortcuts_menu_buttons.addWidget(btn_add_menu_item)
+        self.btn_add_menu_item = QPushButton("➕ Dodaj pozycję")
+        self.btn_add_menu_item.clicked.connect(self.add_shortcuts_menu_item)
+        self.btn_add_menu_item.setProperty('class', config.get_style_class('btn_add_menu_item'))
+        shortcuts_menu_buttons.addWidget(self.btn_add_menu_item)
         
-        btn_edit_menu_item = QPushButton("✏ Edytuj")
-        btn_edit_menu_item.clicked.connect(self.edit_shortcuts_menu_item)
-        shortcuts_menu_buttons.addWidget(btn_edit_menu_item)
+        self.btn_edit_menu_item = QPushButton("✏ Edytuj")
+        self.btn_edit_menu_item.clicked.connect(self.edit_shortcuts_menu_item)
+        shortcuts_menu_buttons.addWidget(self.btn_edit_menu_item)
         
-        btn_delete_menu_item = QPushButton("🗑 Usuń")
-        btn_delete_menu_item.clicked.connect(self.delete_shortcuts_menu_item)
-        btn_delete_menu_item.setStyleSheet("background-color: #f44336; color: white;")
-        shortcuts_menu_buttons.addWidget(btn_delete_menu_item)
+        self.btn_delete_menu_item = QPushButton("🗑 Usuń")
+        self.btn_delete_menu_item.clicked.connect(self.delete_shortcuts_menu_item)
+        self.btn_delete_menu_item.setProperty('class', config.get_style_class('btn_delete_menu_item'))
+        shortcuts_menu_buttons.addWidget(self.btn_delete_menu_item)
         
         shortcuts_menu_layout.addLayout(shortcuts_menu_buttons)
         
@@ -1808,19 +1818,19 @@ class ShortcutsModule(QMainWindow):
         # Przyciski akcji
         buttons_layout = QHBoxLayout()
         
-        btn_test = QPushButton("🧪 Testuj akcję")
-        btn_test.setStyleSheet("background-color: #FF9800; color: white; padding: 8px; font-weight: bold;")
-        btn_test.clicked.connect(self.test_action)
-        buttons_layout.addWidget(btn_test)
+        self.btn_test = QPushButton("🧪 Testuj akcję")
+        self.btn_test.setProperty('class', config.get_style_class('btn_test'))
+        self.btn_test.clicked.connect(self.test_action)
+        buttons_layout.addWidget(self.btn_test)
         
-        btn_add = QPushButton("Dodaj skrót")
-        btn_add.setStyleSheet("background-color: #4CAF50; color: white; padding: 8px; font-weight: bold;")
-        btn_add.clicked.connect(self.add_shortcut)
-        buttons_layout.addWidget(btn_add)
+        self.btn_add = QPushButton("Dodaj skrót")
+        self.btn_add.setProperty('class', config.get_style_class('btn_add'))
+        self.btn_add.clicked.connect(self.add_shortcut)
+        buttons_layout.addWidget(self.btn_add)
         
-        btn_clear = QPushButton("Wyczyść formularz")
-        btn_clear.clicked.connect(self.clear_form)
-        buttons_layout.addWidget(btn_clear)
+        self.btn_clear = QPushButton("Wyczyść formularz")
+        self.btn_clear.clicked.connect(self.clear_form)
+        buttons_layout.addWidget(self.btn_clear)
         
         layout.addLayout(buttons_layout)
         
@@ -1837,27 +1847,27 @@ class ShortcutsModule(QMainWindow):
         # Pasek narzędzi
         toolbar_layout = QHBoxLayout()
         
-        btn_refresh = QPushButton("Odśwież")
-        btn_refresh.clicked.connect(self.refresh_shortcuts_list)
-        toolbar_layout.addWidget(btn_refresh)
+        self.btn_refresh = QPushButton("Odśwież")
+        self.btn_refresh.clicked.connect(self.refresh_shortcuts_list)
+        toolbar_layout.addWidget(self.btn_refresh)
         
-        btn_edit = QPushButton("Edytuj")
-        btn_edit.clicked.connect(self.edit_shortcut)
-        toolbar_layout.addWidget(btn_edit)
+        self.btn_edit = QPushButton("Edytuj")
+        self.btn_edit.clicked.connect(self.edit_shortcut)
+        toolbar_layout.addWidget(self.btn_edit)
         
-        btn_delete = QPushButton("Usuń")
-        btn_delete.clicked.connect(self.delete_shortcut)
-        toolbar_layout.addWidget(btn_delete)
+        self.btn_delete = QPushButton("Usuń")
+        self.btn_delete.clicked.connect(self.delete_shortcut)
+        toolbar_layout.addWidget(self.btn_delete)
         
         toolbar_layout.addStretch()
         
-        btn_import = QPushButton("Import")
-        btn_import.clicked.connect(self.import_shortcuts)
-        toolbar_layout.addWidget(btn_import)
+        self.btn_import = QPushButton("Import")
+        self.btn_import.clicked.connect(self.import_shortcuts)
+        toolbar_layout.addWidget(self.btn_import)
         
-        btn_export = QPushButton("Export")
-        btn_export.clicked.connect(self.export_shortcuts)
-        toolbar_layout.addWidget(btn_export)
+        self.btn_export = QPushButton("Export")
+        self.btn_export.clicked.connect(self.export_shortcuts)
+        toolbar_layout.addWidget(self.btn_export)
         
         layout.addLayout(toolbar_layout)
         
@@ -2379,24 +2389,24 @@ class ShortcutsModule(QMainWindow):
         }
         
         # Wykonaj akcję
-        self.statusBar().showMessage("Wykonywanie akcji testowej...")
+        self.emit_status("Wykonywanie akcji testowej...")
         success, message = ActionExecutor.execute(test_shortcut)
         
         # Pokaż wynik
         if success:
+            self.emit_status(f"Test OK: {message}", 5000)
             QMessageBox.information(
                 self,
                 "Test akcji - Sukces ✓",
                 f"Akcja wykonana pomyślnie!\n\n{message}"
             )
-            self.statusBar().showMessage(f"Test OK: {message}", 5000)
         else:
+            self.emit_status(f"Test FAILED: {message}", 5000)
             QMessageBox.warning(
                 self,
                 "Test akcji - Błąd ✗",
                 f"Nie udało się wykonać akcji:\n\n{message}"
             )
-            self.statusBar().showMessage(f"Test FAILED: {message}", 5000)
     
     def browse_file(self):
         """Otwiera dialog wyboru pliku"""
@@ -2740,23 +2750,14 @@ class ShortcutsModule(QMainWindow):
                 QMessageBox.critical(self, "Błąd", f"Nie udało się wyeksportować:\n{str(e)}")
     
     def save_data(self):
-        """Zapisuje dane do pliku JSON"""
-        data_file = "shortcuts_data.json"
-        with open(data_file, 'w', encoding='utf-8') as f:
-            json.dump(self.shortcuts, f, ensure_ascii=False, indent=2)
+        """Zapisuje dane do pliku JSON używając DataManager"""
+        self.data_manager.save_shortcuts(self.shortcuts)
     
     def load_data(self):
-        """Ładuje dane z pliku JSON"""
-        data_file = "shortcuts_data.json"
-        if os.path.exists(data_file):
-            try:
-                with open(data_file, 'r', encoding='utf-8') as f:
-                    self.shortcuts = json.load(f)
-            except Exception as e:
-                print(f"Błąd podczas ładowania danych: {e}")
-                self.shortcuts = []
-        else:
-            self.shortcuts = []
+        """Ładuje dane z pliku JSON używając DataManager - DEPRECATED, używaj konstruktora"""
+        # Metoda pozostawiona dla kompatybilności wstecznej
+        # W nowej wersji dane są ładowane w __init__ przez data_manager
+        pass
     
     def toggle_system(self):
         """Przełącza stan systemu skrótów"""
@@ -2813,33 +2814,34 @@ class ShortcutsModule(QMainWindow):
         self.system_active = False
         self.update_system_status_ui()
         
-        self.statusBar().showMessage("System skrótów zatrzymany", 3000)
+        self.emit_status("System skrótów zatrzymany", 3000)
     
     def update_system_status_ui(self):
         """Aktualizuje interfejs statusu systemu"""
+        def t(key, **kwargs):
+            return self.i18n.translate(key, **kwargs) if self.i18n else key
+        
         if self.system_active:
             active_count = len([s for s in self.shortcuts if s.get('enabled', True)])
-            self.system_status_label.setText(f"System AKTYWNY ({active_count} skrótów)")
-            self.system_status_label.setStyleSheet(
-                "font-size: 12pt; padding: 8px; background-color: #4CAF50; color: white; "
-                "border-radius: 4px; font-weight: bold;"
-            )
-            self.toggle_system_btn.setText("⏸ ZATRZYMAJ SYSTEM")
-            self.toggle_system_btn.setStyleSheet(
-                "font-size: 12pt; padding: 10px 20px; background-color: #f44336; "
-                "color: white; border: none; border-radius: 4px; font-weight: bold;"
-            )
+            self.system_status_label.setText(t("shortcuts.status_active", count=active_count))
+            self.system_status_label.setProperty('class', config.get_style_class('status_active'))
+            self.system_status_label.style().unpolish(self.system_status_label)
+            self.system_status_label.style().polish(self.system_status_label)
+            
+            self.toggle_system_btn.setText(t("shortcuts.btn_stop_system"))
+            self.toggle_system_btn.setProperty('class', config.get_style_class('btn_stop'))
+            self.toggle_system_btn.style().unpolish(self.toggle_system_btn)
+            self.toggle_system_btn.style().polish(self.toggle_system_btn)
         else:
-            self.system_status_label.setText("System WYŁĄCZONY")
-            self.system_status_label.setStyleSheet(
-                "font-size: 12pt; padding: 8px; background-color: #f44336; color: white; "
-                "border-radius: 4px; font-weight: bold;"
-            )
-            self.toggle_system_btn.setText("▶ URUCHOM SYSTEM")
-            self.toggle_system_btn.setStyleSheet(
-                "font-size: 12pt; padding: 10px 20px; background-color: #4CAF50; "
-                "color: white; border: none; border-radius: 4px; font-weight: bold;"
-            )
+            self.system_status_label.setText(t("shortcuts.status_inactive"))
+            self.system_status_label.setProperty('class', config.get_style_class('status_inactive'))
+            self.system_status_label.style().unpolish(self.system_status_label)
+            self.system_status_label.style().polish(self.system_status_label)
+            
+            self.toggle_system_btn.setText(t("shortcuts.btn_start_system"))
+            self.toggle_system_btn.setProperty('class', config.get_style_class('btn_start'))
+            self.toggle_system_btn.style().unpolish(self.toggle_system_btn)
+            self.toggle_system_btn.style().polish(self.toggle_system_btn)
     
     def get_active_shortcuts(self):
         """Zwraca listę aktywnych skrótów dla listenera"""
@@ -2860,8 +2862,116 @@ class ShortcutsModule(QMainWindow):
             
             menu.exec(position)
     
+    def apply_theme(self):
+        """Aplikuje aktualny motyw z ThemeManager"""
+        if not self.theme_manager:
+            return
+        
+        # ThemeManager automatycznie aplikuje style poprzez property classes
+        # Tutaj możemy dodać dodatkową logikę jeśli potrzeba
+        try:
+            # Opcjonalnie: pobierz kolory motywu dla dynamicznych elementów
+            colors = self.theme_manager.get_current_colors()
+            # Możemy użyć colors do dynamicznych elementów jeśli potrzeba
+        except:
+            pass
+    
+    def update_ui_texts(self):
+        """Aktualizuje wszystkie teksty UI po zmianie języka"""
+        if not self.i18n:
+            return
+        
+        # Helper function dla tłumaczeń
+        def t(key, **kwargs):
+            return self.i18n.translate(key, **kwargs) if self.i18n else key
+        
+        # Header
+        self.header_label.setText(t("shortcuts.header"))
+        
+        # Status i przyciski systemu - wywołuje update_system_status_ui()
+        self.update_system_status_ui()
+        
+        # Labels formularza
+        self.label_name.setText(t("shortcuts.label_name"))
+        self.label_shortcut_type.setText(t("shortcuts.label_shortcut_type"))
+        self.label_shortcut.setText(t("shortcuts.label_shortcut"))
+        self.label_action_type.setText(t("shortcuts.label_action_type"))
+        self.label_action_value.setText(t("shortcuts.label_action_value"))
+        
+        # Placeholders
+        self.name_input.setPlaceholderText(t("shortcuts.placeholder_name"))
+        self.action_input.setPlaceholderText(t("shortcuts.placeholder_action"))
+        
+        # Przyciski formularza
+        self.btn_browse.setText(t("shortcuts.btn_browse"))
+        self.btn_record_clicks.setText(t("shortcuts.btn_record_clicks"))
+        self.btn_test_clicks.setText(t("shortcuts.btn_test_sequence"))
+        self.btn_test.setText(t("shortcuts.btn_test_action"))
+        self.btn_add.setText(t("shortcuts.btn_add_shortcut"))
+        self.btn_clear.setText(t("shortcuts.btn_clear_form"))
+        
+        # Nagłówki sekcji
+        self.templates_header.setText(t("shortcuts.templates_header"))
+        self.shortcuts_menu_header.setText(t("shortcuts.shortcuts_menu_header"))
+        
+        # Przyciski szablonów i menu
+        self.btn_add_template.setText(t("shortcuts.btn_add_template"))
+        self.btn_edit_template.setText(t("shortcuts.btn_edit"))
+        self.btn_delete_template.setText(t("shortcuts.btn_delete"))
+        self.btn_add_menu_item.setText(t("shortcuts.btn_add_menu_item"))
+        self.btn_edit_menu_item.setText(t("shortcuts.btn_edit"))
+        self.btn_delete_menu_item.setText(t("shortcuts.btn_delete"))
+        
+        # Przyciski toolbar
+        self.btn_refresh.setText(t("shortcuts.btn_refresh"))
+        self.btn_edit.setText(t("shortcuts.btn_edit"))
+        self.btn_delete.setText(t("shortcuts.btn_delete"))
+        self.btn_import.setText(t("shortcuts.btn_import"))
+        self.btn_export.setText(t("shortcuts.btn_export"))
+        
+        # Checkbox
+        self.enabled_checkbox.setText(t("shortcuts.checkbox_enabled"))
+        
+        # Count label
+        if hasattr(self, 'count_label'):
+            count = len(self.shortcuts)
+            # I18nManager nie obsługuje parametrów - używamy formatowania
+            count_text = t("shortcuts.shortcuts_count").replace("{count}", str(count))
+            self.count_label.setText(count_text)
+        
+        # ComboBox items - trzeba je przeładować
+        self.shortcut_type_combo.clear()
+        self.shortcut_type_combo.addItems([
+            t("shortcuts.type_key_combo"),
+            t("shortcuts.type_hold_key"),
+            t("shortcuts.type_magic_phrase")
+        ])
+        
+        self.action_type_combo.clear()
+        self.action_type_combo.addItems([
+            t("shortcuts.action_paste_text"),
+            t("shortcuts.action_template_menu"),
+            t("shortcuts.action_shortcuts_menu"),
+            t("shortcuts.action_open_app"),
+            t("shortcuts.action_open_file"),
+            t("shortcuts.action_powershell"),
+            t("shortcuts.action_cmd"),
+            t("shortcuts.action_click_sequence")
+        ])
+    
+    def emit_status(self, message: str, timeout: int = 3000):
+        """
+        Emituje sygnał ze statusem (zamiast używania statusBar)
+        
+        Args:
+            message: Komunikat do wyświetlenia
+            timeout: Czas wyświetlania w ms
+        """
+        self.status_message.emit(message, timeout)
+        print(f"[Status] {message}")  # Backup do konsoli
+    
     def closeEvent(self, a0):
-        """Obsługa zamykania okna - zatrzymaj system"""
+        """Obsługa zamykania widgetu - zatrzymaj system"""
         # KRYTYCZNE: Zatrzymaj system PRZED zamknięciem
         if self.system_active:
             self.stop_system()
@@ -2874,9 +2984,11 @@ class ShortcutsModule(QMainWindow):
                 pass
             self.hotkey_listener = None
         
-        # Zakończ aplikację
-        a0.accept()
-        QApplication.quit()
+        # Zapisz dane
+        self.save_data()
+        
+        # Wywołaj oryginalny closeEvent
+        super().closeEvent(a0)
 
 
 def main():

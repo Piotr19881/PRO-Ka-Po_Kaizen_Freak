@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pomoc - Ustawienia Aplikacji</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #34495e;
+            margin-top: 30px;
+            border-left: 4px solid #3498db;
+            padding-left: 15px;
+        }
+        h3 {
+            color: #7f8c8d;
+            margin-top: 20px;
+        }
+        .feature-box {
+            background: #ecf0f1;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        .info {
+            background: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        ul {
+            margin: 10px 0;
+            padding-left: 30px;
+        }
+        li {
+            margin: 5px 0;
+        }
+        .code {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .shortcut {
+            background: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        .tab-section {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 10px 0;
+            border-left: 4px solid #6c757d;
+        }
+    </style>
+    <link rel="stylesheet" href="assets/lang-switcher.css">
+    <script defer src="assets/lang-switcher.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Ustawienia Aplikacji</h1>
+
+        <p>Ustawienia aplikacji PRO-Ka-Po pozwalają na dostosowanie zachowania, wyglądu i funkcjonalności do indywidualnych potrzeb użytkownika. Wszystkie ustawienia są automatycznie zapisywane i przywracane przy następnym uruchomieniu aplikacji.</p>
+
+        <h2>Struktura Ustawień</h2>
+
+        <p>Ustawienia są podzielone na sześć głównych kart:</p>
+
+        <div class="tab-section">
+            <h3>🛠️ Ogólne</h3>
+            <p>Podstawowe ustawienia aplikacji, kolorystyka, język i dźwięki.</p>
+        </div>
+
+        <div class="tab-section">
+            <h3>🤖 Asystent</h3>
+            <p>Konfiguracja osobistego asystenta AI i jego zachowań.</p>
+        </div>
+
+        <div class="tab-section">
+            <h3>🧠 AI</h3>
+            <p>Ustawienia dostawców AI, klucze API i modeli językowych.</p>
+        </div>
+
+        <div class="tab-section">
+            <h3>📧 Konta E-mail</h3>
+            <p>Konfiguracja kont pocztowych dla modułów e-mail.</p>
+        </div>
+
+        <div class="tab-section">
+            <h3>🏠 Środowisko</h3>
+            <p>Układ interfejsu, przyciski nawigacji i skróty klawiszowe.</p>
+        </div>
+
+        <div class="tab-section">
+            <h3>ℹ️ O aplikacji</h3>
+            <p>Informacje o aplikacji, autorze i technologii.</p>
+        </div>
+
+        <h2>Karta Ogólne</h2>
+
+        <h3>Kolorystyka</h3>
+        <div class="feature-box">
+            <h4>Motywy Aplikacji</h4>
+            <ul>
+                <li><strong>Układ 1:</strong> Główny schemat kolorów dla pierwszego planu</li>
+                <li><strong>Układ 2:</strong> Alternatywny schemat kolorów dla drugiego planu</li>
+                <li><strong>Własny schemat:</strong> Możliwość tworzenia własnych motywów kolorystycznych</li>
+                <li><strong>Automatyczne przełączanie:</strong> Motywy zmieniają się natychmiast po wyborze</li>
+            </ul>
+        </div>
+
+        <h3>Język Aplikacji</h3>
+        <div class="feature-box">
+            <ul>
+                <li><strong>Dostępne języki:</strong> Polski, English, Deutsch</li>
+                <li><strong>Automatyczne odświeżanie:</strong> Wszystkie teksty aktualizują się natychmiast</li>
+                <li><strong>Zachowanie ustawień:</strong> Wybór języka jest pamiętany między sesjami</li>
+            </ul>
+        </div>
+
+        <h3>Ustawienia Systemowe</h3>
+        <div class="feature-box">
+            <ul>
+                <li><strong>Autostart:</strong> Automatyczne uruchamianie aplikacji przy starcie systemu</li>
+                <li><strong>Uruchamianie w tle:</strong> Minimalizacja do zasobnika systemowego zamiast zamykania</li>
+                <li><strong>Powiadomienia:</strong> Włączanie/wyłączanie systemowych powiadomień</li>
+                <li><strong>Dźwięki:</strong> Globalne włączanie/wyłączanie dźwięków w aplikacji</li>
+            </ul>
+        </div>
+
+        <h3>Konfiguracja Dźwięków</h3>
+        <div class="feature-box">
+            <h4>Dostępne Dźwięki</h4>
+            <ul>
+                <li><strong>Dźwięki systemowe:</strong> Beep, Ding, Chord, Pop, Notify, Asterisk, Exclamation, Question, Critical Stop</li>
+                <li><strong>Dźwięki niestandardowe:</strong> Możliwość dodania własnych plików audio (.wav, .mp3, .ogg, .m4r)</li>
+                <li><strong>Przypisanie dźwięków:</strong>
+                    <ul>
+                        <li><strong>Dźwięk powiadomień:</strong> Dla ogólnych powiadomień i alertów</li>
+                        <li><strong>Dźwięk alarmów:</strong> Dla timerów, alarmów i ważnych wydarzeń</li>
+                    </ul>
+                </li>
+                <li><strong>Odtwarzanie testowe:</strong> Przyciski ▶️ pozwalają na odsłuchanie wybranego dźwięku</li>
+            </ul>
+        </div>
+
+        <h3>Skróty Klawiszowe</h3>
+        <div class="feature-box">
+            <ul>
+                <li><strong>Szybkie dodawanie zadań:</strong> Domyślnie <span class="shortcut">Ctrl+N</span></li>
+                <li><strong>Wywołanie okna głównego:</strong> Domyślnie <span class="shortcut">Ctrl+Shift+K</span></li>
+                <li><strong>Format skrótów:</strong> Ctrl, Alt, Shift + litera/cyfra/F1-F12</li>
+            </ul>
+        </div>
+
+        <h2>Karta Asystent</h2>
+
+        <div class="feature-box">
+            <h3>Konfiguracja Asystenta AI</h3>
+            <ul>
+                <li><strong>Osobowość asystenta:</strong> Dostosowanie stylu odpowiedzi</li>
+                <li><strong>Zachowania:</strong> Ustawienia automatycznych akcji</li>
+                <li><strong>Preferencje:</strong> Indywidualne ustawienia interakcji</li>
+                <li><strong>Kontekst:</strong> Zarządzanie pamięcią rozmów</li>
+            </ul>
+        </div>
+
+        <h2>Karta AI</h2>
+
+        <div class="feature-box">
+            <h3>Dostawcy AI</h3>
+            <ul>
+                <li><strong>OpenAI:</strong> GPT-3.5, GPT-4, GPT-4 Turbo</li>
+                <li><strong>Google Gemini:</strong> Gemini 1.0, Gemini 1.5 Pro, Gemini 1.5 Flash</li>
+                <li><strong>Anthropic Claude:</strong> Claude 3, Claude 3.5 Sonnet</li>
+                <li><strong>Grok:</strong> xAI Grok</li>
+                <li><strong>DeepSeek:</strong> DeepSeek Coder, DeepSeek Chat</li>
+            </ul>
+        </div>
+
+        <div class="feature-box">
+            <h3>Konfiguracja API</h3>
+            <ul>
+                <li><strong>Klucze API:</strong> Bezpieczne przechowywanie kluczy dostępu</li>
+                <li><strong>Walidacja kluczy:</strong> Automatyczne sprawdzanie poprawności</li>
+                <li><strong>Zarządzanie modelami:</strong> Wybór optymalnych modeli dla zadań</li>
+                <li><strong>Limit wykorzystania:</strong> Monitorowanie użycia API</li>
+            </ul>
+        </div>
+
+        <h2>Karta Konta E-mail</h2>
+
+        <div class="feature-box">
+            <h3>Konfiguracja Poczty</h3>
+            <ul>
+                <li><strong>Wiele kont:</strong> Obsługa wielu kont pocztowych</li>
+                <li><strong>Protokoły:</strong> IMAP, POP3, SMTP</li>
+                <li><strong>Bezpieczeństwo:</strong> SSL/TLS, OAuth2</li>
+                <li><strong>Synchronizacja:</strong> Automatyczne pobieranie wiadomości</li>
+            </ul>
+        </div>
+
+        <h2>Karta Środowisko</h2>
+
+        <h3>Układ Aplikacji</h3>
+        <div class="feature-box">
+            <ul>
+                <li><strong>Opcja 1:</strong> Przyciski nawigacji na górze, pasek zadań na dole</li>
+                <li><strong>Opcja 2:</strong> Pasek zadań na górze, przyciski nawigacji na dole</li>
+                <li><strong>Widoczność paska zadań:</strong> Możliwość ukrycia paska szybkiego dodawania</li>
+                <li><strong>Skrót wywołania:</strong> <span class="shortcut">Ctrl+N</span> dla szybkiego dostępu do zadań</li>
+            </ul>
+        </div>
+
+        <h3>Konfiguracja Przycisków Nawigacji</h3>
+        <div class="feature-box">
+            <h4>Siatka Przycisków</h4>
+            <ul>
+                <li><strong>Liczba rzędów:</strong> 1-6 rzędów przycisków</li>
+                <li><strong>Przycisków w rzędzie:</strong> 5-8 przycisków na rząd</li>
+                <li><strong>Walidacja miejsca:</strong> Automatyczne sprawdzanie dostępności slotów</li>
+            </ul>
+        </div>
+
+        <div class="feature-box">
+            <h4>Zarządzanie Przyciskami</h4>
+            <ul>
+                <li><strong>Przyciski wbudowane:</strong> Zadania, Kanban, Pomodoro, Habit Tracker, Notatki, CallCryptor, Alarmy, TeamWork, FastKey, Pro-Mail, P-File, P-Web, QuickBoard, Pro-App</li>
+                <li><strong>Własne przyciski:</strong> Dodawanie przycisków dla aplikacji zewnętrznych lub własnych widoków</li>
+                <li><strong>Konfiguracja:</strong>
+                    <ul>
+                        <li>Etykieta wyświetlana na przycisku</li>
+                        <li>Opis przycisku (tooltip)</li>
+                        <li>Globalny skrót klawiszowy</li>
+                        <li>Widoczność w interfejsie</li>
+                    </ul>
+                </li>
+                <li><strong>Przycisk wymagany:</strong> "Zadania" jest zawsze widoczny i nie może być ukryty</li>
+            </ul>
+        </div>
+
+        <h3>Skróty Klawiszowe w Środowisku</h3>
+        <div class="feature-box">
+            <ul>
+                <li><strong>Toggle nawigacji:</strong> Rozwijanie/ukrywanie dodatkowych przycisków</li>
+                <li><strong>Globalne skróty:</strong> Skróty działające z dowolnego miejsca w systemie</li>
+                <li><strong>Walidacja konfliktów:</strong> Automatyczne wykrywanie i ostrzeganie o duplikatach</li>
+            </ul>
+        </div>
+
+        <h2>Karta O Aplikacji</h2>
+
+        <div class="feature-box">
+            <h3>Informacje</h3>
+            <ul>
+                <li><strong>Nazwa:</strong> PRO-Ka-Po Kaizen Freak Edition</li>
+                <li><strong>Autor:</strong> Piotr Prokop</li>
+                <li><strong>Open Source:</strong> Kod dostępny na licencji otwartoźródłowej</li>
+                <li><strong>Technologie:</strong> Python 3.11+, PyQt6, PostgreSQL, FastAPI, AI APIs</li>
+            </ul>
+        </div>
+
+        <h2>Jak Korzystać z Ustawień</h2>
+
+        <h3>Dostęp do Ustawień</h3>
+        <ol>
+            <li>Kliknij przycisk "Ustawienia" w głównym oknie aplikacji</li>
+            <li>Lub użyj skrótu klawiszowego <span class="shortcut">Ctrl+,</span> (jeśli skonfigurowany)</li>
+            <li>Wybierz odpowiednią kartę z dostępnych opcji</li>
+            <li>Dokonaj zmian w ustawieniach</li>
+            <li>Kliknij "Zapisz" aby zastosować zmiany</li>
+        </ol>
+
+        <h3>Zmiana Motywu</h3>
+        <ol>
+            <li>Przejdź do karty "Ogólne"</li>
+            <li>W sekcji "Kolorystyka" wybierz "Układ 1" lub "Układ 2"</li>
+            <li>Kliknij na liście rozwijanej i wybierz motyw</li>
+            <li>Motyw zostanie zastosowany natychmiast</li>
+            <li>Opcjonalnie: Utwórz własny motyw przyciskiem "Utwórz własny schemat"</li>
+        </ol>
+
+        <h3>Konfiguracja Dźwięków</h3>
+        <ol>
+            <li>W karcie "Ogólne" znajdź sekcję "Dźwięki"</li>
+            <li>Dla każdego typu dźwięku:
+                <ul>
+                    <li>Wybierz dźwięk z listy rozwijanej</li>
+                    <li>Lub kliknij "📁" aby dodać własny plik dźwiękowy</li>
+                    <li>Użyj przycisku "▶" aby odsłuchać dźwięk</li>
+                </ul>
+            </li>
+            <li>Upewnij się, że dźwięki są włączone w ustawieniach systemowych</li>
+        </ol>
+
+        <h3>Dodawanie Własnego Przycisku</h3>
+        <ol>
+            <li>Przejdź do karty "Środowisko"</li>
+            <li>Znajdź sekcję "Konfiguracja przycisków nawigacji"</li>
+            <li>Kliknij przycisk "+ Dodaj własny przycisk"</li>
+            <li>Wypełnij formularz:
+                <ul>
+                    <li>Nazwa przycisku</li>
+                    <li>Opis (opcjonalny)</li>
+                    <li>Typ: Aplikacja zewnętrzna lub Własny widok Python</li>
+                    <li>Ścieżka do aplikacji lub modułu</li>
+                </ul>
+            </li>
+            <li>Kliknij "Dodaj"</li>
+            <li>Skonfiguruj widoczność i skrót klawiszowy w tabeli</li>
+        </ol>
+
+        <h3>Konfiguracja Skrótów Klawiszowych</h3>
+        <ol>
+            <li>W odpowiednich kartach znajdź pola na skróty</li>
+            <li>Kliknij w polu i naciśnij kombinację klawiszy</li>
+            <li>Sprawdź czy nie ma konfliktów (czerwone tło oznacza konflikt)</li>
+            <li>Zapisz ustawienia</li>
+        </ol>
+
+        <h2>Wskazówki i Najlepsze Praktyki</h2>
+
+        <div class="info">
+            <h3>Optymalizacja Wydajności</h3>
+            <ul>
+                <li>Używaj lekkich motywów dla lepszej wydajności na słabszym sprzęcie</li>
+                <li>Ogranicz liczbę widocznych przycisków do niezbędnego minimum</li>
+                <li>Regularnie sprawdzaj i aktualizuj klucze API</li>
+            </ul>
+        </div>
+
+        <div class="warning">
+            <h3>Bezpieczeństwo</h3>
+            <ul>
+                <li>Nigdy nie udostępniaj kluczy API innym osobom</li>
+                <li>Używaj silnych haseł do kont e-mail</li>
+                <li>Regularnie zmieniaj klucze API w ustawieniach dostawców</li>
+                <li>Włącz dwuskładnikowe uwierzytelnianie gdzie to możliwe</li>
+            </ul>
+        </div>
+
+        <div class="feature-box">
+            <h3>Przywracanie Ustawień</h3>
+            <ul>
+                <li>W karcie "Środowisko" użyj przycisku "Przywróć domyślne"</li>
+                <li>To przywróci wszystkie ustawienia środowiska do wartości fabrycznych</li>
+                <li>Ustawienia AI i kont e-mail nie zostaną zmienione</li>
+            </ul>
+        </div>
+
+        <h2>Rozwiązywanie Problemów</h2>
+
+        <h3>Zmiany Nie Są Zapisywane</h3>
+        <ul>
+            <li>Sprawdź czy masz uprawnienia do zapisu w katalogu aplikacji</li>
+            <li>Upewnij się, że plik user_settings.json nie jest otwarty w innej aplikacji</li>
+            <li>Spróbuj zamknąć i ponownie otworzyć aplikację</li>
+        </ul>
+
+        <h3>Motywy Nie Działają</h3>
+        <ul>
+            <li>Sprawdź czy plik motywu istnieje w katalogu themes</li>
+            <li>Spróbuj przełączyć się na motyw domyślny i z powrotem</li>
+            <li>Odśwież aplikację (zamknij i otwórz ponownie)</li>
+        </ul>
+
+        <h3>Dźwięki Nie Odtwarzają Się</h3>
+        <ul>
+            <li>Sprawdź czy dźwięki są włączone w ustawieniach aplikacji</li>
+            <li>Upewnij się, że pliki dźwiękowe istnieją i są dostępne</li>
+            <li>Sprawdź ustawienia dźwięku w systemie operacyjnym</li>
+            <li>Spróbuj zmienić dźwięk na systemowy zamiast własnego</li>
+        </ul>
+
+        <h3>Skróty Klawiszowe Nie Działają</h3>
+        <ul>
+            <li>Sprawdź czy skrót nie jest używany przez system lub inne aplikacje</li>
+            <li>Upewnij się, że aplikacja ma fokus (jest aktywnym oknem)</li>
+            <li>Spróbuj zmienić kombinację klawiszy</li>
+            <li>Sprawdź czy globalne skróty są włączone w ustawieniach systemu</li>
+        </ul>
+
+        <h3>Problemy z API AI</h3>
+        <ul>
+            <li>Sprawdź czy klucz API jest prawidłowy i aktualny</li>
+            <li>Upewnij się, że masz aktywne połączenie internetowe</li>
+            <li>Sprawdź limit wykorzystania w panelu dostawcy</li>
+            <li>Spróbuj przełączyć się na innego dostawcę AI</li>
+        </ul>
+
+        <h2>Informacje Techniczne</h2>
+
+        <div class="feature-box">
+            <h3>Pliki Konfiguracyjne</h3>
+            <ul>
+                <li><strong>user_settings.json:</strong> Główny plik ustawień użytkownika</li>
+                <li><strong>custom_themes/:</strong> Katalog z własnymi motywami</li>
+                <li><strong>resources/sounds/:</strong> Katalog z plikami dźwiękowymi</li>
+                <li><strong>logs/:</strong> Pliki dzienników aplikacji</li>
+            </ul>
+        </div>
+
+        <div class="info">
+            <h3>Backup Ustawień</h3>
+            <p>Aplikacja automatycznie tworzy kopię zapasową pliku user_settings.json przy każdej zmianie (z rozszerzeniem .backup). W przypadku problemów z ustawieniami można przywrócić poprzednią wersję.</p>
+        </div>
+    </div>
+</body>
+</html>

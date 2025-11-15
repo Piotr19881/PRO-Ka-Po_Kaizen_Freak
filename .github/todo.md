@@ -1,28 +1,12 @@
-w module pweb przyciski odświerz i wstecz powinny działać w stosunku do ostatnio aktywnej karty a zawsze działają w stosunku do pierwszej karty
-
-w karcie ustawienia środowisko, walidacja aby uzytkownik nie wybrał wiecej dostępnych przycisków niż dostępna ilość na podstawie wyboru ustawień menu-
-
-W module pweb zadbajmy zeby widok otwierał sie w takim układzie stron jak został ostatnio wyświetlany Dodajmy przycisk "start" do którego będzie można przypisać ulubioną strone
-dodajmy na górze listę ulubionych stron.
-w przypadku wyboru w trakcie wyświetlania powinno pytać czy otworzyć w podzielonym widoku 
-
-
-Uzupełnijmy tłumaczenia,
-
-
-na koniec projektu zweryfikujmy karty ustawień, menu kontekstowe ustawień z okna głównego, zapis ustawień do tabel 
-
-poprawa nagłówka okna główneg (pasek systemowy nie czytelny)
-
-
-Weryfikacja wszystkich modułów pod kątem integracji z managerem theme
-
-przygotowanie brakujących plików pomocy dla modułów
-
-dodanie przycisków pomocy do modułów
-\
-
-dodajmy tryb pelnego ekranu dla okna głównego
-
-ANALIZA KREATORA STYLKI CZY PASUJE DO ISTNIEJACYCH STYLI
-
+P
+OPRAWA OBSŁUGI STYLI THEME BIORĄC POD UWAGĘ ŻE MAMY ROZBUDOWANY MANAGER MOTYWÓW OPARTY O C:\Users\probu\Desktop\Aplikacje komercyjne\PRO-Ka-Po_Kaizen_Freak\PRO-Ka-Po_Kaizen_Freak\resources\themes KTÓRY DAJE UZYTKOWNIKOWI MOŻLIWOŚĆ DEFINIOWANIA NOWYCH MOTYWÓW. 
+MODUŁY KTÓRE WYKAZUJĄ NIEZGODNOŚCI TO :
+-POMODORO src/ui/pomodoro_view.py
+-HABIT TRACKER src/ui/habit_statistics_window.py
+C:\Users\probu\Desktop\Aplikacje komercyjne\PRO-Ka-Po_Kaizen_Freak\PRO-Ka-Po_Kaizen_Freak\src\Modules\habbit_tracker_module\habit_tracker_view.py
+-NOTATKI
+C:\Users\probu\Desktop\Aplikacje komercyjne\PRO-Ka-Po_Kaizen_Freak\PRO-Ka-Po_Kaizen_Freak\src\ui\note_view.py
+-CALLCRYPTOR
+C:\Users\probu\Desktop\Aplikacje komercyjne\PRO-Ka-Po_Kaizen_Freak\PRO-Ka-Po_Kaizen_Freak\src\ui\callcryptor_view.py
+C:\Users\probu\Desktop\Aplikacje komercyjne\PRO-Ka-Po_Kaizen_Freak\PRO-Ka-Po_Kaizen_Freak\src\ui\callcryptor_dialogs.py
+-widok ustawień:

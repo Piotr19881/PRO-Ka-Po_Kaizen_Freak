@@ -36,23 +36,32 @@ def parse_datetime_field(value: Union[str, datetime, None]) -> Optional[datetime
     Uniwersalna funkcja do parsowania pól datetime.
     Centralizuje logikę konwersji dat w całym module.
     
+    WAŻNE: Zwraca ZAWSZE datetime naive (bez timezone) dla spójności.
+    
     Args:
         value: String ISO, obiekt datetime lub None
         
     Returns:
-        datetime object lub None
+        datetime object (naive, bez timezone) lub None
     """
     if value is None:
         return None
     
     if isinstance(value, datetime):
+        # Jeśli ma timezone, konwertuj na naive (UTC)
+        if value.tzinfo is not None:
+            return value.replace(tzinfo=None)
         return value
     
     if isinstance(value, str):
         try:
             # Handle ISO format with 'Z' (UTC)
             value_clean = value.replace('Z', '+00:00')
-            return datetime.fromisoformat(value_clean)
+            parsed = datetime.fromisoformat(value_clean)
+            # Konwertuj na naive (usuń timezone info)
+            if parsed.tzinfo is not None:
+                return parsed.replace(tzinfo=None)
+            return parsed
         except (ValueError, AttributeError) as e:
             logger.warning(f"[POMODORO] Failed to parse datetime: {value}, error: {e}")
             return None

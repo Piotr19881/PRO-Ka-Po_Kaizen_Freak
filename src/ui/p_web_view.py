@@ -60,6 +60,7 @@ class PWebView(QWidget):
         # Stan UI
         self.tree_visible = False  # Czy drzewo jest rozwinięte
         self.current_bookmark = None  # Aktualnie wybrana zakładka
+        self.last_active_view = None  # Ostatnio aktywna przeglądarka (web_view lub web_view_split)
         
         # Theme manager - pobierz singleton
         try:
@@ -107,6 +108,11 @@ class PWebView(QWidget):
         # === Pasek narzędzi ===
         toolbar_layout = QHBoxLayout()
         
+        # Przycisk Start (strona domowa)
+        self.btn_start = QPushButton()
+        self.btn_start.setObjectName("pweb_start_button")
+        toolbar_layout.addWidget(self.btn_start)
+        
         # Przycisk Wstecz
         self.btn_back = QPushButton()
         self.btn_back.setObjectName("pweb_back_button")
@@ -144,6 +150,26 @@ class PWebView(QWidget):
         
         main_layout.addLayout(toolbar_layout)
         
+        # === Pasek ulubionych ===
+        from PyQt6.QtWidgets import QScrollArea, QFrame
+        self.favorites_bar = QScrollArea()
+        self.favorites_bar.setObjectName("pweb_favorites_bar")
+        self.favorites_bar.setMaximumHeight(50)
+        self.favorites_bar.setWidgetResizable(True)
+        self.favorites_bar.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.favorites_bar.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.favorites_bar.setFrameShape(QFrame.Shape.NoFrame)
+        
+        # Kontener na przyciski ulubionych
+        self.favorites_container = QWidget()
+        self.favorites_layout = QHBoxLayout(self.favorites_container)
+        self.favorites_layout.setContentsMargins(5, 5, 5, 5)
+        self.favorites_layout.setSpacing(5)
+        self.favorites_layout.addStretch()  # Push buttons to the left
+        
+        self.favorites_bar.setWidget(self.favorites_container)
+        main_layout.addWidget(self.favorites_bar)
+        
         # === Splitter główny: Drzewo | Przeglądarki ===
         self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.main_splitter.setObjectName("pweb_main_splitter")
@@ -162,7 +188,7 @@ class PWebView(QWidget):
         # Główny widok przeglądarki (lewy)
         self.web_view = QWebEngineView()
         self.web_view.setObjectName("pweb_web_view")
-        self.web_view.setUrl(QUrl("about:blank"))
+        self.web_view.setUrl(QUrl("https://www.promir-bud.eu"))  # Domyślna strona promocyjna
         self.browser_splitter.addWidget(self.web_view)
         
         # Dodatkowy widok przeglądarki (prawy) - początkowo ukryty
@@ -244,6 +270,13 @@ class PWebView(QWidget):
             # Dodatkowa przeglądarka (prawa) - używa tego samego profilu
             self.web_page_split = CustomWebEnginePage(self, self.profile)
             self.web_view_split.setPage(self.web_page_split)
+        
+        # Zainstaluj event filter do śledzenia kliknięć (ostatnia aktywna przeglądarka)
+        self.web_view.installEventFilter(self)
+        self.web_view_split.installEventFilter(self)
+        
+        # Ustaw domyślnie pierwszą przeglądarkę jako aktywną
+        self.last_active_view = self.web_view
     
     def _apply_browser_theme(self):
         """Stosuje motyw aplikacji do przeglądarki"""
@@ -279,6 +312,7 @@ class PWebView(QWidget):
     def _connect_signals(self):
         """Połączenia sygnałów"""
         # Toolbar
+        self.btn_start.clicked.connect(self._go_to_start_page)
         self.btn_back.clicked.connect(self._go_back)
         self.btn_toggle_tree.clicked.connect(self._toggle_tree)
         self.btn_refresh.clicked.connect(self._refresh_page)
@@ -334,15 +368,125 @@ class PWebView(QWidget):
         self.btn_toggle_tree.setChecked(self.tree_visible)
     
     def _go_back(self):
-        """Wraca do poprzedniej strony w historii"""
-        if self.web_view.history().canGoBack():
-            self.web_view.back()
-            logger.debug("[PWebView] Navigated back")
+        """Wraca do poprzedniej strony w historii OSTATNIO AKTYWNEJ przeglądarki"""
+        # Użyj ostatnio aktywnej przeglądarki
+        active_view = self.last_active_view if self.last_active_view else self.web_view
+        
+        if active_view.history().canGoBack():
+            active_view.back()
+            logger.debug(f"[PWebView] Navigated back on {'left' if active_view == self.web_view else 'right'} view")
     
     def _refresh_page(self):
-        """Odświeża aktualną stronę"""
-        self.web_view.reload()
-        logger.debug("[PWebView] Page refreshed")
+        """Odświeża aktualną stronę OSTATNIO AKTYWNEJ przeglądarki"""
+        # Użyj ostatnio aktywnej przeglądarki
+        active_view = self.last_active_view if self.last_active_view else self.web_view
+        
+        active_view.reload()
+        logger.debug(f"[PWebView] Page refreshed on {'left' if active_view == self.web_view else 'right'} view")
+    
+    def _go_to_start_page(self):
+        """Przechodzi do strony początkowej ustawionej przez użytkownika"""
+        # Pobierz ustawienia
+        from ..utils.settings_manager import get_settings_manager
+        settings_manager = get_settings_manager()
+        
+        start_url = settings_manager.get('p_web', {}).get('start_page_url', None)
+        
+        if start_url:
+            # Normalizuj i otwórz
+            normalized_url = PWebLogic.normalize_url(start_url)
+            active_view = self.last_active_view if self.last_active_view else self.web_view
+            active_view.setUrl(QUrl(normalized_url))
+            logger.info(f"[PWebView] Navigated to start page: {normalized_url}")
+        else:
+            # Brak ustawionej strony - zapytaj czy ustawić aktualną
+            reply = QMessageBox.question(
+                self,
+                t('pweb.title'),
+                t('pweb.start_page_not_set'),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            
+            if reply == QMessageBox.StandardButton.Yes:
+                # Ustaw aktualną stronę jako startową
+                active_view = self.last_active_view if self.last_active_view else self.web_view
+                current_url = active_view.url().toString()
+                
+                if current_url and current_url != 'about:blank':
+                    settings_manager.set('p_web', {'start_page_url': current_url})
+                    settings_manager.save()
+                    
+                    QMessageBox.information(
+                        self,
+                        t('pweb.title'),
+                        t('pweb.start_page_set').replace('{url}', current_url)
+                    )
+                    logger.info(f"[PWebView] Start page set to: {current_url}")
+    
+    def _populate_favorites_bar(self):
+        """Wypełnia pasek ulubionych zakładkami"""
+        # Wyczyść obecne przyciski
+        while self.favorites_layout.count() > 1:  # Zostaw stretch na końcu
+            item = self.favorites_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        
+        # Pobierz ulubione
+        favorites = self.logic.get_favorites()
+        
+        if not favorites:
+            # Pokaż komunikat o braku ulubionych
+            label = QLabel(t('pweb.favorites_bar_empty'))
+            label.setObjectName("pweb_favorites_empty_label")
+            label.setStyleSheet("color: gray; font-style: italic; padding: 5px;")
+            self.favorites_layout.insertWidget(0, label)
+        else:
+            # Dodaj przyciski dla każdej ulubionej
+            for fav in favorites:
+                btn = QPushButton(fav['name'])
+                btn.setObjectName("pweb_favorite_button")
+                btn.setToolTip(fav['url'])
+                btn.setMaximumWidth(150)
+                btn.clicked.connect(lambda checked, bookmark=fav: self._on_favorite_clicked(bookmark))
+                
+                # Ustaw kolor tła przycisku
+                if 'color' in fav and fav['color']:
+                    is_dark = PWebLogic.is_dark_color(fav['color'])
+                    text_color = '#FFFFFF' if is_dark else '#000000'
+                    btn.setStyleSheet(f"background-color: {fav['color']}; color: {text_color}; padding: 5px; border-radius: 3px;")
+                
+                self.favorites_layout.insertWidget(self.favorites_layout.count() - 1, btn)
+        
+        logger.debug(f"[PWebView] Favorites bar populated with {len(favorites)} items")
+    
+    def _on_favorite_clicked(self, bookmark: dict):
+        """Obsługa kliknięcia w ulubioną zakładkę z paska"""
+        # Sprawdź czy jest już załadowana jakaś strona
+        active_view = self.last_active_view if self.last_active_view else self.web_view
+        current_url = active_view.url().toString()
+        
+        # Jeśli przeglądarka jest pusta lub pokazuje about:blank, otwórz od razu
+        if not current_url or current_url == 'about:blank' or current_url == '':
+            normalized_url = PWebLogic.normalize_url(bookmark['url'])
+            active_view.setUrl(QUrl(normalized_url))
+            logger.info(f"[PWebView] Opened favorite: {bookmark['name']}")
+        else:
+            # Zapytaj czy otworzyć w podzielonym widoku
+            reply = QMessageBox.question(
+                self,
+                t('pweb.open_split_dialog_title'),
+                t('pweb.open_split_dialog_message').replace('{name}', bookmark['name']).replace('{url}', bookmark['url']),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            
+            if reply == QMessageBox.StandardButton.Yes:
+                # Otwórz w split view
+                self._open_bookmark_in_split(bookmark)
+            else:
+                # Zastąp aktualną stronę
+                normalized_url = PWebLogic.normalize_url(bookmark['url'])
+                active_view.setUrl(QUrl(normalized_url))
+                logger.info(f"[PWebView] Replaced current page with favorite: {bookmark['name']}")
     
     def _toggle_split_view(self):
         """Przełącza podzielony widok - z dialogiem wyboru strony przy włączaniu"""
@@ -410,6 +554,9 @@ class PWebView(QWidget):
                 if self.tree_visible:
                     self.tree_widget.refresh_tree()
                 
+                # Odśwież pasek ulubionych
+                self._populate_favorites_bar()
+                
                 # Otwórz zakładkę
                 self._open_bookmark(data)
                 
@@ -452,6 +599,9 @@ class PWebView(QWidget):
                 if self.tree_visible:
                     self.tree_widget.refresh_tree()
                 
+                # Odśwież pasek ulubionych
+                self._populate_favorites_bar()
+                
                 logger.info("[PWebView] Deleted bookmark")
             else:
                 QMessageBox.critical(self, t("pweb.title"), 
@@ -464,7 +614,29 @@ class PWebView(QWidget):
     def _on_bookmark_selected(self, bookmark: dict):
         """Obsługa wyboru zakładki z drzewa"""
         self.current_bookmark = bookmark
-        self._open_bookmark(bookmark)
+        
+        # Sprawdź czy jest już załadowana jakaś strona
+        active_view = self.last_active_view if self.last_active_view else self.web_view
+        current_url = active_view.url().toString()
+        
+        # Jeśli przeglądarka jest pusta lub pokazuje about:blank, otwórz od razu
+        if not current_url or current_url == 'about:blank' or current_url == '':
+            self._open_bookmark(bookmark)
+        else:
+            # Zapytaj czy otworzyć w podzielonym widoku
+            reply = QMessageBox.question(
+                self,
+                t('pweb.open_split_dialog_title'),
+                t('pweb.open_split_dialog_message').replace('{name}', bookmark['name']).replace('{url}', bookmark['url']),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            
+            if reply == QMessageBox.StandardButton.Yes:
+                # Otwórz w split view
+                self._open_bookmark_in_split(bookmark)
+            else:
+                # Zastąp aktualną stronę
+                self._open_bookmark(bookmark)
     
     def _open_bookmark(self, bookmark: dict):
         """Otwiera zakładkę w przeglądarce"""
@@ -502,6 +674,9 @@ class PWebView(QWidget):
             # Odśwież drzewo
             if self.tree_visible:
                 self.tree_widget.refresh_tree()
+            
+            # Odśwież pasek ulubionych
+            self._populate_favorites_bar()
             
             logger.info(f"[PWebView] Toggled favorite for: {bookmark['name']} -> {result}")
         else:
@@ -760,6 +935,31 @@ class PWebView(QWidget):
 
         QTimer.singleShot(0, self._position_overlay_buttons)
     
+    def eventFilter(self, obj, event):
+        """Filtruj zdarzenia, aby śledzić ostatnio aktywną przeglądarkę"""
+        from PyQt6.QtCore import QEvent
+        
+        # Śledź kliknięcia myszą w przeglądarkach
+        if event.type() == QEvent.Type.MouseButtonPress:
+            if obj == self.web_view:
+                self.last_active_view = self.web_view
+                logger.debug("[PWebView] Left view activated")
+            elif obj == self.web_view_split:
+                self.last_active_view = self.web_view_split
+                logger.debug("[PWebView] Right view activated")
+        
+        # Śledź fokus
+        elif event.type() == QEvent.Type.FocusIn:
+            if obj == self.web_view:
+                self.last_active_view = self.web_view
+                logger.debug("[PWebView] Left view focused")
+            elif obj == self.web_view_split:
+                self.last_active_view = self.web_view_split
+                logger.debug("[PWebView] Right view focused")
+        
+        # Przekaż dalej
+        return super().eventFilter(obj, event)
+    
     # ======================
     # Tłumaczenia
     # ======================
@@ -769,6 +969,8 @@ class PWebView(QWidget):
         if not WEBENGINE_AVAILABLE or not hasattr(self, 'btn_back'):
             return
         
+        self.btn_start.setText(t("pweb.start_button"))
+        self.btn_start.setToolTip(t("pweb.start_button_tooltip"))
         self.btn_back.setText(t("pweb.back"))
         self.btn_toggle_tree.setText(t("pweb.toggle_tree"))
         self.btn_refresh.setText(t("pweb.refresh"))
@@ -781,6 +983,9 @@ class PWebView(QWidget):
         
         self.btn_add.setText(t("pweb.add_page"))
         self.btn_delete.setText(t("pweb.delete_page"))
+        
+        # Odśwież pasek ulubionych (może mieć przetłumaczony tekst)
+        self._populate_favorites_bar()
         
         # Aktualizuj motyw przeglądarki
         self._apply_browser_theme()

@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pomoc - Moduł AI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .header .icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.95;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section h2 {
+            color: #667eea;
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .section h3 {
+            color: #764ba2;
+            font-size: 1.4em;
+            margin-top: 25px;
+            margin-bottom: 15px;
+        }
+
+        .section p {
+            margin-bottom: 15px;
+            text-align: justify;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin: 25px 0;
+        }
+
+        .feature-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .feature-card .emoji {
+            font-size: 2.5em;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .feature-card h3 {
+            color: #667eea;
+            font-size: 1.3em;
+            margin-bottom: 10px;
+            margin-top: 0;
+        }
+
+        .feature-card p {
+            color: #555;
+            font-size: 0.95em;
+        }
+
+        .code-block {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px 20px;
+            margin: 15px 0;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+        }
+
+        .keyboard-key {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            margin: 0 3px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .step-list {
+            counter-reset: step-counter;
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .step-list li {
+            counter-increment: step-counter;
+            margin-bottom: 20px;
+            padding-left: 50px;
+            position: relative;
+        }
+
+        .step-list li::before {
+            content: counter(step-counter);
+            position: absolute;
+            left: 0;
+            top: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196F3;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .info-box strong {
+            color: #1976D2;
+        }
+
+        .warning-box {
+            background: #fff3e0;
+            border-left: 4px solid #ffc107;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .warning-box strong {
+            color: #ff9800;
+        }
+
+        .tip-box {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .tip-box strong {
+            color: #218838;
+        }
+
+        ul.feature-list {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        ul.feature-list li {
+            padding-left: 30px;
+            position: relative;
+            margin-bottom: 10px;
+        }
+
+        ul.feature-list li::before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #28a745;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        table th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: bold;
+        }
+
+        table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .footer {
+            background: #f8f9fa;
+            padding: 30px;
+            text-align: center;
+            color: #666;
+            border-top: 1px solid #ddd;
+        }
+
+        .footer p {
+            margin-bottom: 10px;
+        }
+    </style>
+    <link rel="stylesheet" href="assets/lang-switcher.css">
+    <script defer src="assets/lang-switcher.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="icon">🤖</div>
+            <h1>Moduł AI</h1>
+            <p>Uniwersalna integracja z różnymi dostawcami AI</p>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <!-- Wprowadzenie -->
+            <div class="section">
+                <h2>📖 Co to jest Moduł AI?</h2>
+                <p>
+                    <strong>Moduł AI</strong> to zaawansowany system integracji z różnymi dostawcami sztucznej inteligencji,
+                    umożliwiający korzystanie z mocy AI bezpośrednio w aplikacji PRO-Ka-Po. Moduł obsługuje
+                    wiele popularnych modeli AI, zapewniając elastyczność wyboru najlepszego narzędzia dla Twoich potrzeb.
+                </p>
+                <p>
+                    System jest zaprojektowany z myślą o bezpieczeństwie - wszystkie klucze API są szyfrowane
+                    i przechowywane lokalnie. Możesz korzystać z AI do transkrypcji dźwięku, analizy tekstu,
+                    generowania pomysłów i wielu innych zastosowań.
+                </p>
+            </div>
+
+            <!-- Obsługiwani Dostawcy -->
+            <div class="section">
+                <h2>🌐 Obsługiwani Dostawcy AI</h2>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Dostawca</th>
+                            <th>Ikona</th>
+                            <th>Obsługiwane Modele</th>
+                            <th>Główne Zastosowania</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Google Gemini</strong></td>
+                            <td>🔵</td>
+                            <td>Gemini 1.5 Pro, Gemini 1.5 Flash, Gemini 2.0 Flash, Gemini 2.5 Pro</td>
+                            <td>Transkrypcja audio, analiza tekstu, generowanie treści</td>
+                        </tr>
+                        <tr>
+                            <td><strong>OpenAI</strong></td>
+                            <td>🟢</td>
+                            <td>GPT-4, GPT-4 Turbo, GPT-4o, GPT-3.5 Turbo</td>
+                            <td>Analiza tekstu, generowanie kodu, tłumaczenia</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Grok (X.AI)</strong></td>
+                            <td>🟠</td>
+                            <td>Grok-1, Grok-Beta</td>
+                            <td>Analiza danych, odpowiedzi kontekstowe</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Anthropic Claude</strong></td>
+                            <td>🟣</td>
+                            <td>Claude 3 Opus, Sonnet, Haiku, Claude 3.5 Sonnet</td>
+                            <td>Analiza dokumentów, pisanie kreatywne</td>
+                        </tr>
+                        <tr>
+                            <td><strong>DeepSeek</strong></td>
+                            <td>🔴</td>
+                            <td>DeepSeek Chat, DeepSeek Coder</td>
+                            <td>Programowanie, analiza kodu</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="info-box">
+                    <strong>💡 Wskazówka:</strong> Możesz skonfigurować wiele dostawców jednocześnie
+                    i przełączać się między nimi w zależności od zadania. Każdy dostawca ma swoje unikalne
+                    mocne strony - Gemini dla audio, Claude dla analizy dokumentów, GPT-4 dla kreatywnego pisania.
+                </div>
+            </div>
+
+            <!-- Główne Funkcje -->
+            <div class="section">
+                <h2>✨ Główne Funkcje</h2>
+
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <span class="emoji">🎯</span>
+                        <h3>Konfigurowalne Modele</h3>
+                        <p>Wybierz najlepszy model dla swojego zadania. Każdy dostawca oferuje różne modele z różnymi możliwościami i kosztami.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <span class="emoji">🔒</span>
+                        <h3>Bezpieczne Przechowywanie</h3>
+                        <p>Klucze API są szyfrowane i przechowywane lokalnie. Nigdy nie są wysyłane poza Twój komputer.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <span class="emoji">📝</span>
+                        <h3>Transkrypcja Audio</h3>
+                        <p>Automatyczna transkrypcja nagrań audio na tekst. Obsługa wielu języków i formatów plików.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <span class="emoji">📊</span>
+                        <h3>Analiza i Podsumowanie</h3>
+                        <p>Inteligentna analiza tekstu, generowanie podsumowań i wyciąganie kluczowych informacji.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <span class="emoji">💾</span>
+                        <h3>Cache Odpowiedzi</h3>
+                        <p>System cache'u przyspiesza pracę - identyczne zapytania są obsługiwane natychmiast.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <span class="emoji">🎨</span>
+                        <h3>Integracja z Motywami</h3>
+                        <p>Pełna kompatybilność z systemem motywów aplikacji - automatyczne dostosowanie kolorów.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <span class="emoji">🌍</span>
+                        <h3>Wielojęzyczność</h3>
+                        <p>Obsługa wielu języków z automatycznym tłumaczeniem interfejsu.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <span class="emoji">⚡</span>
+                        <h3>Szybkie Przełączanie</h3>
+                        <p>Łatwe przełączanie między skonfigurowanymi dostawcami w zależności od potrzeb.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Konfiguracja -->
+            <div class="section">
+                <h2>⚙️ Konfiguracja Modułu AI</h2>
+
+                <h3>Pierwsze Uruchomienie</h3>
+                <ol class="step-list">
+                    <li>
+                        <strong>Otwórz ustawienia aplikacji</strong><br>
+                        Przejdź do menu głównego → Ustawienia → zakładka "Środowisko" lub "AI"
+                    </li>
+                    <li>
+                        <strong>Wybierz dostawcę AI</strong><br>
+                        Z listy rozwijanej wybierz preferowanego dostawcę (np. Google Gemini)
+                    </li>
+                    <li>
+                        <strong>Wprowadź klucz API</strong><br>
+                        Skopiuj klucz API z panelu wybranego dostawcy i wklej w odpowiednie pole
+                    </li>
+                    <li>
+                        <strong>Wybierz model</strong><br>
+                        System automatycznie pobierze dostępne modele dla wybranego dostawcy
+                    </li>
+                    <li>
+                        <strong>Ustaw parametry</strong><br>
+                        Skonfiguruj temperaturę (kreatywność) i maksymalną długość odpowiedzi
+                    </li>
+                    <li>
+                        <strong>Testuj połączenie</strong><br>
+                        Kliknij przycisk "Testuj połączenie" aby sprawdzić czy konfiguracja działa
+                    </li>
+                    <li>
+                        <strong>Zapisz ustawienia</strong><br>
+                        Kliknij "Zapisz" aby zastosować zmiany
+                    </li>
+                </ol>
+
+                <div class="warning-box">
+                    <strong>⚠️ Ważne:</strong> Klucze API są wrażliwymi danymi. Przechowuj je bezpiecznie
+                    i nigdy nie udostępniaj innym osobom. W przypadku Gemini, klucz API można uzyskać
+                    w Google AI Studio (makersuite.google.com).
+                </div>
+            </div>
+
+            <!-- Jak Korzystać -->
+            <div class="section">
+                <h2>🚀 Jak Korzystać z AI</h2>
+
+                <h3>Transkrypcja Audio</h3>
+                <p>Moduł AI może automatycznie transkrybować pliki audio na tekst:</p>
+
+                <ol class="step-list">
+                    <li>
+                        <strong>Przygotuj plik audio</strong><br>
+                        Upewnij się, że plik jest w obsługiwanym formacie (MP3, WAV, M4A, etc.)
+                    </li>
+                    <li>
+                        <strong>Wybierz moduł docelowy</strong><br>
+                        Przejdź do modułu CallCryptor lub innego, który obsługuje AI
+                    </li>
+                    <li>
+                        <strong>Uruchom transkrypcję</strong><br>
+                        Wybierz nagranie i kliknij przycisk transkrypcji AI
+                    </li>
+                    <li>
+                        <strong>Poczekaj na wynik</strong><br>
+                        Proces może zająć kilka minut w zależności od długości nagrania
+                    </li>
+                    <li>
+                        <strong>Przejrzyj transkrypcję</strong><br>
+                        Tekst zostanie automatycznie wstawiony w odpowiednie pole
+                    </li>
+                </ol>
+
+                <h3>Analiza Tekstu</h3>
+                <p>AI może analizować i podsumowywać teksty:</p>
+
+                <ul class="feature-list">
+                    <li>Generowanie podsumowań długich dokumentów</li>
+                    <li>Wyciąganie kluczowych informacji i zadań</li>
+                    <li>Analiza sentymentu i tonu wypowiedzi</li>
+                    <li>Tworzenie notatek z analizy treści</li>
+                    <li>Generowanie pomysłów i sugestii</li>
+                </ul>
+
+                <h3>Generowanie Treści</h3>
+                <p>AI może pomagać w tworzeniu różnych rodzajów treści:</p>
+
+                <ul class="feature-list">
+                    <li>Odpowiedzi na emaile i wiadomości</li>
+                    <li>Opisy projektów i dokumentacji</li>
+                    <li>Plany działania i harmonogramy</li>
+                    <li>Analizy i raporty</li>
+                    <li>Kod źródłowy i skrypty</li>
+                </ul>
+            </div>
+
+            <!-- Parametry AI -->
+            <div class="section">
+                <h2>🎛️ Parametry i Ustawienia AI</h2>
+
+                <h3>Temperatura (Kreatywność)</h3>
+                <p>
+                    Parametr temperatury kontroluje "kreatywność" odpowiedzi AI:
+                </p>
+                <ul>
+                    <li><strong>0.0 - 0.3:</strong> Odpowiedzi bardzo skoncentrowane, faktograficzne</li>
+                    <li><strong>0.4 - 0.7:</strong> Zrównoważona kreatywność (zalecane)</li>
+                    <li><strong>0.8 - 1.0:</strong> Bardzo kreatywne, czasem mniej dokładne odpowiedzi</li>
+                </ul>
+
+                <h3>Maksymalna Długość Odpowiedzi</h3>
+                <p>
+                    Limit długości odpowiedzi w tokenach (przybliżony):
+                </p>
+                <ul>
+                    <li><strong>1000-2000:</strong> Krótkie odpowiedzi, podsumowania</li>
+                    <li><strong>2000-4000:</strong> Średnie odpowiedzi, analizy</li>
+                    <li><strong>4000+:</strong> Długie odpowiedzi, szczegółowe analizy</li>
+                </ul>
+
+                <h3>Wybór Modelu</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Model</th>
+                            <th>Przeznaczenie</th>
+                            <th>Szybkość</th>
+                            <th>Koszt</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Gemini 1.5 Flash</strong></td>
+                            <td>Szybkie zadania, codzienne</td>
+                            <td>Bardzo szybki</td>
+                            <td>Niski</td>
+                        </tr>
+                        <tr>
+                            <td><strong>GPT-4</strong></td>
+                            <td>Złożone analizy, kod</td>
+                            <td>Średni</td>
+                            <td>Wysoki</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Claude 3.5 Sonnet</strong></td>
+                            <td>Analizy dokumentów</td>
+                            <td>Szybki</td>
+                            <td>Średni</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Grok Beta</strong></td>
+                            <td>Kreatywne zadania</td>
+                            <td>Szybki</td>
+                            <td>Niski</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Bezpieczeństwo -->
+            <div class="section">
+                <h2>🔒 Bezpieczeństwo i Prywatność</h2>
+
+                <h3>Przechowywanie Kluczy API</h3>
+                <ul class="feature-list">
+                    <li>Klucze są szyfrowane przed zapisaniem na dysku</li>
+                    <li>Przechowywane lokalnie na Twoim komputerze</li>
+                    <li>Nigdy nie są wysyłane do serwerów PRO-Ka-Po</li>
+                    <li>Dostępne tylko dla Ciebie - prywatne dane</li>
+                </ul>
+
+                <h3>Przesyłanie Danych</h3>
+                <ul class="feature-list">
+                    <li>Wszystkie komunikacje z AI są szyfrowane HTTPS</li>
+                    <li>Dane wysyłane tylko do wybranego dostawcy AI</li>
+                    <li>Możliwość pracy offline (cache odpowiedzi)</li>
+                    <li>Brak logowania danych przez aplikację PRO-Ka-Po</li>
+                </ul>
+
+                <div class="warning-box">
+                    <strong>⚠️ Ostrzeżenie:</strong> Pamiętaj, że treści wysyłane do AI mogą być
+                    przetwarzane przez zewnętrznych dostawców. Jeśli masz wrażliwe dane, rozważ
+                    używanie lokalnych modeli AI lub unikanie wysyłania poufnych informacji.
+                </div>
+            </div>
+
+            <!-- Rozwiązywanie Problemów -->
+            <div class="section">
+                <h2>🔧 Rozwiązywanie Problemów</h2>
+
+                <h3>Błąd: "No AI provider configured"</h3>
+                <p><strong>Rozwiązanie:</strong></p>
+                <ul>
+                    <li>Przejdź do Ustawień → AI</li>
+                    <li>Wybierz dostawcę i wprowadź klucz API</li>
+                    <li>Kliknij "Testuj połączenie"</li>
+                    <li>Zapisz ustawienia</li>
+                </ul>
+
+                <h3>Błąd: "API key invalid"</h3>
+                <p><strong>Rozwiązanie:</strong></p>
+                <ul>
+                    <li>Sprawdź czy klucz API jest prawidłowy</li>
+                    <li>Upewnij się, że nie wygasł</li>
+                    <li>Sprawdź limit wykorzystania API</li>
+                    <li>Wygeneruj nowy klucz jeśli to konieczne</li>
+                </ul>
+
+                <h3>Transkrypcja nie działa</h3>
+                <p><strong>Rozwiązanie:</strong></p>
+                <ul>
+                    <li>Sprawdź format pliku audio (MP3, WAV, M4A)</li>
+                    <li>Upewnij się, że plik nie jest uszkodzony</li>
+                    <li>Spróbuj z krótszym plikiem testowym</li>
+                    <li>Sprawdź połączenie internetowe</li>
+                </ul>
+
+                <h3>Odpowiedzi są zbyt wolne</h3>
+                <p><strong>Rozwiązanie:</strong></p>
+                <ul>
+                    <li>Wybierz szybszy model (np. Gemini 1.5 Flash zamiast GPT-4)</li>
+                    <li>Zmniejsz maksymalną długość odpowiedzi</li>
+                    <li>Sprawdź połączenie internetowe</li>
+                    <li>Rozważ użycie cache'u dla powtarzających się zapytań</li>
+                </ul>
+            </div>
+
+            <!-- FAQ -->
+            <div class="section">
+                <h2>❓ Najczęściej Zadawane Pytania</h2>
+
+                <h3>Czy mogę używać AI bez internetu?</h3>
+                <p>
+                    Częściowo tak. Jeśli masz zapisane odpowiedzi w cache'u, możesz korzystać
+                    z wcześniej przetworzonych zapytań. Jednak nowe zapytania wymagają połączenia internetowego.
+                </p>
+
+                <h3>Ile kosztuje używanie AI?</h3>
+                <p>
+                    Koszty zależą od wybranego dostawcy i modelu. Gemini oferuje darmowe limity,
+                    OpenAI i Claude mają płatne API. Sprawdź cenniki na stronach dostawców.
+                </p>
+
+                <h3>Czy moje dane są bezpieczne?</h3>
+                <p>
+                    Tak, ale z zastrzeżeniami. Klucze API są bezpiecznie przechowywane lokalnie.
+                    Jednak treści wysyłane do AI są przetwarzane przez zewnętrznych dostawców
+                    zgodnie z ich politykami prywatności.
+                </p>
+
+                <h3>Który dostawca jest najlepszy?</h3>
+                <p>
+                    To zależy od zadania: Gemini dla audio i szybkich odpowiedzi, Claude dla analizy
+                    dokumentów, GPT-4 dla kreatywnego pisania, Grok dla nietypowych zapytań.
+                </p>
+
+                <h3>Czy mogę zmienić dostawcę w trakcie pracy?</h3>
+                <p>
+                    Tak, możesz skonfigurować wielu dostawców i przełączać się między nimi
+                    w ustawieniach. Zmiany obowiązują natychmiast.
+                </p>
+            </div>
+
+            <!-- Integracje -->
+            <div class="section">
+                <h2>🔗 Integracje z Innymi Modułami</h2>
+
+                <h3>CallCryptor - Transkrypcja Nagrań</h3>
+                <ul class="feature-list">
+                    <li>Automatyczna transkrypcja rozmów telefonicznych</li>
+                    <li>Analiza treści rozmów przez AI</li>
+                    <li>Generowanie podsumowań i zadań z rozmów</li>
+                    <li>Obsługa wielu języków</li>
+                </ul>
+
+                <h3>Notatki - Analiza Tekstu</h3>
+                <ul class="feature-list">
+                    <li>Automatyczne podsumowywanie długich notatek</li>
+                    <li>Wyciąganie kluczowych informacji</li>
+                    <li>Generowanie tagów i kategorii</li>
+                    <li>Analiza sentymentu</li>
+                </ul>
+
+                <h3>Zadania - Generowanie Pomysłów</h3>
+                <ul class="feature-list">
+                    <li>Automatyczne tworzenie zadań z analizy tekstu</li>
+                    <li>Sugestie priorytetów i terminów</li>
+                    <li>Optymalizacja workflow</li>
+                    <li>Analiza efektywności</li>
+                </ul>
+
+                <h3>Pomodoro - Analiza Produktywności</h3>
+                <ul class="feature-list">
+                    <li>Analiza wzorców pracy</li>
+                    <li>Sugestie optymalizacji czasu</li>
+                    <li>Generowanie raportów produktywności</li>
+                    <li>Personalizowane rekomendacje</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p><strong>Moduł AI</strong> - Uniwersalna Integracja z AI</p>
+            <p>Wersja 1.0 | Część aplikacji PRO-Ka-Po Kaizen Freak</p>
+            <p>© 2025 PRO-Ka-Po Development Team</p>
+        </div>
+    </div>
+</body>
+</html>

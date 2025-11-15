@@ -1,17 +1,36 @@
-[
-  {
-    "name": "google",
-    "url": "https://www.google.com",
-    "color": "#4caf50"
-  },
-  {
-    "name": "test",
-    "url": "https://pl.wikipedia.org/wiki/Hypatia_z_Aleksandrii",
-    "color": "#4caf50"
-  },
-  {
-    "name": "promirbud.eu",
-    "url": "https://promirbud.eu",
-    "color": "#4caf50"
-  }
-]
+{
+  "groups": [
+    {
+      "id": "default",
+      "name": "Wszystkie",
+      "color": "#9E9E9E"
+    }
+  ],
+  "tags": [],
+  "bookmarks": [
+    {
+      "name": "google",
+      "url": "https://www.google.com",
+      "color": "#4caf50",
+      "group_id": "default",
+      "tags": [],
+      "favorite": true
+    },
+    {
+      "name": "test",
+      "url": "https://pl.wikipedia.org/wiki/Hypatia_z_Aleksandrii",
+      "color": "#4caf50",
+      "group_id": "default",
+      "tags": [],
+      "favorite": false
+    },
+    {
+      "name": "promirbud.eu",
+      "url": "https://promirbud.eu",
+      "color": "#4caf50",
+      "group_id": "default",
+      "tags": [],
+      "favorite": false
+    }
+  ]
+}

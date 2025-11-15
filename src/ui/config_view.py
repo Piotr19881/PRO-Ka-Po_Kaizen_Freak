@@ -20,7 +20,7 @@ from ..utils.theme_manager import get_theme_manager
 from .ai_settings import AISettingsTab
 from .assistant_settings_tab import AssistantSettingsTab
 from .email_settings_card import EmailSettingsCard
-from .email_settings_card import EmailSettingsCard
+from .shortcut_edit import ShortcutEdit
 
 
 class GeneralSettingsTab(QWidget):
@@ -107,6 +107,9 @@ class GeneralSettingsTab(QWidget):
             "Polski",
             "English",
             "Deutsch",
+            "Español",
+            "日本語",
+            "中文",
         ])
         language_layout.addWidget(self.language_label)
         language_layout.addWidget(self.combo_language, stretch=1)
@@ -298,6 +301,9 @@ class GeneralSettingsTab(QWidget):
             'pl': 0,
             'en': 1,
             'de': 2,
+            'es': 3,
+            'ja': 4,
+            'zh': 5,
         }
         
         # Ustaw wartości
@@ -474,31 +480,28 @@ class GeneralSettingsTab(QWidget):
         self.settings_changed.emit({'enable_sound': is_enabled})
     
     def _populate_sound_combos(self):
-        """Wypełnij combo boxy dźwiękami systemowymi i własnymi"""
-        # Dźwięki systemowe (Windows)
-        system_sounds = [
-            ("Beep (domyślny)", "beep"),
-            ("Ding", "ding"),
-            ("Chord", "chord"),
-            ("Pop", "pop"),
-            ("Notify", "notify"),
-            ("Asterisk", "asterisk"),
-            ("Exclamation", "exclamation"),
-            ("Question", "question"),
-            ("Critical Stop", "critical"),
-        ]
+        """Wypełnij combo boxy dźwiękami z resources/sounds i własnymi"""
+        from pathlib import Path
         
-        # Dodaj dźwięki systemowe do obu combo
-        for name, _ in system_sounds:
-            self.combo_sound1.addItem(name)
-            self.combo_sound2.addItem(name)
+        # Załaduj dźwięki z resources/sounds
+        sounds_dir = Path(__file__).parent.parent.parent / "resources" / "sounds"
         
-        # Załaduj własne dźwięki z ustawień
+        if sounds_dir.exists():
+            sound_files = sorted(sounds_dir.glob("*.m4r"))
+            for sound_file in sound_files:
+                # Użyj nazwy pliku bez rozszerzenia jako wyświetlanej nazwy
+                name = sound_file.stem
+                self.combo_sound1.addItem(name)
+                self.combo_sound2.addItem(name)
+                # Zapisz pełną ścieżkę
+                self.custom_sounds[name] = str(sound_file.absolute())
+        
+        # Załaduj dodatkowe własne dźwięki z ustawień
         settings = load_settings()
         custom_sounds = settings.get('custom_sounds', {})
         
         for name, path in custom_sounds.items():
-            if os.path.exists(path):
+            if os.path.exists(path) and name not in self.custom_sounds:
                 self.combo_sound1.addItem(f"⭐ {name}")
                 self.combo_sound2.addItem(f"⭐ {name}")
                 self.custom_sounds[name] = path
@@ -509,7 +512,7 @@ class GeneralSettingsTab(QWidget):
             self,
             t('settings.select_sound_file'),
             "",
-            "Audio Files (*.wav *.mp3 *.ogg);;All Files (*.*)"
+            "Audio Files (*.wav *.mp3 *.ogg *.m4r);;All Files (*.*)"
         )
         
         if file_path:
@@ -665,26 +668,30 @@ class GeneralSettingsTab(QWidget):
         # Możesz tu dodać dodatkową logikę jeśli potrzeba
         pass
     
-    def showEvent(self, event):
+    def showEvent(self, a0):
         """Wywoływane gdy widok jest pokazywany - odśwież combo języka"""
-        super().showEvent(event)
+        super().showEvent(a0)
         # Odśwież combo języka aby pokazywał aktualną wartość
         current_language = get_i18n().get_current_language()
         language_map = {
             'pl': 0,
             'en': 1,
             'de': 2,
+            'es': 3,
+            'ja': 4,
+            'zh': 5,
         }
         lang_index = language_map.get(current_language, 0)
         self.combo_language.setCurrentIndex(lang_index)
     
     def _save_settings(self):
         """Zapisz ustawienia"""
+        from PyQt6.QtWidgets import QMessageBox
         # Mapowanie języków
-        language_codes = ['pl', 'en', 'de']
+        language_codes = ['pl', 'en', 'de', 'es', 'ja', 'zh']
         selected_language = language_codes[self.combo_language.currentIndex()]
         current_language = get_i18n().get_current_language()
-        
+
         settings = {
             'language': selected_language,
             'auto_start': self.check_autostart.isChecked(),
@@ -698,13 +705,13 @@ class GeneralSettingsTab(QWidget):
             'color_scheme_1': self.combo_layout1.currentText(),
             'color_scheme_2': self.combo_layout2.currentText(),
         }
-        
+
         if save_settings(settings):
             # Zmień język jeśli został zmieniony
             if selected_language != current_language:
                 get_i18n().set_language(selected_language)
                 logger.info(f"Language changed to: {selected_language}")
-            
+
             self.settings_changed.emit(settings)
             QMessageBox.information(
                 self,
@@ -1104,6 +1111,13 @@ class EnvironmentSettingsTab(QWidget):
         grid_layout.addStretch()
         buttons_layout.addLayout(grid_layout)
         
+        # Label z dynamicznym ostrzeżeniem
+        self.grid_warning_label = QLabel()
+        self.grid_warning_label.setWordWrap(True)
+        self.grid_warning_label.setStyleSheet("color: #FF9800; font-weight: bold; margin-top: 5px;")
+        self.grid_warning_label.hide()  # Początkowo ukryty
+        buttons_layout.addWidget(self.grid_warning_label)
+        
         # Info
         info_text = QLabel(t('environment.buttons_info', 
             'Konfiguruj widoczność i etykiety przycisków nawigacji.\n'
@@ -1116,11 +1130,12 @@ class EnvironmentSettingsTab(QWidget):
         from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView
         
         self.buttons_table = QTableWidget()
-        self.buttons_table.setColumnCount(5)
+        self.buttons_table.setColumnCount(6)
         self.buttons_table.setHorizontalHeaderLabels([
             t('environment.table_module', 'Moduł'),
             t('environment.table_label', 'Tekst na przycisku'),
             t('environment.table_description', 'Opis'),
+            t('environment.table_shortcut', 'Skrót'),
             t('environment.table_visible', 'Widoczność'),
             t('environment.table_actions', 'Akcje')
         ])
@@ -1134,6 +1149,7 @@ class EnvironmentSettingsTab(QWidget):
             {'id': 'notes', 'label': 'Notatki', 'description': 'Notatki i dokumenty', 'visible': True, 'locked': False},
             {'id': 'callcryptor', 'label': 'CallCryptor', 'description': 'Szyfrowanie połączeń i komunikacji', 'visible': True, 'locked': False},
             {'id': 'alarms', 'label': 'Alarmy', 'description': 'Alarmy i przypomnienia', 'visible': True, 'locked': False},
+            {'id': 'teamwork', 'label': 'TeamWork', 'description': 'Współpraca zespołowa i zarządzanie projektami', 'visible': True, 'locked': False},
             {'id': 'fastkey', 'label': 'FastKey', 'description': 'Szybkie skróty klawiszowe', 'visible': False, 'locked': False},
             {'id': 'promail', 'label': 'Pro-Mail', 'description': 'Zaawansowane zarządzanie pocztą', 'visible': False, 'locked': False},
             {'id': 'pfile', 'label': 'P-File', 'description': 'Menedżer plików i dokumentów', 'visible': False, 'locked': False},
@@ -1164,7 +1180,16 @@ class EnvironmentSettingsTab(QWidget):
                 description_item.setFlags(description_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
             self.buttons_table.setItem(row, 2, description_item)
             
-            # Kolumna 3: Widoczność (checkbox - wyśrodkowany)
+            # Kolumna 3: Skrót klawiszowy (ShortcutEdit widget)
+            shortcut_widget = ShortcutEdit()
+            shortcut_widget.setToolTip(t('environment.shortcut_tooltip', 
+                'Globalny skrót klawiszowy (np. Ctrl+Alt+T, F1)\nPo naciśnięciu aplikacja zostanie wywołana i przełączona na ten moduł'))
+            shortcut_widget.setMinimumHeight(30)
+            # Podłącz sygnał zmiany skrótu do walidacji konfliktów
+            shortcut_widget.shortcut_changed.connect(lambda text, r=row: self._on_shortcut_changed(r, text))
+            self.buttons_table.setCellWidget(row, 3, shortcut_widget)
+            
+            # Kolumna 4: Widoczność (checkbox - wyśrodkowany)
             visible_item = QTableWidgetItem()
             visible_item.setCheckState(Qt.CheckState.Checked if module['visible'] else Qt.CheckState.Unchecked)
             visible_item.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
@@ -1172,19 +1197,22 @@ class EnvironmentSettingsTab(QWidget):
             if module['locked']:
                 visible_item.setFlags(visible_item.flags() & ~Qt.ItemFlag.ItemIsEnabled)
                 visible_item.setToolTip(t('environment.locked_tooltip', 'Ten przycisk jest wymagany'))
-            self.buttons_table.setItem(row, 3, visible_item)
+            self.buttons_table.setItem(row, 4, visible_item)
             
-            # Kolumna 4: Akcje (pusta dla wbudowanych modułów)
+            # Kolumna 5: Akcje (pusta dla wbudowanych modułów)
             action_item = QTableWidgetItem('')
             action_item.setFlags(Qt.ItemFlag.NoItemFlags)
-            self.buttons_table.setItem(row, 4, action_item)
+            self.buttons_table.setItem(row, 5, action_item)
         
         # Dopasuj szerokości kolumn
-        self.buttons_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        self.buttons_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        self.buttons_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        self.buttons_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
-        self.buttons_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        header = self.buttons_table.horizontalHeader()
+        if header:
+            header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+            header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+            header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+            header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)  # Skrót
+            header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)  # Widoczność
+            header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)  # Akcje
         self.buttons_table.setMinimumHeight(400)
         
         buttons_layout.addWidget(self.buttons_table)
@@ -1230,7 +1258,121 @@ class EnvironmentSettingsTab(QWidget):
     def _connect_signals(self):
         """Połącz sygnały"""
         # Radio buttons automatycznie obsługują zmianę stanu w grupie
-        pass
+        
+        # Podłącz zmiany spinboxów do walidacji
+        self.rows_spinbox.valueChanged.connect(self._validate_grid_capacity)
+        self.buttons_per_row_spinbox.valueChanged.connect(self._validate_grid_capacity)
+        
+        # Podłącz zmiany w tabeli (checkbox widoczności)
+        self.buttons_table.itemChanged.connect(self._validate_grid_capacity)
+    
+    def _on_shortcut_changed(self, row: int, shortcut_text: str):
+        """
+        Obsługa zmiany skrótu klawiszowego - walidacja konfliktów
+        
+        Args:
+            row: Numer wiersza w tabeli
+            shortcut_text: Nowy skrót klawiszowy
+        """
+        if not shortcut_text or shortcut_text.strip() == "":
+            # Pusty skrót - OK, wyczyść style
+            shortcut_widget = self.buttons_table.cellWidget(row, 3)
+            if shortcut_widget:
+                shortcut_widget.setStyleSheet("")
+            return
+        
+        # Pobierz ID modułu dla tego wiersza
+        module_item = self.buttons_table.item(row, 0)
+        if not module_item:
+            return
+        
+        current_module_id = module_item.data(Qt.ItemDataRole.UserRole)
+        
+        # Sprawdź konflikty z innymi skrótami w tabeli
+        conflict_found = False
+        conflict_module = None
+        
+        for check_row in range(self.buttons_table.rowCount()):
+            if check_row == row:
+                continue  # Pomiń aktualny wiersz
+            
+            check_widget = self.buttons_table.cellWidget(check_row, 3)
+            if check_widget and isinstance(check_widget, ShortcutEdit):
+                check_shortcut = check_widget.text()
+                if check_shortcut and check_shortcut == shortcut_text:
+                    # Znaleziono konflikt!
+                    conflict_found = True
+                    check_module_item = self.buttons_table.item(check_row, 0)
+                    if check_module_item:
+                        conflict_module = check_module_item.text()
+                    break
+        
+        # Zastosuj visual feedback
+        shortcut_widget = self.buttons_table.cellWidget(row, 3)
+        if shortcut_widget:
+            if conflict_found:
+                # Czerwone tło dla konfliktu
+                shortcut_widget.setStyleSheet("""
+                    QLineEdit {
+                        background-color: #ffcccc;
+                        border: 2px solid #ff0000;
+                    }
+                """)
+                shortcut_widget.setToolTip(
+                    f"⚠️ KONFLIKT: Ten skrót jest już używany przez moduł '{conflict_module}'!\n\n"
+                    f"Globalny skrót klawiszowy (np. Ctrl+Alt+T, F1)\n"
+                    f"Po naciśnięciu aplikacja zostanie wywołana i przełączona na ten moduł"
+                )
+                logger.warning(f"Shortcut conflict detected: '{shortcut_text}' already used by '{conflict_module}'")
+            else:
+                # Zielone tło dla poprawnego skrótu
+                shortcut_widget.setStyleSheet("""
+                    QLineEdit {
+                        background-color: #ccffcc;
+                        border: 2px solid #00aa00;
+                    }
+                """)
+                shortcut_widget.setToolTip(
+                    f"✓ Skrót dostępny\n\n"
+                    f"Globalny skrót klawiszowy (np. Ctrl+Alt+T, F1)\n"
+                    f"Po naciśnięciu aplikacja zostanie wywołana i przełączona na ten moduł"
+                )
+                logger.debug(f"Shortcut '{shortcut_text}' is available for module '{current_module_id}'")
+    
+    def _validate_grid_capacity(self):
+        """Waliduj czy liczba widocznych przycisków mieści się w siatce"""
+        rows_count = self.rows_spinbox.value()
+        buttons_per_row = self.buttons_per_row_spinbox.value()
+        max_available_slots = rows_count * buttons_per_row
+
+        # Zlicz widoczne przyciski
+        visible_buttons_count = 0
+        for row in range(self.buttons_table.rowCount()):
+            visible_item = self.buttons_table.item(row, 4)  # Column 4 is visibility
+            if visible_item and visible_item.checkState() == Qt.CheckState.Checked:
+                visible_buttons_count += 1
+
+        # Pokaż ostrzeżenie jeśli przekracza limit
+        if visible_buttons_count > max_available_slots:
+            self.grid_warning_label.setText(
+                f"⚠️ UWAGA: Masz {visible_buttons_count} widocznych przycisków, "
+                f"ale dostępne są tylko {max_available_slots} miejsca! "
+                f"Ukryj {visible_buttons_count - max_available_slots} przycisk(ów) lub zwiększ siatkę."
+            )
+            self.grid_warning_label.show()
+            logger.warning(f"Grid capacity exceeded: {visible_buttons_count} > {max_available_slots}")
+        else:
+            self.grid_warning_label.hide()
+            # Opcjonalnie pokaż info o wolnych miejscach
+            free_slots = max_available_slots - visible_buttons_count
+            if free_slots > 0:
+                self.grid_warning_label.setStyleSheet("color: #4CAF50; font-weight: normal; margin-top: 5px;")
+                self.grid_warning_label.setText(
+                    f"✓ Dostępne miejsca: {free_slots} / {max_available_slots}"
+                )
+                self.grid_warning_label.show()
+            else:
+                self.grid_warning_label.hide()
     
     def _on_setting_changed(self):
         """Obsługa zmiany ustawienia (oznacz jako zmienione)"""
@@ -1240,6 +1382,33 @@ class EnvironmentSettingsTab(QWidget):
     def _on_add_custom_button(self):
         """Otwórz dialog dodawania własnego przycisku"""
         from .custom_button_dialog import CustomButtonDialog
+        from PyQt6.QtWidgets import QMessageBox
+        
+        # WALIDACJA: Sprawdź czy jest dostępne miejsce na kolejny przycisk
+        rows_count = self.rows_spinbox.value()
+        buttons_per_row = self.buttons_per_row_spinbox.value()
+        max_available_slots = rows_count * buttons_per_row
+        
+        # Zlicz obecnie widoczne przyciski
+        visible_buttons_count = 0
+        for row in range(self.buttons_table.rowCount()):
+            visible_item = self.buttons_table.item(row, 4)
+            if visible_item and visible_item.checkState() == Qt.CheckState.Checked:
+                visible_buttons_count += 1
+        
+        # Sprawdź czy dodanie nowego przycisku przekroczy limit
+        if visible_buttons_count >= max_available_slots:
+            QMessageBox.warning(
+                self,
+                t('environment.validation_error_title', '⚠️ Błąd walidacji'),
+                t('environment.validation_no_space', 
+                  f'Brak miejsca na kolejny przycisk!\n\n'
+                  f'Dostępne sloty: {max_available_slots}\n'
+                  f'Widoczne przyciski: {visible_buttons_count}\n\n'
+                  f'Zwiększ liczbę rzędów lub przycisków w rzędzie, albo ukryj istniejące przyciski.')
+            )
+            logger.warning(f"Cannot add custom button: {visible_buttons_count}/{max_available_slots} slots used")
+            return
         
         dialog = CustomButtonDialog(parent=self)
         if dialog.exec() == CustomButtonDialog.DialogCode.Accepted:
@@ -1270,12 +1439,12 @@ class EnvironmentSettingsTab(QWidget):
             description_item = QTableWidgetItem(button_data.get('description', ''))
             self.buttons_table.setItem(row, 2, description_item)
             
-            # Kolumna 3: Widoczność (checkbox - wyśrodkowany)
+            # Kolumna 4: Widoczność (checkbox - wyśrodkowany)
             visible_item = QTableWidgetItem()
             visible_item.setCheckState(Qt.CheckState.Checked if button_data.get('visible', True) else Qt.CheckState.Unchecked)
             visible_item.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
             visible_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.buttons_table.setItem(row, 3, visible_item)
+            self.buttons_table.setItem(row, 4, visible_item)
             
             # Kolumna 4: Przycisk usuwania
             self._add_delete_button(row)
@@ -1324,7 +1493,7 @@ class EnvironmentSettingsTab(QWidget):
         layout.addWidget(delete_btn)
         layout.addStretch()
         
-        self.buttons_table.setCellWidget(row, 4, container)
+        self.buttons_table.setCellWidget(row, 5, container)
     
     def _on_delete_custom_button(self, row):
         """Usuń custom button z tabeli"""
@@ -1334,8 +1503,9 @@ class EnvironmentSettingsTab(QWidget):
         module_item = self.buttons_table.item(row, 0)
         if not module_item:
             return
-        
-        button_label = self.buttons_table.item(row, 1).text() if self.buttons_table.item(row, 1) else "Unknown"
+
+        label_item = self.buttons_table.item(row, 1)
+        button_label = label_item.text() if label_item else "Unknown"
         
         # Potwierdzenie usunięcia
         reply = QMessageBox.question(
@@ -1349,18 +1519,6 @@ class EnvironmentSettingsTab(QWidget):
         if reply == QMessageBox.StandardButton.Yes:
             self.buttons_table.removeRow(row)
             logger.info(f"Deleted custom button at row {row}: {button_label}")
-            visible_item.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
-            self.buttons_table.setItem(row, 3, visible_item)
-            
-            logger.info(f"Added custom button: {button_data['label']} ({button_data['custom_type']})")
-            
-            from PyQt6.QtWidgets import QMessageBox
-            QMessageBox.information(
-                self,
-                t('custom_button.added_title', 'Przycisk dodany'),
-                t('custom_button.added_message', f'Dodano przycisk "{button_data["label"]}".\n\nNie zapomnij zapisać ustawień!')
-            )
-        logger.info("Custom button dialog requested (placeholder)")
     
     def _load_settings(self):
         """Wczytaj ustawienia z pliku konfiguracyjnego"""
@@ -1422,8 +1580,13 @@ class EnvironmentSettingsTab(QWidget):
                     if description_item:
                         description_item.setText(config.get('description', self.builtin_modules[row].get('description', '')))
                     
+                    # Zaktualizuj skrót (teraz to widget ShortcutEdit)
+                    shortcut_widget = self.buttons_table.cellWidget(row, 3)
+                    if shortcut_widget and isinstance(shortcut_widget, ShortcutEdit):
+                        shortcut_widget.setText(config.get('shortcut', ''))
+                    
                     # Zaktualizuj widoczność
-                    visible_item = self.buttons_table.item(row, 3)
+                    visible_item = self.buttons_table.item(row, 4)
                     if visible_item and not self.builtin_modules[row]['locked']:
                         is_visible = config.get('visible', True)
                         visible_item.setCheckState(Qt.CheckState.Checked if is_visible else Qt.CheckState.Unchecked)
@@ -1452,14 +1615,24 @@ class EnvironmentSettingsTab(QWidget):
                 description_item = QTableWidgetItem(custom_btn.get('description', ''))
                 self.buttons_table.setItem(row, 2, description_item)
                 
-                # Kolumna 3: Widoczność (wyśrodkowana)
+                # Kolumna 3: Skrót klawiszowy (ShortcutEdit widget)
+                shortcut_widget = ShortcutEdit()
+                shortcut_widget.setText(custom_btn.get('shortcut', ''))
+                shortcut_widget.setToolTip(t('environment.shortcut_tooltip', 
+                    'Globalny skrót klawiszowy (np. Ctrl+Alt+T, F1)\nPo naciśnięciu aplikacja zostanie wywołana i przełączona na ten moduł'))
+                shortcut_widget.setMinimumHeight(30)
+                # Podłącz sygnał zmiany skrótu do walidacji konfliktów
+                shortcut_widget.shortcut_changed.connect(lambda text, r=row: self._on_shortcut_changed(r, text))
+                self.buttons_table.setCellWidget(row, 3, shortcut_widget)
+                
+                # Kolumna 4: Widoczność (wyśrodkowana)
                 visible_item = QTableWidgetItem()
                 visible_item.setCheckState(Qt.CheckState.Checked if custom_btn.get('visible', True) else Qt.CheckState.Unchecked)
                 visible_item.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
                 visible_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                self.buttons_table.setItem(row, 3, visible_item)
+                self.buttons_table.setItem(row, 4, visible_item)
                 
-                # Kolumna 4: Przycisk usuwania
+                # Kolumna 5: Przycisk usuwania
                 self._add_delete_button(row)
                 
                 logger.debug(f"Loaded custom button: {custom_btn['label']}")
@@ -1469,37 +1642,57 @@ class EnvironmentSettingsTab(QWidget):
     def _save_settings(self):
         """Zapisz ustawienia do pliku"""
         settings = load_settings()
-        
+
         # Mapuj wybrany radio button na konfigurację
         checked_id = self.layout_button_group.checkedId()
         taskbar_visible = self.taskbar_visible_check.isChecked()
         toggle_nav_shortcut = self.toggle_nav_shortcut_edit.text().strip() or 'Ctrl+Shift+N'
         rows_count = self.rows_spinbox.value()
         buttons_per_row = self.buttons_per_row_spinbox.value()
-        
+
+        # Oblicz maksymalną liczbę dostępnych slotów
+        max_available_slots = rows_count * buttons_per_row
+
         # Zbierz konfigurację przycisków z tabeli
         buttons_config = []
+        visible_buttons_count = 0
+
         for row in range(self.buttons_table.rowCount()):
             module_item = self.buttons_table.item(row, 0)
             label_item = self.buttons_table.item(row, 1)
             description_item = self.buttons_table.item(row, 2)
-            visible_item = self.buttons_table.item(row, 3)
-            
-            if module_item and label_item and description_item and visible_item:
+            shortcut_item = self.buttons_table.item(row, 3)
+            visible_item = self.buttons_table.item(row, 4)
+
+            if module_item and label_item and description_item and shortcut_item and visible_item:
                 module_id = module_item.data(Qt.ItemDataRole.UserRole)
+
+                # Pomiń przyciski pomocy (help buttons) - są dodawane dynamicznie
+                if module_id and module_id.startswith('help_'):
+                    continue
+
                 label = label_item.text()
                 description = description_item.text()
+                shortcut_widget = self.buttons_table.cellWidget(row, 3)
+                shortcut = ""
+                if shortcut_widget and isinstance(shortcut_widget, ShortcutEdit):
+                    shortcut = shortcut_widget.text().strip()
                 visible = visible_item.checkState() == Qt.CheckState.Checked
-                
+
+                # Zlicz widoczne przyciski
+                if visible:
+                    visible_buttons_count += 1
+
                 # Sprawdź czy to custom button (ma dodatkowe dane)
                 custom_data = module_item.data(Qt.ItemDataRole.UserRole + 1)
-                
+
                 if custom_data:
                     # Custom button - zachowaj wszystkie dane
                     button_config = {
                         'id': module_id,
                         'label': label,
                         'description': description,
+                        'shortcut': shortcut,
                         'visible': visible,
                         'is_custom': True,
                         'custom_type': custom_data.get('custom_type'),
@@ -1511,12 +1704,25 @@ class EnvironmentSettingsTab(QWidget):
                         'id': module_id,
                         'label': label,
                         'description': description,
+                        'shortcut': shortcut,
                         'visible': visible,
                         'is_custom': False
                     }
-                
+
                 buttons_config.append(button_config)
-        
+
+        # WALIDACJA: Sprawdź czy liczba widocznych przycisków nie przekracza dostępnych slotów
+        if visible_buttons_count > max_available_slots:
+            QMessageBox.warning(
+                self,
+                t('environment.validation_error_title', '⚠️ Błąd walidacji'),
+                t('environment.validation_too_many_buttons',
+                  f'Liczba widocznych przycisków ({visible_buttons_count}) przekracza dostępne miejsce ({max_available_slots}).\n\n'
+                  f'Zwiększ liczbę rzędów lub przycisków w rzędzie, albo ukryj niektóre przyciski.')
+            )
+            logger.warning(f"Validation failed: {visible_buttons_count} visible buttons > {max_available_slots} available slots")
+            return  # Nie zapisuj
+
         if checked_id == 1:
             # Przyciski góra, Zadania dół
             env_config = {
@@ -1550,21 +1756,40 @@ class EnvironmentSettingsTab(QWidget):
                 'buttons_per_row': buttons_per_row,
                 'buttons_config': buttons_config
             }
-        
+
         settings['environment'] = env_config
         save_settings(settings)
-        
+
         # Emituj sygnał o zmianie
         self.settings_changed.emit({'environment': env_config})
-        
+
+        # Przeładuj globalne skróty klawiszowe
+        self._reload_global_shortcuts(buttons_config)
+
         logger.info(f"Environment settings saved: {env_config}")
-        
+
         # Pokaż komunikat
         QMessageBox.information(
             self,
             t('environment.saved_title', 'Zapisano'),
-            t('environment.saved_message', 'Ustawienia środowiska zostały zapisane.')
+            t('environment.saved_message', 'Ustawienia środowiska zostały zapisane.\nGlobalne skróty klawiszowe zostały zaktualizowane.')
         )
+    
+    def _reload_global_shortcuts(self, buttons_config):
+        """Przeładuj globalne skróty klawiszowe"""
+        try:
+            from ..utils.global_shortcuts import get_shortcuts_manager
+            
+            # Pobierz manager (jeśli już istnieje)
+            shortcuts_manager = get_shortcuts_manager()
+            
+            # Załaduj nowe skróty
+            shortcuts_manager.load_shortcuts_from_config(buttons_config)
+            
+            logger.info("Global shortcuts reloaded successfully")
+            
+        except Exception as e:
+            logger.error(f"Failed to reload global shortcuts: {e}")
     
     def _reset_to_defaults(self):
         """Przywróć domyślne ustawienia"""
@@ -1587,14 +1812,14 @@ class EnvironmentSettingsTab(QWidget):
             for row, module in enumerate(self.builtin_modules):
                 label_item = self.buttons_table.item(row, 1)
                 description_item = self.buttons_table.item(row, 2)
-                visible_item = self.buttons_table.item(row, 3)
-                
+                visible_item = self.buttons_table.item(row, 4)
+
                 if label_item and not module['locked']:
                     label_item.setText(module['label'])
-                
+
                 if description_item and not module['locked']:
                     description_item.setText(module.get('description', ''))
-                
+
                 if visible_item and not module['locked']:
                     visible_item.setCheckState(Qt.CheckState.Checked if module['visible'] else Qt.CheckState.Unchecked)
             
@@ -1666,6 +1891,234 @@ class EnvironmentSettingsTab(QWidget):
             logger.error(f"[EnvironmentSettingsTab] Error applying theme: {e}")
 
 
+class AboutTab(QWidget):
+    """Karta O aplikacji"""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._setup_ui()
+    
+    def _setup_ui(self):
+        """Konfiguracja interfejsu karty O aplikacji"""
+        # Główny layout z scroll area
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Scroll area
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        
+        # Widget wewnątrz scroll area
+        scroll_widget = QWidget()
+        scroll_layout = QVBoxLayout(scroll_widget)
+        scroll_layout.setSpacing(20)
+        scroll_layout.setContentsMargins(20, 20, 20, 20)
+        
+        # === LOGO I NAZWA ===
+        header_layout = QVBoxLayout()
+        header_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        # Nazwa aplikacji
+        app_name = QLabel("PRO-Ka-Po")
+        app_name_font = QFont()
+        app_name_font.setPointSize(28)
+        app_name_font.setBold(True)
+        app_name.setFont(app_name_font)
+        app_name.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        header_layout.addWidget(app_name)
+        
+        # Podtytuł
+        subtitle = QLabel("Kaizen Freak Edition")
+        subtitle_font = QFont()
+        subtitle_font.setPointSize(14)
+        subtitle_font.setItalic(True)
+        subtitle.setFont(subtitle_font)
+        subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        header_layout.addWidget(subtitle)
+        
+        # Wersja
+        self.version_label = QLabel("Wersja 1.0.0")
+        version_font = QFont()
+        version_font.setPointSize(10)
+        self.version_label.setFont(version_font)
+        self.version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        header_layout.addWidget(self.version_label)
+        
+        scroll_layout.addLayout(header_layout)
+        scroll_layout.addSpacing(20)
+        
+        # === OPIS ===
+        desc_group = QGroupBox("O aplikacji")
+        desc_layout = QVBoxLayout()
+        
+        self.description_label = QLabel(
+            "PRO-Ka-Po to zestaw minimalistycznych narzędzi do organizacji pracy i zadań, "
+            "pozwalający utrzymać wszystko w porządku. Idealna aplikacja do prac biurowych.\n\n"
+            "Stworzona z myślą o pasjonatach KAIZEN i Lean Management."
+        )
+        self.description_label.setWordWrap(True)
+        desc_font = QFont()
+        desc_font.setPointSize(10)
+        self.description_label.setFont(desc_font)
+        desc_layout.addWidget(self.description_label)
+        
+        desc_group.setLayout(desc_layout)
+        scroll_layout.addWidget(desc_group)
+        
+        # === AUTOR ===
+        author_group = QGroupBox("Autor")
+        author_layout = QVBoxLayout()
+        
+        self.author_label = QLabel(
+            "<b>Piotr Prokop</b><br>"
+            "📧 <a href='mailto:piotr.prokop@promirbud.eu' style='color: #2196F3;'>piotr.prokop@promirbud.eu</a>"
+        )
+        self.author_label.setOpenExternalLinks(True)
+        self.author_label.setWordWrap(True)
+        author_font = QFont()
+        author_font.setPointSize(10)
+        self.author_label.setFont(author_font)
+        author_layout.addWidget(self.author_label)
+        
+        author_group.setLayout(author_layout)
+        scroll_layout.addWidget(author_group)
+        
+        # === OPEN SOURCE ===
+        opensource_group = QGroupBox("Open Source")
+        opensource_layout = QVBoxLayout()
+        
+        self.opensource_label = QLabel(
+            "Ta aplikacja ma otwarte źródło - zapraszam do rozwoju! 🚀\n\n"
+            "Kod dostępny jest w repozytorium, możesz zgłaszać błędy, "
+            "proponować nowe funkcje lub bezpośrednio współtworzyć projekt."
+        )
+        self.opensource_label.setWordWrap(True)
+        opensource_font = QFont()
+        opensource_font.setPointSize(10)
+        self.opensource_label.setFont(opensource_font)
+        opensource_layout.addWidget(self.opensource_label)
+        
+        opensource_group.setLayout(opensource_layout)
+        scroll_layout.addWidget(opensource_group)
+        
+        # === WSPARCIE PROJEKTU ===
+        support_group = QGroupBox("💝 Wsparcie projektu")
+        support_layout = QVBoxLayout()
+        
+        self.support_label = QLabel(
+            "Jeśli aplikacja Ci się podoba i chcesz wyrazić wdzięczność:\n\n"
+            "Gdy będziesz rozglądał się za nowym domem lub innym budynkiem, "
+            "odwiedź moją stronę - jestem producentem budynków modułowych:"
+        )
+        self.support_label.setWordWrap(True)
+        support_font = QFont()
+        support_font.setPointSize(10)
+        self.support_label.setFont(support_font)
+        support_layout.addWidget(self.support_label)
+        
+        # Link do strony
+        website_btn = QPushButton("🏠 www.promir-bud.eu")
+        website_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        website_btn.setMinimumHeight(40)
+        website_btn.clicked.connect(lambda: self._open_website("https://www.promir-bud.eu"))
+        support_layout.addWidget(website_btn)
+        
+        support_group.setLayout(support_layout)
+        scroll_layout.addWidget(support_group)
+        
+        # === TECHNOLOGIE ===
+        tech_group = QGroupBox("Technologie")
+        tech_layout = QVBoxLayout()
+        
+        self.tech_label = QLabel(
+            "• Python 3.11+\n"
+            "• PyQt6 (GUI)\n"
+            "• PostgreSQL (baza danych)\n"
+            "• FastAPI (backend API)\n"
+            "• OpenAI, Google Gemini, Groq (AI)"
+        )
+        self.tech_label.setWordWrap(True)
+        tech_font = QFont()
+        tech_font.setPointSize(10)
+        self.tech_label.setFont(tech_font)
+        tech_layout.addWidget(self.tech_label)
+        
+        tech_group.setLayout(tech_layout)
+        scroll_layout.addWidget(tech_group)
+        
+        # === LICENCJA ===
+        license_group = QGroupBox("Licencja")
+        license_layout = QVBoxLayout()
+        
+        self.license_label = QLabel(
+            "© 2025 Piotr Prokop\n\n"
+            "Aplikacja udostępniona na licencji Open Source.\n"
+            "Szczegóły w pliku LICENSE w katalogu projektu."
+        )
+        self.license_label.setWordWrap(True)
+        license_font = QFont()
+        license_font.setPointSize(9)
+        self.license_label.setFont(license_font)
+        license_layout.addWidget(self.license_label)
+        
+        license_group.setLayout(license_layout)
+        scroll_layout.addWidget(license_group)
+        
+        # Spacer na końcu
+        scroll_layout.addStretch()
+        
+        scroll.setWidget(scroll_widget)
+        main_layout.addWidget(scroll)
+        
+        logger.info("[AboutTab] About tab initialized")
+    
+    def _open_website(self, url: str):
+        """Otwórz stronę w przeglądarce"""
+        from PyQt6.QtGui import QDesktopServices
+        QDesktopServices.openUrl(QUrl(url))
+        logger.info(f"[AboutTab] Opening website: {url}")
+    
+    def update_translations(self):
+        """Odśwież tłumaczenia (obecnie tylko polski)"""
+        # Placeholder dla przyszłych tłumaczeń
+        pass
+    
+    def apply_theme(self):
+        """Zastosuj motyw do karty About"""
+        try:
+            theme_manager = get_theme_manager()
+            colors = theme_manager.get_current_colors()
+            
+            # Style dla przycisków
+            button_style = f"""
+                QPushButton {{
+                    background-color: {colors.get('accent', '#2196F3')};
+                    color: white;
+                    border: none;
+                    border-radius: 6px;
+                    padding: 10px 20px;
+                    font-size: 12pt;
+                    font-weight: 600;
+                }}
+                QPushButton:hover {{
+                    background-color: {colors.get('accent_hover', '#1976D2')};
+                }}
+                QPushButton:pressed {{
+                    background-color: {colors.get('accent_pressed', '#0D47A1')};
+                }}
+            """
+            
+            # Zastosuj do wszystkich przycisków w widoku
+            for button in self.findChildren(QPushButton):
+                button.setStyleSheet(button_style)
+            
+            logger.debug("[AboutTab] Theme applied successfully")
+            
+        except Exception as e:
+            logger.error(f"[AboutTab] Error applying theme: {e}")
+
+
 class SettingsView(QWidget):
     """Główny widok ustawień z kartami"""
     
@@ -1683,23 +2136,19 @@ class SettingsView(QWidget):
         
         # Karty
         self.tab_general = GeneralSettingsTab()
-        self.tab_ai = AISettingsTab()
         self.tab_assistant = AssistantSettingsTab()
+        self.tab_ai = AISettingsTab()
         self.tab_email = EmailSettingsCard()
-        self.tab_environment = EnvironmentSettingsTab()  # NOWA KARTA
+        self.tab_environment = EnvironmentSettingsTab()
+        self.tab_about = AboutTab()
         
+        # Dodaj karty (zgodnie z menu użytkownika)
         self.tabs.addTab(self.tab_general, "Ogólne")
-        
-        # Placeholder dla pozostałych kart
-        self.tabs.addTab(self._create_placeholder_tab("Zadania"), "Zadania")
-        self.tabs.addTab(self._create_placeholder_tab("Kanban"), "Kanban")
-        self.tabs.addTab(self._create_placeholder_tab("Własne"), "Własne")
-        self.tabs.addTab(self._create_placeholder_tab("Transkryptor"), "Transkryptor")
-        self.tabs.addTab(self.tab_assistant, "Asystent")  # NOWA KARTA
+        self.tabs.addTab(self.tab_assistant, "Asystent")
         self.tabs.addTab(self.tab_ai, "AI")
-        self.tabs.addTab(self.tab_email, "Konta E-mail")  # EMAIL ACCOUNTS
-        self.tabs.addTab(self.tab_environment, "Środowisko")  # ENVIRONMENT
-        self.tabs.addTab(self._create_placeholder_tab("O aplikacji"), "O aplikacji")
+        self.tabs.addTab(self.tab_email, "Konta E-mail")
+        self.tabs.addTab(self.tab_environment, "Środowisko")
+        self.tabs.addTab(self.tab_about, "O aplikacji")
         
         layout.addWidget(self.tabs)
         
@@ -1732,23 +2181,20 @@ class SettingsView(QWidget):
     
     def update_translations(self):
         """Odśwież tłumaczenia w widoku ustawień"""
-        # Nazwy zakładek
-        self.tabs.setTabText(0, t('settings.general'))
-        self.tabs.setTabText(1, t('settings.tasks'))
-        self.tabs.setTabText(2, t('settings.kanban'))
-        self.tabs.setTabText(3, t('settings.custom'))
-        self.tabs.setTabText(4, t('settings.transcriptor'))
-        self.tabs.setTabText(5, t('settings.assistant', 'Asystent'))
-        self.tabs.setTabText(6, t('settings.ai'))
-        self.tabs.setTabText(7, t('settings.email_accounts'))
-        self.tabs.setTabText(8, t('settings.environment', 'Środowisko'))
-        self.tabs.setTabText(9, t('settings.about'))
+        # Nazwy zakładek (zgodne z indeksami w menu użytkownika)
+        self.tabs.setTabText(0, t('settings.general', 'Ogólne'))
+        self.tabs.setTabText(1, t('settings.assistant', 'Asystent'))
+        self.tabs.setTabText(2, t('settings.ai', 'AI'))
+        self.tabs.setTabText(3, t('settings.email_accounts', 'Konta E-mail'))
+        self.tabs.setTabText(4, t('settings.environment', 'Środowisko'))
+        self.tabs.setTabText(5, t('settings.about', 'O aplikacji'))
         
         # Odśwież karty
         self.tab_general.update_translations()
         self.tab_assistant.update_translations()
         self.tab_ai.update_translations()
         self.tab_environment.update_translations()
+        self.tab_about.update_translations()
         
         logger.info("Settings view translations updated")
     
@@ -1760,13 +2206,13 @@ class SettingsView(QWidget):
                 self.tab_general.apply_theme()
                 logger.debug("[SettingsView] Applied theme to General tab")
             
-            if hasattr(self.tab_ai, 'apply_theme'):
-                self.tab_ai.apply_theme()
-                logger.debug("[SettingsView] Applied theme to AI tab")
-            
             if hasattr(self.tab_assistant, 'apply_theme'):
                 self.tab_assistant.apply_theme()
                 logger.debug("[SettingsView] Applied theme to Assistant tab")
+            
+            if hasattr(self.tab_ai, 'apply_theme'):
+                self.tab_ai.apply_theme()
+                logger.debug("[SettingsView] Applied theme to AI tab")
             
             if hasattr(self.tab_email, 'apply_theme'):
                 self.tab_email.apply_theme()
@@ -1775,6 +2221,10 @@ class SettingsView(QWidget):
             if hasattr(self.tab_environment, 'apply_theme'):
                 self.tab_environment.apply_theme()
                 logger.debug("[SettingsView] Applied theme to Environment tab")
+            
+            if hasattr(self.tab_about, 'apply_theme'):
+                self.tab_about.apply_theme()
+                logger.debug("[SettingsView] Applied theme to About tab")
             
             logger.info("[SettingsView] Theme applied to all tabs successfully")
         except Exception as e:

@@ -5,10 +5,10 @@ Funkcjonalność:
 - Generowanie odpowiedzi email za pomocą AI
 - Konfiguracja promptów (podstawowy i własny)
 - Załączanie kontekstu (konwersacje, maile, pliki)
-- Zarządzanie źródłami prawdy (pliki PDF, TXT)
+- Zarządzanie źródłami prawdy (pliki PDF, TXT) przez dedykowany dialog
 
 Autor: Moduł dla aplikacji komercyjnej
-Data: 2025-11-08
+Data: 2025-11-11
 """
 
 import json
@@ -16,7 +16,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal, QThread
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
     QWidget,
@@ -31,18 +31,30 @@ from PyQt6.QtWidgets import (
     QFileDialog,
     QMessageBox,
     QInputDialog,
+    QProgressBar,
 )
+
+try:
+    from ...AI_module.promail_ai_connector import get_promail_ai_connector
+    from .truth_sources_dialog import TruthSourcesDialog
+except ImportError:
+    try:
+        from src.Modules.AI_module.promail_ai_connector import get_promail_ai_connector
+        from src.Modules.custom_modules.mail_client.truth_sources_dialog import TruthSourcesDialog
+    except ImportError:
+        # Fallback dla testów
+        get_promail_ai_connector = None
+        TruthSourcesDialog = None
 
 
 class TruthSourcesManager:
-    """Zarządza źródłami prawdy (pliki PDF, TXT)"""
+    """Prosty manager do dostępu do źródeł prawdy"""
     
-    def __init__(self):
-        self.sources_file = Path("mail_client/ai_truth_sources.json")
-        self.sources_file.parent.mkdir(parents=True, exist_ok=True)
-        self.sources = self.load_sources()
+    def __init__(self, sources_file: Optional[Path] = None):
+        self.sources_file = sources_file or Path("data/pro_mail_truth_sources.json")
+        self.sources = self._load_sources()
     
-    def load_sources(self) -> Dict[str, Any]:
+    def _load_sources(self) -> Dict[str, Any]:
         """Wczytuje źródła prawdy z pliku"""
         if self.sources_file.exists():
             try:
@@ -52,81 +64,66 @@ class TruthSourcesManager:
                 return {"folders": [], "files": []}
         return {"folders": [], "files": []}
     
-    def save_sources(self):
-        """Zapisuje źródła prawdy do pliku"""
-        try:
-            with open(self.sources_file, 'w', encoding='utf-8') as f:
-                json.dump(self.sources, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            print(f"Error saving truth sources: {e}")
-    
-    def add_folder(self, name: str, parent: str = ""):
-        """Dodaje folder"""
-        folder = {
-            "name": name,
-            "parent": parent,
-            "checked": False
-        }
-        self.sources["folders"].append(folder)
-        self.save_sources()
-    
-    def add_file(self, path: str, folder: str = ""):
-        """Dodaje plik"""
-        file_entry = {
-            "path": path,
-            "name": os.path.basename(path),
-            "folder": folder,
-            "checked": False
-        }
-        self.sources["files"].append(file_entry)
-        self.save_sources()
-    
-    def remove_folder(self, name: str):
-        """Usuwa folder i wszystkie pliki w nim"""
-        self.sources["folders"] = [f for f in self.sources["folders"] if f["name"] != name]
-        self.sources["files"] = [f for f in self.sources["files"] if f["folder"] != name]
-        self.save_sources()
-    
-    def remove_file(self, path: str):
-        """Usuwa plik"""
-        self.sources["files"] = [f for f in self.sources["files"] if f["path"] != path]
-        self.save_sources()
-    
-    def set_folder_checked(self, name: str, checked: bool):
-        """Ustawia stan checkboxa folderu"""
-        for folder in self.sources["folders"]:
-            if folder["name"] == name:
-                folder["checked"] = checked
-                break
-        
-        # Zaznacz/odznacz wszystkie pliki w folderze
-        for file in self.sources["files"]:
-            if file["folder"] == name:
-                file["checked"] = checked
-        
-        self.save_sources()
-    
-    def set_file_checked(self, path: str, checked: bool):
-        """Ustawia stan checkboxa pliku"""
-        for file in self.sources["files"]:
-            if file["path"] == path:
-                file["checked"] = checked
-                break
-        self.save_sources()
+    def reload(self):
+        """Przeładowuje źródła z pliku"""
+        self.sources = self._load_sources()
     
     def get_checked_files(self) -> List[str]:
         """Zwraca ścieżki zaznaczonych plików"""
-        return [f["path"] for f in self.sources["files"] if f.get("checked", False)]
+        checked = []
+        for file_data in self.sources.get("files", []):
+            if file_data.get("checked", False):
+                checked.append(file_data["path"])
+        return checked
+
+
+class AIGenerationThread(QThread):
+    """Wątek do generowania odpowiedzi AI w tle"""
+    finished = pyqtSignal(bool, str, dict)  # (success, text, metadata)
+    progress = pyqtSignal(int)  # 0-100
+    
+    def __init__(self, connector, email_content, config, email_context=None):
+        super().__init__()
+        self.connector = connector
+        self.email_content = email_content
+        self.config = config
+        self.email_context = email_context
+    
+    def run(self):
+        """Wykonuje generowanie w tle"""
+        try:
+            self.progress.emit(25)
+            
+            # Wywołaj connector AI
+            success, result, metadata = self.connector.generate_quick_response(
+                email_content=self.email_content,
+                base_prompt=self.config.get("base_prompt"),
+                additional_prompt=self.config.get("custom_prompt"),
+                truth_sources=self.config.get("truth_sources", []),
+                email_context=self.email_context
+            )
+            
+            self.progress.emit(100)
+            self.finished.emit(success, result, metadata)
+            
+        except Exception as e:
+            self.progress.emit(100)
+            self.finished.emit(False, f"Błąd generowania: {str(e)}", {})
 
 
 class AIPanel(QWidget):
     """Panel AI w oknie nowej wiadomości"""
     
+    response_generated = pyqtSignal(str)  # Emituje wygenerowaną odpowiedź
+    
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.parent_window = parent
         self.truth_manager = TruthSourcesManager()
+        self.ai_connector = get_promail_ai_connector() if get_promail_ai_connector else None
+        self.generation_thread = None
         self.init_ui()
-        self.refresh_truth_tree()
+        self.refresh_truth_sources()
     
     def init_ui(self):
         layout = QVBoxLayout()
@@ -141,27 +138,30 @@ class AIPanel(QWidget):
         # Sekcja 1: Prompt podstawowy
         layout.addWidget(QLabel("Prompt podstawowy:"))
         self.base_prompt = QTextEdit()
-        self.base_prompt.setPlainText("Przygotuj odpowiedź na wiadomość e-mail")
+        self.base_prompt.setPlainText("Przygotuj profesjonalną odpowiedź na poniższą wiadomość email.")
         self.base_prompt.setMaximumHeight(60)
         layout.addWidget(self.base_prompt)
         
         # Sekcja 2: Prompt własny
-        layout.addWidget(QLabel("Prompt własny:"))
+        layout.addWidget(QLabel("Dodatkowe instrukcje:"))
         self.custom_prompt = QTextEdit()
-        self.custom_prompt.setPlaceholderText("Dodatkowe instrukcje dla AI...")
+        self.custom_prompt.setPlaceholderText("np. 'Odpowiedź powinna być zwięzła i merytoryczna...'")
         self.custom_prompt.setMaximumHeight(80)
         layout.addWidget(self.custom_prompt)
         
-        # Sekcja 3: Checkboxy
+        # Sekcja 3: Checkboxy kontekstu
         layout.addWidget(QLabel("Załącz do kontekstu:"))
         
         self.attach_conversation_cb = QCheckBox("Załącz całą konwersację")
+        self.attach_conversation_cb.setToolTip("Dołącz wszystkie wiadomości z wątku")
         layout.addWidget(self.attach_conversation_cb)
         
         self.attach_all_mails_cb = QCheckBox("Załącz wszystkie maile")
+        self.attach_all_mails_cb.setToolTip("Dołącz wszystkie maile z folderu")
         layout.addWidget(self.attach_all_mails_cb)
         
         self.attach_files_cb = QCheckBox("Załącz pliki z wiadomości")
+        self.attach_files_cb.setToolTip("Dołącz załączniki z wiadomości jako kontekst")
         layout.addWidget(self.attach_files_cb)
         
         # Separator
@@ -171,215 +171,220 @@ class AIPanel(QWidget):
         layout.addWidget(separator)
         
         # Sekcja 4: Źródła prawdy
+        truth_header = QHBoxLayout()
         truth_label = QLabel("📚 Źródła prawdy:")
         truth_label.setStyleSheet("font-weight: bold; margin-top: 5px;")
-        layout.addWidget(truth_label)
+        truth_header.addWidget(truth_label)
         
-        # Przyciski zarządzania źródłami
-        truth_btn_layout = QHBoxLayout()
+        manage_sources_btn = QPushButton("⚙️ Zarządzaj")
+        manage_sources_btn.setToolTip("Otwórz dialog zarządzania źródłami prawdy")
+        manage_sources_btn.setMaximumWidth(100)
+        manage_sources_btn.clicked.connect(self.open_truth_sources_dialog)
+        truth_header.addWidget(manage_sources_btn)
         
-        add_file_btn = QPushButton("📄+")
-        add_file_btn.setToolTip("Dodaj plik")
-        add_file_btn.setMaximumWidth(40)
-        add_file_btn.clicked.connect(self.add_truth_file)
-        truth_btn_layout.addWidget(add_file_btn)
+        layout.addLayout(truth_header)
         
-        add_folder_btn = QPushButton("📁+")
-        add_folder_btn.setToolTip("Dodaj folder")
-        add_folder_btn.setMaximumWidth(40)
-        add_folder_btn.clicked.connect(self.add_truth_folder)
-        truth_btn_layout.addWidget(add_folder_btn)
+        # Lista zaznaczonych źródeł
+        self.truth_list = QLabel("Brak zaznaczonych źródeł")
+        self.truth_list.setStyleSheet("padding: 5px; background-color: #f5f5f5; border-radius: 3px; font-size: 9pt;")
+        self.truth_list.setWordWrap(True)
+        self.truth_list.setMaximumHeight(80)
+        layout.addWidget(self.truth_list)
         
-        remove_btn = QPushButton("🗑️")
-        remove_btn.setToolTip("Usuń")
-        remove_btn.setMaximumWidth(40)
-        remove_btn.clicked.connect(self.remove_truth_item)
-        truth_btn_layout.addWidget(remove_btn)
-        
-        truth_btn_layout.addStretch()
-        layout.addLayout(truth_btn_layout)
-        
-        # Drzewo źródeł prawdy
-        self.truth_tree = QTreeWidget()
-        self.truth_tree.setHeaderLabels(["Źródło"])
-        self.truth_tree.setAlternatingRowColors(True)
-        self.truth_tree.itemChanged.connect(self.on_truth_item_changed)
-        layout.addWidget(self.truth_tree)
+        # Progress bar (ukryty domyślnie)
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setVisible(False)
+        layout.addWidget(self.progress_bar)
         
         # Przycisk generowania
-        generate_btn = QPushButton("✨ Generuj odpowiedź AI")
-        generate_btn.setStyleSheet("""
+        self.generate_btn = QPushButton("✨ Generuj odpowiedź AI")
+        self.generate_btn.setStyleSheet("""
             QPushButton {
                 background-color: #4CAF50;
                 color: white;
                 font-weight: bold;
-                padding: 8px;
-                border-radius: 3px;
+                padding: 10px;
+                border-radius: 4px;
+                font-size: 11pt;
             }
             QPushButton:hover {
                 background-color: #45a049;
             }
+            QPushButton:disabled {
+                background-color: #cccccc;
+                color: #666666;
+            }
         """)
-        generate_btn.clicked.connect(self.generate_response)
-        layout.addWidget(generate_btn)
+        self.generate_btn.clicked.connect(self.generate_response)
+        layout.addWidget(self.generate_btn)
         
-        # Placeholder info
-        info_label = QLabel("ℹ️ Funkcja AI w przygotowaniu")
-        info_label.setStyleSheet("color: #666; font-size: 9pt; padding: 5px;")
-        info_label.setWordWrap(True)
-        layout.addWidget(info_label)
+        # Status label
+        self.status_label = QLabel("")
+        self.status_label.setStyleSheet("color: #666; font-size: 9pt; padding: 5px;")
+        self.status_label.setWordWrap(True)
+        layout.addWidget(self.status_label)
         
+        layout.addStretch()
         self.setLayout(layout)
     
-    def refresh_truth_tree(self):
-        """Odświeża drzewo źródeł prawdy"""
-        self.truth_tree.blockSignals(True)
-        self.truth_tree.clear()
-        
-        # Grupuj pliki według folderów
-        folders_dict = {}
-        for folder in self.truth_manager.sources.get("folders", []):
-            folder_item = QTreeWidgetItem(self.truth_tree, [folder["name"]])
-            folder_item.setCheckState(0, Qt.CheckState.Checked if folder.get("checked", False) else Qt.CheckState.Unchecked)
-            folder_item.setData(0, Qt.ItemDataRole.UserRole, {"type": "folder", "name": folder["name"]})
-            folder_item.setExpanded(True)
-            folders_dict[folder["name"]] = folder_item
-        
-        # Dodaj pliki
-        for file in self.truth_manager.sources.get("files", []):
-            folder_name = file.get("folder", "")
-            file_name = file.get("name", os.path.basename(file["path"]))
-            
-            if folder_name and folder_name in folders_dict:
-                # Plik w folderze
-                file_item = QTreeWidgetItem(folders_dict[folder_name], [file_name])
-            else:
-                # Plik bez folderu
-                file_item = QTreeWidgetItem(self.truth_tree, [file_name])
-            
-            file_item.setCheckState(0, Qt.CheckState.Checked if file.get("checked", False) else Qt.CheckState.Unchecked)
-            file_item.setData(0, Qt.ItemDataRole.UserRole, {"type": "file", "path": file["path"]})
-        
-        self.truth_tree.blockSignals(False)
-    
-    def on_truth_item_changed(self, item, column):
-        """Obsługuje zmianę stanu checkboxa"""
-        data = item.data(0, Qt.ItemDataRole.UserRole)
-        if not data:
+    def open_truth_sources_dialog(self):
+        """Otwiera dialog zarządzania źródłami prawdy"""
+        if not TruthSourcesDialog:
+            QMessageBox.warning(self, "Błąd", "Dialog źródeł prawdy nie jest dostępny")
             return
         
-        checked = item.checkState(0) == Qt.CheckState.Checked
-        
-        if data["type"] == "folder":
-            self.truth_manager.set_folder_checked(data["name"], checked)
-            self.refresh_truth_tree()
-        elif data["type"] == "file":
-            self.truth_manager.set_file_checked(data["path"], checked)
+        dialog = TruthSourcesDialog(sources_file=self.truth_manager.sources_file, parent=self)
+        if dialog.exec():
+            # Przeładuj źródła po zamknięciu dialogu
+            self.truth_manager.reload()
+            self.refresh_truth_sources()
     
-    def add_truth_file(self):
-        """Dodaje plik do źródeł prawdy"""
-        file_path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Wybierz plik źródłowy",
-            "",
-            "Pliki tekstowe i PDF (*.txt *.pdf);;Wszystkie pliki (*.*)"
-        )
-        
-        if file_path:
-            # Zapytaj o folder (opcjonalnie)
-            folders = [f["name"] for f in self.truth_manager.sources.get("folders", [])]
-            if folders:
-                folder, ok = QInputDialog.getItem(
-                    self,
-                    "Wybierz folder",
-                    "Umieść plik w folderze (lub anuluj dla głównego poziomu):",
-                    ["(główny poziom)"] + folders,
-                    0,
-                    False
-                )
-                if ok and folder != "(główny poziom)":
-                    self.truth_manager.add_file(file_path, folder)
-                else:
-                    self.truth_manager.add_file(file_path)
-            else:
-                self.truth_manager.add_file(file_path)
-            
-            self.refresh_truth_tree()
-    
-    def add_truth_folder(self):
-        """Dodaje folder do źródeł prawdy"""
-        folder_name, ok = QInputDialog.getText(
-            self,
-            "Nowy folder",
-            "Nazwa folderu:"
-        )
-        
-        if ok and folder_name:
-            self.truth_manager.add_folder(folder_name)
-            self.refresh_truth_tree()
-    
-    def remove_truth_item(self):
-        """Usuwa wybrany element"""
-        item = self.truth_tree.currentItem()
-        if not item:
-            QMessageBox.warning(self, "Błąd", "Wybierz element do usunięcia")
-            return
-        
-        data = item.data(0, Qt.ItemDataRole.UserRole)
-        if not data:
-            return
-        
-        if data["type"] == "folder":
-            reply = QMessageBox.question(
-                self,
-                "Potwierdzenie",
-                f"Czy na pewno chcesz usunąć folder '{data['name']}' i wszystkie pliki w nim?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-            )
-            if reply == QMessageBox.StandardButton.Yes:
-                self.truth_manager.remove_folder(data["name"])
-                self.refresh_truth_tree()
-        
-        elif data["type"] == "file":
-            self.truth_manager.remove_file(data["path"])
-            self.refresh_truth_tree()
-    
-    def generate_response(self):
-        """Generuje odpowiedź AI (placeholder)"""
-        # Zbierz konfigurację
-        base_prompt = self.base_prompt.toPlainText()
-        custom_prompt = self.custom_prompt.toPlainText()
-        attach_conversation = self.attach_conversation_cb.isChecked()
-        attach_all_mails = self.attach_all_mails_cb.isChecked()
-        attach_files = self.attach_files_cb.isChecked()
+    def refresh_truth_sources(self):
+        """Odświeża listę zaznaczonych źródeł prawdy"""
         checked_files = self.truth_manager.get_checked_files()
         
-        # Placeholder - w przyszłości tutaj będzie integracja z API AI
-        info = f"""
-Konfiguracja AI:
-
-Prompt podstawowy: {base_prompt}
-Prompt własny: {custom_prompt}
-
-Załącz konwersację: {attach_conversation}
-Załącz wszystkie maile: {attach_all_mails}
-Załącz pliki: {attach_files}
-
-Źródła prawdy ({len(checked_files)}):
-{chr(10).join(['- ' + os.path.basename(f) for f in checked_files])}
-
-Funkcja generowania AI będzie zaimplementowana w przyszłości.
-        """
+        if not checked_files:
+            self.truth_list.setText("Brak zaznaczonych źródeł")
+        else:
+            file_names = [os.path.basename(f) for f in checked_files[:5]]
+            text = "\n".join([f"✓ {name}" for name in file_names])
+            if len(checked_files) > 5:
+                text += f"\n... i {len(checked_files) - 5} więcej"
+            self.truth_list.setText(text)
+    
+    def generate_response(self):
+        """Generuje odpowiedź AI"""
+        # Sprawdź czy AI connector jest dostępny
+        if not self.ai_connector:
+            QMessageBox.warning(
+                self,
+                "Błąd konfiguracji",
+                "Moduł AI nie jest dostępny. Upewnij się że aplikacja jest poprawnie zainstalowana."
+            )
+            return
         
-        QMessageBox.information(self, "AI - Placeholder", info.strip())
+        # Pobierz treść emaila do odpowiedzi
+        email_content = self._get_email_content()
+        if not email_content:
+            QMessageBox.warning(
+                self,
+                "Brak kontekstu",
+                "Nie można znaleźć wiadomości do odpowiedzi. Upewnij się że odpowiadasz na istniejącą wiadomość."
+            )
+            return
+        
+        # Zbierz konfigurację
+        config = self.get_ai_config()
+        
+        # Zbierz kontekst email (nadawca, temat, itp.)
+        email_context = self._build_email_context()
+        
+        # Wyłącz przycisk i pokaż progress
+        self.generate_btn.setEnabled(False)
+        self.progress_bar.setVisible(True)
+        self.progress_bar.setValue(0)
+        self.status_label.setText("🔄 Generowanie odpowiedzi...")
+        
+        # Uruchom wątek generowania
+        self.generation_thread = AIGenerationThread(
+            connector=self.ai_connector,
+            email_content=email_content,
+            config=config,
+            email_context=email_context
+        )
+        self.generation_thread.progress.connect(self._on_progress)
+        self.generation_thread.finished.connect(self._on_generation_finished)
+        self.generation_thread.start()
+    
+    def _get_email_content(self) -> str:
+        """Pobiera treść emaila do odpowiedzi"""
+        if not self.parent_window:
+            return ""
+        
+        # Jeśli jest to odpowiedź, pobierz treść oryginalnej wiadomości
+        if hasattr(self.parent_window, 'reply_to') and self.parent_window.reply_to:
+            mail = self.parent_window.reply_to
+            return mail.get('Body', '')
+        
+        # W przeciwnym razie sprawdź czy jest jakikolwiek mail
+        if hasattr(self.parent_window, 'forward') and self.parent_window.forward:
+            return self.parent_window.forward.get('Body', '')
+        
+        return ""
+    
+    def _build_email_context(self) -> Optional[Dict[str, Any]]:
+        """Buduje kontekst emaila"""
+        if not self.parent_window:
+            return None
+        
+        context = {}
+        
+        # Pobierz informacje z reply_to lub forward
+        source_mail = None
+        if hasattr(self.parent_window, 'reply_to') and self.parent_window.reply_to:
+            source_mail = self.parent_window.reply_to
+            context['type'] = 'reply'
+        elif hasattr(self.parent_window, 'forward') and self.parent_window.forward:
+            source_mail = self.parent_window.forward
+            context['type'] = 'forward'
+        
+        if source_mail:
+            context['sender'] = source_mail.get('From', '')
+            context['subject'] = source_mail.get('Subject', '')
+            context['date'] = source_mail.get('Date', '')
+            context['to'] = source_mail.get('To', '')
+        
+        # Dodaj informacje z formularza
+        if hasattr(self.parent_window, 'to_input'):
+            context['recipient'] = self.parent_window.to_input.text()
+        if hasattr(self.parent_window, 'subject_input'):
+            context['subject_reply'] = self.parent_window.subject_input.text()
+        
+        return context if context else None
+    
+    def _on_progress(self, value: int):
+        """Aktualizuje progress bar"""
+        self.progress_bar.setValue(value)
+    
+    def _on_generation_finished(self, success: bool, text: str, metadata: dict):
+        """Obsługuje zakończenie generowania"""
+        # Włącz przycisk i ukryj progress
+        self.generate_btn.setEnabled(True)
+        self.progress_bar.setVisible(False)
+        
+        if success:
+            # Wstaw wygenerowaną odpowiedź do body
+            if hasattr(self.parent_window, 'body_input'):
+                self.parent_window.body_input.setPlainText(text)
+            
+            # Aktualizuj status
+            provider = metadata.get('provider', 'AI')
+            model = metadata.get('model', '')
+            tokens = metadata.get('tokens_used', 0)
+            self.status_label.setText(
+                f"✅ Odpowiedź wygenerowana ({provider} {model}, {tokens} tokenów)"
+            )
+            
+            # Emituj sygnał
+            self.response_generated.emit(text)
+        else:
+            # Pokaż błąd
+            self.status_label.setText(f"❌ Błąd: {text}")
+            QMessageBox.critical(
+                self,
+                "Błąd generowania",
+                f"Nie udało się wygenerować odpowiedzi:\n\n{text}"
+            )
     
     def get_ai_config(self) -> Dict[str, Any]:
         """Zwraca konfigurację AI"""
+        checked_files = self.truth_manager.get_checked_files()
+        
         return {
             "base_prompt": self.base_prompt.toPlainText(),
             "custom_prompt": self.custom_prompt.toPlainText(),
             "attach_conversation": self.attach_conversation_cb.isChecked(),
             "attach_all_mails": self.attach_all_mails_cb.isChecked(),
             "attach_files": self.attach_files_cb.isChecked(),
-            "truth_sources": self.truth_manager.get_checked_files()
+            "truth_sources": checked_files
         }

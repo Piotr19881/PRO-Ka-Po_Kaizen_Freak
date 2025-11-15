@@ -447,23 +447,37 @@ class CallCryptorView(QWidget):
         """Załaduj źródła do combo boxa"""
         if not self.db_manager or not self.user_id:
             return
-        
+
         # Sprawdź i utwórz systemowy folder "Nagrania" jeśli nie istnieje
         self._ensure_recordings_folder_source()
-        
+
         # Zapisz poprzedni wybór
         previous_source_id = self.current_source_id
-        
+
         # Wyczyść combo
         self.source_combo.clear()
-        
+
         # Dodaj stałe foldery systemowe (nieusuwalne)
         self.source_combo.addItem(t('callcryptor.all_recordings'), None)
         self.source_combo.addItem("⭐ " + t('callcryptor.folder.favorites'), "favorites")
-        
+
         # Pobierz źródła z bazy
         sources = self.db_manager.get_all_sources(self.user_id, active_only=True)
-        
+
+        # Dodaj źródła użytkownika do combo boxa
+        for source in sources:
+            display_name = source.get('source_name', 'Unknown')
+            source_id = source.get('id')
+            self.source_combo.addItem(display_name, source_id)
+
+        # Przywróć poprzedni wybór jeśli istnieje
+        if previous_source_id:
+            index = self.source_combo.findData(previous_source_id)
+            if index >= 0:
+                self.source_combo.setCurrentIndex(index)
+                # Wywołaj zmianę źródła aby zaktualizować przyciski
+                self._on_source_changed(index)
+
         # Załaduj tagi do filtra
         self._load_tags_filter()
     
@@ -818,7 +832,10 @@ class CallCryptorView(QWidget):
                     if self.source_combo.itemData(i) == source_id:
                         self.source_combo.setCurrentIndex(i)
                         break
-                
+
+                # Odśwież listę nagrań dla nowego źródła
+                self._load_recordings()
+
                 self._set_status(t('callcryptor.status.source_added'), success=True)
                 
                 # Automatyczne skanowanie folderu po dodaniu

@@ -34,7 +34,7 @@ class AppConfig(BaseSettings):
     
     # UI Settings
     DEFAULT_LANGUAGE: str = "pl"
-    AVAILABLE_LANGUAGES: list = ["pl", "en", "de"]
+    AVAILABLE_LANGUAGES: list = ["pl", "en", "de", "es", "ja", "zh"]
     DEFAULT_THEME: str = "light"
     AVAILABLE_THEMES: list = ["light", "dark", "custom"]
     

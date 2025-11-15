@@ -47,6 +47,14 @@ class Settings(BaseSettings):
     EMAIL_VERIFICATION_SUBJECT: str = "Kod weryfikacyjny - PRO-Ka-Po"
     EMAIL_RESET_PASSWORD_SUBJECT: str = "Reset hasła - PRO-Ka-Po"
     
+    # Backblaze B2 Configuration (File Sharing)
+    B2_APPLICATION_KEY_ID: str = ""
+    B2_APPLICATION_KEY: str = ""
+    B2_BUCKET_NAME: str = "pro-ka-po-files"
+    B2_BUCKET_ID: str = ""
+    B2_DOWNLOAD_URL: str = ""
+    B2_FILE_EXPIRE_DAYS: int = 7  # Domyślnie pliki wygasają po 7 dniach
+    
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

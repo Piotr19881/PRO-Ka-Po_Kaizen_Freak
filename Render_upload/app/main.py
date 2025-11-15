@@ -31,6 +31,8 @@ from .notes_router import router as notes_router
 from .tasks_router import router as tasks_router
 from .habit_router import router as habit_router
 from .recordings_router import router as recordings_router
+from .file_sharing_router import router as file_sharing_router
+from .teamwork_router import router as teamwork_router
 
 # Inicjalizacja FastAPI
 app = FastAPI(
@@ -58,9 +60,13 @@ app.include_router(notes_router)
 app.include_router(tasks_router)
 app.include_router(habit_router)
 app.include_router(recordings_router)
+app.include_router(file_sharing_router)
+app.include_router(teamwork_router)
 
 logger.info("🚀 HABIT TRACKER ROUTER został zarejestrowany w aplikacji FastAPI!")
 logger.info("📨 CALLCRYPTOR RECORDINGS ROUTER został zarejestrowany w aplikacji FastAPI!")
+logger.info("📁 FILE SHARING ROUTER został zarejestrowany w aplikacji FastAPI!")
+logger.info("👥 TEAMWORK ROUTER został zarejestrowany w aplikacji FastAPI!")
 logger.info("📍 HABIT TRACKER: Dostępne endpointy:")
 logger.info("   - GET    /api/habits/columns")
 logger.info("   - POST   /api/habits/columns") 

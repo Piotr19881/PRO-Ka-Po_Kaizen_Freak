@@ -184,7 +184,17 @@ class GeminiProvider(BaseAIProvider):
     def generate_response(self, prompt: str, **kwargs) -> AIResponse:
         """Generate response using Gemini REST API"""
         try:
-            model_name = self.config.model or AIModel.GEMINI_1_5_FLASH.value
+            # Require explicit model configuration - NO fallback to hardcoded model
+            if not self.config.model:
+                return AIResponse(
+                    text="",
+                    provider=AIProvider.GEMINI,
+                    model="unknown",
+                    error="No Gemini model configured. Please select a model in AI Settings and click Save.",
+                    timestamp=datetime.now()
+                )
+            
+            model_name = self.config.model
             url = f"{self.BASE_URL}/models/{model_name}:generateContent?key={self.config.api_key}"
             
             payload = {
@@ -225,7 +235,7 @@ class GeminiProvider(BaseAIProvider):
             self.logger.error(f"Gemini API error: {e}")
             return self._create_response(
                 text="",
-                model=self.config.model or "gemini-1.5-flash",
+                model=self.config.model or "unknown",
                 error=str(e)
             )
     
@@ -243,19 +253,11 @@ class GeminiProvider(BaseAIProvider):
                 if "gemini" in model_name.lower() and "generateContent" in model.get("supportedGenerationMethods", []):
                     models.append(model_name)
             
-            return models if models else [
-                AIModel.GEMINI_PRO.value,
-                AIModel.GEMINI_PRO_VISION.value,
-                AIModel.GEMINI_1_5_PRO.value,
-                AIModel.GEMINI_1_5_FLASH.value
-            ]
+            # Return empty list if no models found - force user to configure properly
+            return models
         except:
-            return [
-                AIModel.GEMINI_PRO.value,
-                AIModel.GEMINI_PRO_VISION.value,
-                AIModel.GEMINI_1_5_PRO.value,
-                AIModel.GEMINI_1_5_FLASH.value
-            ]
+            # Return empty list on error - force user to fix API connection
+            return []
 
 
 class OpenAIProvider(BaseAIProvider):
@@ -710,18 +712,17 @@ class AIManager:
                     settings = load_ai_settings()
                     model_name = settings.get('models', {}).get('gemini')
                 
-                # Jeśli nadal brak - użyj domyślnego
+                # Jeśli nadal brak - zwróć błąd
                 if not model_name:
-                    model_name = "gemini-1.5-flash"
-                    self.logger.warning(
-                        f"[AIManager] No Gemini model configured, using default: {model_name}"
+                    raise ValueError(
+                        "No Gemini model configured. Please select a model in AI Settings and click Save."
                     )
                 
                 # Sprawdź czy model obsługuje audio
                 if not any(version in model_name for version in ["1.5", "2.0", "2.5"]):
                     raise ValueError(
                         f"Model {model_name} does not support audio transcription.\n"
-                        f"Supported Gemini models: gemini-1.5-pro, gemini-1.5-flash, gemini-2.0-flash, gemini-2.5-pro"
+                        f"Supported Gemini models: gemini-1.5-pro, gemini-2.0-flash, gemini-2.5-pro"
                     )
                 
                 self.logger.info(f"Transcribing audio with Gemini ({model_name}): {audio_path.name}")
@@ -917,7 +918,13 @@ Zwróć tylko czystą transkrypcję bez dodatkowych komentarzy."""
                 model_name = self._config.model
                 if not model_name:
                     settings = load_ai_settings()
-                    model_name = settings.get('models', {}).get('gemini', 'gemini-1.5-flash')
+                    model_name = settings.get('models', {}).get('gemini')
+                
+                # Jeśli nadal brak - zwróć błąd
+                if not model_name:
+                    raise ValueError(
+                        "No Gemini model configured. Please select a model in AI Settings and click Save."
+                    )
                 
                 # Sprawdź czy model obsługuje audio
                 if not any(version in model_name for version in ["1.5", "2.0", "2.5"]):

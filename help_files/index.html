@@ -1,0 +1,417 @@
+ <!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pomoc - PRO-Ka-Po Kaizen Freak Edition</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+        .header .subtitle {
+            margin: 10px 0 0 0;
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .intro {
+            text-align: center;
+            margin-bottom: 50px;
+            font-size: 1.1em;
+            color: #555;
+        }
+        .modules-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 50px;
+        }
+        .module-card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 25px;
+            text-align: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border: 2px solid transparent;
+        }
+        .module-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            border-color: #3498db;
+        }
+        .module-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+            display: block;
+        }
+        .module-title {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        .module-description {
+            color: #666;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+        .module-link {
+            display: inline-block;
+            background: #3498db;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background 0.3s ease;
+            font-weight: 500;
+        }
+        .module-link:hover {
+            background: #2980b9;
+            color: white;
+            text-decoration: none;
+        }
+        .features-section {
+            background: #f8f9fa;
+            padding: 40px 30px;
+            margin: 40px -30px;
+            border-top: 1px solid #e9ecef;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .feature-item {
+            text-align: center;
+        }
+        .feature-icon {
+            font-size: 2.5em;
+            color: #3498db;
+            margin-bottom: 15px;
+        }
+        .feature-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        .feature-description {
+            color: #666;
+            line-height: 1.5;
+        }
+        .footer {
+            background: #2c3e50;
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .footer-content {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .footer-link {
+            color: #3498db;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .footer-link:hover {
+            color: #5dade2;
+            text-decoration: underline;
+        }
+        .copyright {
+            margin-top: 20px;
+            opacity: 0.8;
+            font-size: 0.9em;
+        }
+        @media (max-width: 768px) {
+            .header {
+                padding: 30px 20px;
+            }
+            .header h1 {
+                font-size: 2em;
+            }
+            .content {
+                padding: 30px 20px;
+            }
+            .modules-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            .features-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            .footer-links {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+    </style>
+    <link rel="stylesheet" href="assets/lang-switcher.css">
+    <script defer src="assets/lang-switcher.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 data-i18n="title_app">PRO-Ka-Po</h1>
+            <div class="subtitle" data-i18n="subtitle">Kaizen Freak Edition</div>
+        </div>
+
+        <div class="content">
+            <div class="intro">
+                <p data-i18n="intro_p1"><strong>PRO-Ka-Po</strong> to zestaw minimalistycznych narzędzi do organizacji pracy i zadań, pozwalający utrzymać wszystko w porządku. Idealna aplikacja do prac biurowych, stworzona z myślą o pasjonatach KAIZEN i Lean Management.</p>
+                <p data-i18n="intro_p2">Wybierz moduł, aby uzyskać szczegółowe instrukcje obsługi:</p>
+            </div>
+
+            <div class="modules-grid">
+                <div class="module-card">
+                    <span class="module-icon">🤖</span>
+                    <div class="module-title" data-i18n="module_ai_title">AI Module</div>
+                    <div class="module-description" data-i18n="module_ai_desc">
+                        Uniwersalna integracja z AI. Wsparcie dla Gemini, OpenAI, Claude, Grok. Transkrypcja, analiza tekstu, generowanie treści.
+                    </div>
+                    <a href="ai_help.html" class="module-link" data-i18n="see_help">Zobacz pomoc</a>
+                </div>
+
+                <div class="module-card">
+                    <span class="module-icon">🎯</span>
+                    <div class="module-title" data-i18n="module_habit_title">Habit Tracker</div>
+                    <div class="module-description" data-i18n="module_habit_desc">
+                        Śledzenie nawyków w formie tabeli miesięcznej. 6 typów nawyków, statystyki, synchronizacja i analiza postępów.
+                    </div>
+                    <a href="habbit_tracker_help.html" class="module-link" data-i18n="see_help">Zobacz pomoc</a>
+                </div>
+
+                <div class="module-card">
+                    <span class="module-icon">🍅</span>
+                    <div class="module-title" data-i18n="module_pomodoro_title">Pomodoro</div>
+                    <div class="module-description" data-i18n="module_pomodoro_desc">
+                        Technika zarządzania czasem. Sesje 25-minutowe z przerwami, tematy, statystyki i synchronizacja.
+                    </div>
+                    <a href="pomodoro_help.html" class="module-link" data-i18n="see_help">Zobacz pomoc</a>
+                </div>
+
+                <div class="module-card">
+                    <span class="module-icon">📋</span>
+                    <div class="module-title" data-i18n="module_tasks_title">Zadania</div>
+                    <div class="module-description" data-i18n="module_tasks_desc">
+                        Główny moduł aplikacji do zarządzania zadaniami. Dynamiczna konfiguracja kolumn, filtry, subtaski i integracja z innymi modułami.
+                    </div>
+                    <a href="tasks_help.html" class="module-link" data-i18n="see_help">Zobacz pomoc</a>
+                </div>
+
+                <div class="module-card">
+                    <span class="module-icon">📊</span>
+                    <div class="module-title" data-i18n="module_kanban_title">KanBan</div>
+                    <div class="module-description" data-i18n="module_kanban_desc">
+                        Wizualne zarządzanie zadaniami metodą KanBan. Przeciąganie kart między kolumnami, śledzenie postępów i optymalizacja workflow.
+                    </div>
+                    <a href="kanban_help.html" class="module-link" data-i18n="see_help">Zobacz pomoc</a>
+                </div>
+
+                <div class="module-card">
+                    <span class="module-icon">📝</span>
+                    <div class="module-title" data-i18n="module_notes_title">Notatki</div>
+                    <div class="module-description" data-i18n="module_notes_desc">
+                        Bogaty edytor tekstu z formatowaniem. Tworzenie notatek, tagi, kolory, wyszukiwanie i integracja z zadaniami.
+                    </div>
+                    <a href="notes_help.html" class="module-link" data-i18n="see_help">Zobacz pomoc</a>
+                </div>
+
+                <div class="module-card">
+                    <span class="module-icon">⏰</span>
+                    <div class="module-title" data-i18n="module_alarms_title">Alarmy</div>
+                    <div class="module-description" data-i18n="module_alarms_desc">
+                        Zarządzanie alarmami i timerami. Cykliczne przypomnienia, dźwięki, popup oraz synchronizacja między urządzeniami.
+                    </div>
+                    <a href="alarms_help.html" class="module-link" data-i18n="see_help">Zobacz pomoc</a>
+                </div>
+
+                <div class="module-card">
+                    <span class="module-icon">📞</span>
+                    <div class="module-title" data-i18n="module_callcryptor_title">CallCryptor</div>
+                    <div class="module-description" data-i18n="module_callcryptor_desc">
+                        Zaawansowane zarządzanie nagraniami rozmów. Transkrypcja AI, podsumowania, tagi i integracja z notatkami.
+                    </div>
+                    <a href="callcryptor_help.html" class="module-link" data-i18n="see_help">Zobacz pomoc</a>
+                </div>
+
+                <div class="module-card">
+                    <span class="module-icon">⚙️</span>
+                    <div class="module-title" data-i18n="module_settings_title">Ustawienia</div>
+                    <div class="module-description" data-i18n="module_settings_desc">
+                        Konfiguracja aplikacji. Motywy, języki, dźwięki, skróty klawiszowe, środowisko i ustawienia modułów.
+                    </div>
+                    <a href="settings_help.html" class="module-link" data-i18n="see_help">Zobacz pomoc</a>
+                </div>
+
+                <div class="module-card">
+                    <span class="module-icon">⌨️</span>
+                    <div class="module-title" data-i18n="module_fastkey_title">FastKey</div>
+                    <div class="module-description" data-i18n="module_fastkey_desc">
+                        Skróty klawiszowe i szybkie akcje — konfiguracja, przypisywanie, import/eksport skrótów.
+                    </div>
+                    <a href="FastKey_help.html" class="module-link" data-i18n="see_help">Zobacz pomoc</a>
+                </div>
+
+                <div class="module-card">
+                    <span class="module-icon">📁</span>
+                    <div class="module-title" data-i18n="module_pfile_title">P-File</div>
+                    <div class="module-description" data-i18n="module_pfile_desc">
+                        Zarządzanie plikami i dokumentami w aplikacji, podgląd, wersjonowanie i synchronizacja.
+                    </div>
+                    <a href="pfile_help.html" class="module-link" data-i18n="see_help">Zobacz pomoc</a>
+                </div>
+
+                <div class="module-card">
+                    <span class="module-icon">🧩</span>
+                    <div class="module-title" data-i18n="module_proapp_title">PRO App</div>
+                    <div class="module-description" data-i18n="module_proapp_desc">
+                        Ogólne informacje o aplikacji PRO-Ka-Po, instalacja, konfiguracja i zależności modułów.
+                    </div>
+                    <a href="pro_app.html" class="module-link" data-i18n="see_help">Zobacz pomoc</a>
+                </div>
+
+                <div class="module-card">
+                    <span class="module-icon">📧</span>
+                    <div class="module-title" data-i18n="module_promail_title">PRO Mail</div>
+                    <div class="module-description" data-i18n="module_promail_desc">
+                        Integracja poczty, ustawienia kont, pobieranie załączników i automatyzacje wiadomości.
+                    </div>
+                    <a href="pro_mail_help.html" class="module-link" data-i18n="see_help">Zobacz pomoc</a>
+                </div>
+
+                <div class="module-card">
+                    <span class="module-icon">🌐</span>
+                    <div class="module-title" data-i18n="module_pweb_title">P-Web</div>
+                    <div class="module-description" data-i18n="module_pweb_desc">
+                        Moduł P-Web — publikowanie treści, konfiguracja serwera i integracje webowe.
+                    </div>
+                    <a href="p_web_help.html" class="module-link" data-i18n="see_help">Zobacz pomoc</a>
+                </div>
+
+                <div class="module-card">
+                    <span class="module-icon">🗂️</span>
+                    <div class="module-title" data-i18n="module_quickboard_title">Quickboard</div>
+                    <div class="module-description" data-i18n="module_quickboard_desc">
+                        Szybkie tablice, notatki i przypomnienia — lekka alternatywa dla pełnego kanbanu.
+                    </div>
+                    <a href="quickboard_help.html" class="module-link" data-i18n="see_help">Zobacz pomoc</a>
+                </div>
+
+                <div class="module-card">
+                    <span class="module-icon">👥</span>
+                    <div class="module-title" data-i18n="module_teamwork_title">TeamWork</div>
+                    <div class="module-description" data-i18n="module_teamwork_desc">
+                        Moduł współpracy zespołowej — role, uprawnienia, udostępnianie projektów i komunikacja.
+                    </div>
+                    <a href="TeamWork_module.html" class="module-link" data-i18n="see_help">Zobacz pomoc</a>
+                </div>
+            </div>
+
+            <div class="features-section">
+                <div class="features-grid">
+                    <div class="feature-item">
+                        <div class="feature-icon">🔄</div>
+                        <div class="feature-title">Synchronizacja</div>
+                        <div class="feature-description">
+                            Automatyczna synchronizacja danych między urządzeniami z zachowaniem pełnej funkcjonalności offline.
+                        </div>
+                    </div>
+
+                    <div class="feature-item">
+                        <div class="feature-icon">🎨</div>
+                        <div class="feature-title">Motywy</div>
+                        <div class="feature-description">
+                            Dynamiczne motywy kolorystyczne z możliwością tworzenia własnych schematów kolorów.
+                        </div>
+                    </div>
+
+                    <div class="feature-item">
+                        <div class="feature-icon">🤖</div>
+                        <div class="feature-title">AI Integration</div>
+                        <div class="feature-description">
+                            Integracja z różnymi dostawcami AI dla transkrypcji, podsumowań i inteligentnej analizy.
+                        </div>
+                    </div>
+
+                    <div class="feature-item">
+                        <div class="feature-icon">🌐</div>
+                        <div class="feature-title">Wielojęzyczność</div>
+                        <div class="feature-description">
+                            Pełne wsparcie dla wielu języków z automatycznym tłumaczeniem interfejsu.
+                        </div>
+                    </div>
+
+                    <div class="feature-item">
+                        <div class="feature-icon">📱</div>
+                        <div class="feature-title">Responsywność</div>
+                        <div class="feature-description">
+                            Dostosowanie interfejsu do różnych rozmiarów ekranów i urządzeń.
+                        </div>
+                    </div>
+
+                    <div class="feature-item">
+                        <div class="feature-icon">🔒</div>
+                        <div class="feature-title">Bezpieczeństwo</div>
+                        <div class="feature-description">
+                            Szyfrowanie wrażliwych danych i bezpieczne przechowywanie kluczy API.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <div class="footer-content">
+                <div class="footer-links">
+                    <a href="https://www.promirbud.eu" class="footer-link" target="_blank">🏠 Promir-Bud</a>
+                    <a href="https://github.com" class="footer-link" target="_blank">📂 GitHub</a>
+                    <a href="mailto:piotr.prokop@promirbud.eu" class="footer-link">📧 Kontakt</a>
+                    <a href="settings_help.html" class="footer-link">⚙️ Ustawienia</a>
+                </div>
+                <div class="copyright">
+                    <p>© 2025 Piotr Prokop<br>
+                    Aplikacja udostępniona na licencji Open Source</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

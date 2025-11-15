@@ -1,0 +1,816 @@
+zpanski i<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pomoc - Habit Tracker (Śledzenie Nawyków)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .header .icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.95;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section h2 {
+            color: #ff9a9e;
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #ff9a9e;
+        }
+
+        .section h3 {
+            color: #fecfef;
+            font-size: 1.4em;
+            margin-top: 25px;
+            margin-bottom: 15px;
+        }
+
+        .section p {
+            margin-bottom: 15px;
+            text-align: justify;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin: 25px 0;
+        }
+
+        .feature-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .feature-card .emoji {
+            font-size: 2.5em;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .feature-card h3 {
+            color: #ff9a9e;
+            font-size: 1.3em;
+            margin-bottom: 10px;
+            margin-top: 0;
+        }
+
+        .feature-card p {
+            color: #555;
+            font-size: 0.95em;
+        }
+
+        .code-block {
+            background: #f8f9fa;
+            border-left: 4px solid #ff9a9e;
+            padding: 15px 20px;
+            margin: 15px 0;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+        }
+
+        .keyboard-key {
+            display: inline-block;
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            margin: 0 3px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .step-list {
+            counter-reset: step-counter;
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .step-list li {
+            counter-increment: step-counter;
+            margin-bottom: 20px;
+            padding-left: 50px;
+            position: relative;
+        }
+
+        .step-list li::before {
+            content: counter(step-counter);
+            position: absolute;
+            left: 0;
+            top: 0;
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+            color: white;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196F3;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .info-box strong {
+            color: #1976D2;
+        }
+
+        .warning-box {
+            background: #fff3e0;
+            border-left: 4px solid #ffc107;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .warning-box strong {
+            color: #ff9800;
+        }
+
+        .tip-box {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .tip-box strong {
+            color: #218838;
+        }
+
+        ul.feature-list {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        ul.feature-list li {
+            padding-left: 30px;
+            position: relative;
+            margin-bottom: 10px;
+        }
+
+        ul.feature-list li::before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #28a745;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        table th {
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: bold;
+        }
+
+        table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .habit-types {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .habit-type {
+            background: linear-gradient(135deg, #fff5f5 0%, #ffeaea 100%);
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #ff9a9e;
+        }
+
+        .habit-type h4 {
+            color: #ff9a9e;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+
+        .habit-type p {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+        }
+
+        .habit-type .examples {
+            font-size: 0.85em;
+            color: #888;
+        }
+
+        .footer {
+            background: #f8f9fa;
+            padding: 30px;
+            text-align: center;
+            color: #666;
+            border-top: 1px solid #ddd;
+        }
+
+        .footer p {
+            margin-bottom: 10px;
+        }
+    </style>
+    <link rel="stylesheet" href="assets/lang-switcher.css">
+    <script defer src="assets/lang-switcher.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="icon">🎯</div>
+            <h1>Habit Tracker</h1>
+            <p>Śledzenie nawyków i budowanie lepszych przyzwyczajeń</p>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <!-- Wprowadzenie -->
+            <div class="section">
+                <h2>📖 Co to jest Habit Tracker?</h2>
+                <p>
+                    <strong>Habit Tracker</strong> to zaawansowany moduł do śledzenia nawyków i celów,
+                    który pomaga w budowaniu trwałych, pozytywnych przyzwyczajeń. Moduł oferuje
+                    intuicyjny interfejs tabelaryczny z widokiem miesięcznym, gdzie każdy dzień
+                    to komórka do zaznaczenia wykonania nawyku.
+                </p>
+                <p>
+                    System jest zaprojektowany zgodnie z zasadami psychologii zachowań - wizualizacja
+                    postępów motywuje do kontynuacji, a różnorodne typy nawyków pozwalają na
+                    śledzenie zarówno prostych czynności, jak i złożonych celów.
+                </p>
+            </div>
+
+            <!-- Typy Nawyków -->
+            <div class="section">
+                <h2>🎨 Typy Nawyków</h2>
+                <p>
+                    Habit Tracker obsługuje sześć różnych typów nawyków, każdy dostosowany
+                    do innego rodzaju aktywności:
+                </p>
+
+                <div class="habit-types">
+                    <div class="habit-type">
+                        <h4>✅ Odznacz (Checkbox)</h4>
+                        <p>Proste nawyki typu "wykonane/nie wykonane"</p>
+                        <div class="examples">Np: picie wody, ćwiczenia, medytacja</div>
+                    </div>
+
+                    <div class="habit-type">
+                        <h4>🔢 Ile razy (Counter)</h4>
+                        <p>Liczenie ilości wykonanych powtórzeń</p>
+                        <div class="examples">Np: pompki, szklanki wody, strony książki</div>
+                    </div>
+
+                    <div class="habit-type">
+                        <h4>⏱️ Czas trwania (Duration)</h4>
+                        <p>Śledzenie czasu spędzonego na aktywności</p>
+                        <div class="examples">Np: bieganie, nauka, praca</div>
+                    </div>
+
+                    <div class="habit-type">
+                        <h4>🕐 Godzina (Time)</h4>
+                        <p>Rejestrowanie godzin wykonania</p>
+                        <div class="examples">Np: pora snu, posiłki, spotkania</div>
+                    </div>
+
+                    <div class="habit-type">
+                        <h4>📊 Skala (Scale)</h4>
+                        <p>Ocena jakości wykonania w skali</p>
+                        <div class="examples">Np: jakość snu, nastrój, efektywność</div>
+                    </div>
+
+                    <div class="habit-type">
+                        <h4>📝 Tekst (Text)</h4>
+                        <p>Dodawanie notatek i opisów</p>
+                        <div class="examples">Np: co jadłeś, przemyślenia, uwagi</div>
+                    </div>
+                </div>
+
+                <div class="info-box">
+                    <strong>💡 Wskazówka:</strong> Możesz łączyć różne typy nawyków dla kompleksowego
+                    śledzenia. Na przykład: checkbox dla "ćwiczeń", counter dla "pompek",
+                    duration dla "czasu treningu" i scale dla "oceny zmęczenia".
+                </div>
+            </div>
+
+            <!-- Główne Funkcje -->
+            <div class="section">
+                <h2>✨ Główne Funkcje</h2>
+
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <span class="emoji">📅</span>
+                        <h3>Widok Miesięczny</h3>
+                        <p>Intuicyjna tabela kalendarzowa z wizualizacją postępów w całym miesiącu.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <span class="emoji">🔄</span>
+                        <h3>Synchronizacja</h3>
+                        <p>Automatyczna synchronizacja danych między urządzeniami przez chmurę.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <span class="emoji">📊</span>
+                        <h3>Statystyki</h3>
+                        <p>Szczegółowe analizy postępów, wykresy i raporty efektywności.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <span class="emoji">🎨</span>
+                        <h3>Motywy</h3>
+                        <p>Pełna integracja z systemem motywów aplikacji.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <span class="emoji">📱</span>
+                        <h3>Responsywność</h3>
+                        <p>Automatyczne dostosowanie do różnych rozmiarów ekranów.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <span class="emoji">🌍</span>
+                        <h3>Wielojęzyczność</h3>
+                        <p>Obsługa wielu języków z automatycznym tłumaczeniem.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <span class="emoji">💾</span>
+                        <h3>Eksport Danych</h3>
+                        <p>Eksport postępów do CSV dla dalszej analizy.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <span class="emoji">🪄</span>
+                        <h3>AI Analysis</h3>
+                        <p>Inteligentna analiza wzorców i sugestie optymalizacji.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pierwsze Kroki -->
+            <div class="section">
+                <h2>🚀 Pierwsze Kroki</h2>
+
+                <h3>Konfiguracja Modułu</h3>
+                <ol class="step-list">
+                    <li>
+                        <strong>Uruchom aplikację</strong><br>
+                        Otwórz PRO-Ka-Po i przejdź do modułu Habit Tracker
+                    </li>
+                    <li>
+                        <strong>Zaloguj się</strong><br>
+                        Upewnij się, że jesteś zalogowany do systemu (wymagane dla synchronizacji)
+                    </li>
+                    <li>
+                        <strong>Dodaj pierwszy nawyk</strong><br>
+                        Kliknij przycisk <strong>"➕"</strong> aby dodać nowy nawyk
+                    </li>
+                    <li>
+                        <strong>Wypełnij szczegóły</strong><br>
+                        Podaj nazwę, wybierz typ i opcjonalnie skonfiguruj dodatkowe parametry
+                    </li>
+                    <li>
+                        <strong>Rozpocznij śledzenie</strong><br>
+                        Kliknij w komórki tabeli aby zaznaczać wykonane nawyki
+                    </li>
+                </ol>
+
+                <h3>Dodawanie Nowego Nawyku</h3>
+                <p>Proces tworzenia nowego nawyku jest prosty i intuicyjny:</p>
+
+                <ol class="step-list">
+                    <li>
+                        <strong>Kliknij przycisk dodawania</strong><br>
+                        Znajdź przycisk <strong>"➕"</strong> na pasku narzędzi
+                    </li>
+                    <li>
+                        <strong>Wybierz nazwę</strong><br>
+                        Wprowadź opisową nazwę nawyku (np. "Poranna medytacja")
+                    </li>
+                    <li>
+                        <strong>Wybierz typ</strong><br>
+                        Zdecyduj jaki typ śledzenia będzie najlepszy dla tego nawyku
+                    </li>
+                    <li>
+                        <strong>Skonfiguruj parametry</strong><br>
+                        Dla skali ustaw maksymalną wartość, dla innych typów dodatkowe opcje
+                    </li>
+                    <li>
+                        <strong>Zapisz nawyk</strong><br>
+                        Kliknij "OK" aby dodać nawyk do tabeli
+                    </li>
+                </ol>
+            </div>
+
+            <!-- Korzystanie z Tabeli -->
+            <div class="section">
+                <h2>📋 Korzystanie z Tabeli</h2>
+
+                <h3>Struktura Tabeli</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Kolumna</th>
+                            <th>Opis</th>
+                            <th>Interakcja</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Data</strong></td>
+                            <td>Numer dnia miesiąca</td>
+                            <td>Tylko do odczytu</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Dzień tygodnia</strong></td>
+                            <td>Skrót dnia (PN, WT, ŚR, etc.)</td>
+                            <td>Tylko do odczytu</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Nawyki</strong></td>
+                            <td>Wartości wykonania nawyków</td>
+                            <td>Kliknij aby edytować</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>Wprowadzanie Danych</h3>
+                <p>Istnieje kilka sposobów wprowadzania danych do tabeli:</p>
+
+                <h4>1. Kliknięcie w komórkę</h4>
+                <ul>
+                    <li>Kliknij w dowolną komórkę nawyku aby otworzyć dialog edycji</li>
+                    <li>Wybierz odpowiednią wartość dla danego typu nawyku</li>
+                    <li>Dane są automatycznie zapisywane w bazie</li>
+                </ul>
+
+                <h4>2. Kliknięcie w nagłówek kolumny</h4>
+                <ul>
+                    <li>Kliknij w nazwę nawyku w nagłówku tabeli</li>
+                    <li>Automatycznie otworzy się dialog dla dzisiejszego dnia</li>
+                    <li>Przydatne do szybkiego zaznaczania codziennych nawyków</li>
+                </ul>
+
+                <h4>3. Zaznaczanie wielu komórek</h4>
+                <ul>
+                    <li>Przytrzymaj <span class="keyboard-key">Ctrl</span> aby zaznaczyć wiele komórek</li>
+                    <li>Kliknij prawym przyciskiem dla menu kontekstowego</li>
+                    <li>Można kopiować/wklejać wartości między komórkami</li>
+                </ul>
+
+                <div class="tip-box">
+                    <strong>💡 Pro tip:</strong> Dla nawyków typu checkbox wystarczy pojedyncze
+                    kliknięcie w komórkę aby przełączyć stan między wykonany/nie wykonany.
+                </div>
+            </div>
+
+            <!-- Zarządzanie Szerokościami Kolumn -->
+            <div class="section">
+                <h2>📏 Zarządzanie Szerokościami Kolumn</h2>
+
+                <h3>Automatyczne Dostosowanie</h3>
+                <p>
+                    Habit Tracker oferuje inteligentne zarządzanie szerokościami kolumn:
+                </p>
+
+                <ul class="feature-list">
+                    <li>Automatyczne dostosowanie szerokości do zawartości</li>
+                    <li>Ręczne przeciąganie granic kolumn</li>
+                    <li>Blokada/odblokowanie regulacji szerokości</li>
+                    <li>Zapisywanie preferencji między sesjami</li>
+                </ul>
+
+                <h3>Jak Korzystać z Blokady Kolumn</h3>
+                <ol class="step-list">
+                    <li>
+                        <strong>Dostosuj szerokości</strong><br>
+                        Przeciągnij granice kolumn do pożądanych szerokości
+                    </li>
+                    <li>
+                        <strong>Zablokuj ustawienia</strong><br>
+                        Kliknij przycisk <strong>"🔓"</strong> aby zmienić na <strong>"🔒"</strong>
+                    </li>
+                    <li>
+                        <strong>Zapisz preferencje</strong><br>
+                        Ustawienia szerokości są automatycznie zapisywane
+                    </li>
+                    <li>
+                        <strong>Odblokuj jeśli potrzeba</strong><br>
+                        Kliknij <strong>"🔒"</strong> aby zmienić na <strong>"🔓"</strong> i dostosować ponownie
+                    </li>
+                </ol>
+
+                <div class="info-box">
+                    <strong>ℹ️ Informacja:</strong> Blokada kolumn zapobiega przypadkowemu
+                    przesuwaniu granic podczas codziennego użytkowania. Szerokości są
+                    zapisywane osobno dla każdego użytkownika.
+                </div>
+            </div>
+
+            <!-- Synchronizacja -->
+            <div class="section">
+                <h2>🔄 Synchronizacja Danych</h2>
+
+                <h3>Jak Działa Synchronizacja</h3>
+                <p>
+                    Habit Tracker automatycznie synchronizuje dane między urządzeniami:
+                </p>
+
+                <ul class="feature-list">
+                    <li>Automatyczna synchronizacja co 30 sekund</li>
+                    <li>Offline-first - działaj bez internetu</li>
+                    <li>Rozwiązywanie konfliktów przy synchronizacji</li>
+                    <li>Bezpieczne szyfrowanie danych w chmurze</li>
+                </ul>
+
+                <h3>Wymuszona Synchronizacja</h3>
+                <p>
+                    Jeśli potrzebujesz natychmiastowej synchronizacji:
+                </p>
+
+                <ol class="step-list">
+                    <li>
+                        <strong>Kliknij przycisk synchronizacji</strong><br>
+                        Znajdź przycisk <strong>"♻️"</strong> na pasku narzędzi
+                    </li>
+                    <li>
+                        <strong>Potwierdź operację</strong><br>
+                        Przeczytaj ostrzeżenie i kliknij "Tak"
+                    </li>
+                    <li>
+                        <strong>Poczekaj na zakończenie</strong><br>
+                        Proces może potrwać kilka sekund
+                    </li>
+                    <li>
+                        <strong>Sprawdź wynik</strong><br>
+                        Pojawi się komunikat o sukcesie lub błędzie
+                    </li>
+                </ol>
+
+                <div class="warning-box">
+                    <strong>⚠️ Uwaga:</strong> Wymuszona synchronizacja może nadpisać
+                    lokalne zmiany nowszymi danymi z serwera. Używaj ostrożnie jeśli
+                    masz niezapisane zmiany.
+                </div>
+            </div>
+
+            <!-- Statystyki i Analizy -->
+            <div class="section">
+                <h2>📊 Statystyki i Analizy</h2>
+
+                <h3>Dostępne Raporty</h3>
+                <ul class="feature-list">
+                    <li>Procent wykonania nawyków w miesiącu</li>
+                    <li>Wykresy postępów w czasie</li>
+                    <li>Analiza wzorców (dni tygodnia, trendy)</li>
+                    <li>Porównanie różnych nawyków</li>
+                    <li>Eksport danych do dalszej analizy</li>
+                </ul>
+
+                <h3>Analiza AI</h3>
+                <p>
+                    Moduł oferuje inteligentną analizę postępów:
+                </p>
+
+                <ul class="feature-list">
+                    <li>Wykrywanie wzorców w wykonywaniu nawyków</li>
+                    <li>Sugestie optymalizacji harmonogramu</li>
+                    <li>Analiza wpływu nawyków na siebie nawzajem</li>
+                    <li>Personalizowane rekomendacje</li>
+                </ul>
+
+                <h3>Eksport Danych</h3>
+                <p>
+                    Możesz eksportować swoje dane do formatu CSV:
+                </p>
+
+                <ol class="step-list">
+                    <li>
+                        <strong>Kliknij przycisk eksportu</strong><br>
+                        Znajdź przycisk <strong>"📂"</strong> na pasku narzędzi
+                    </li>
+                    <li>
+                        <strong>Wybierz lokalizację</strong><br>
+                        Wybierz folder i nazwę pliku CSV
+                    </li>
+                    <li>
+                        <strong>Potwierdź eksport</strong><br>
+                        Dane zostaną zapisane w wybranym miejscu
+                    </li>
+                    <li>
+                        <strong>Otwórz w arkuszu kalkulacyjnym</strong><br>
+                        Plik można otworzyć w Excelu, Google Sheets, etc.
+                    </li>
+                </ol>
+            </div>
+
+            <!-- Najlepsze Praktyki -->
+            <div class="section">
+                <h2>🎯 Najlepsze Praktyki</h2>
+
+                <h3>Projektowanie Nawyków</h3>
+                <ul class="feature-list">
+                    <li>Rozpoczynaj od małych, łatwych do wykonania nawyków</li>
+                    <li>Używaj konkretnych, mierzalnych celów</li>
+                    <li>Łącz nawyki z istniejącymi rutynami</li>
+                    <li>Stawiaj realistyczne cele - zacznij od 3-5 nawyków</li>
+                </ul>
+
+                <h3>Śledzenie Postępów</h3>
+                <ul class="feature-list">
+                    <li>Zaznaczaj nawyki jak najszybciej po wykonaniu</li>
+                    <li>Nie martw się o pojedyncze dni - skupiaj się na trendach</li>
+                    <li>Regularnie przeglądaj statystyki i dostosowuj cele</li>
+                    <li>Używaj serii (streaks) jako motywacji</li>
+                </ul>
+
+                <h3>Unikanie Pułapek</h3>
+                <ul class="feature-list">
+                    <li>Nie twórz zbyt wielu nawyków naraz</li>
+                    <li>Unikaj perfekcjonizmu - 80% wykonania to sukces</li>
+                    <li>Nie porównuj się z innymi - każdy ma własne tempo</li>
+                    <li>Pamiętaj o regeneracji i dniach odpoczynku</li>
+                </ul>
+
+                <div class="tip-box">
+                    <strong>💡 Pro tip:</strong> Naukowcy twierdzą, że nawyk staje się automatyczny
+                    po około 66 dniach regularnego wykonywania. Używaj Habit Tracker aby
+                    monitorować ten proces!
+                </div>
+            </div>
+
+            <!-- Rozwiązywanie Problemów -->
+            <div class="section">
+                <h2>🔧 Rozwiązywanie Problemów</h2>
+
+                <h3>Problem: Nie mogę dodać nowego nawyku</h3>
+                <p><strong>Rozwiązanie:</strong></p>
+                <ul>
+                    <li>Upewnij się, że jesteś zalogowany do systemu</li>
+                    <li>Sprawdź czy nazwa nawyku nie jest pusta</li>
+                    <li>Spróbuj odświeżyć aplikację</li>
+                    <li>Sprawdź połączenie z bazą danych</li>
+                </ul>
+
+                <h3>Problem: Dane nie synchronizują się</h3>
+                <p><strong>Rozwiązanie:</strong></p>
+                <ul>
+                    <li>Sprawdź połączenie internetowe</li>
+                    <li>Upewnij się, że jesteś zalogowany</li>
+                    <li>Spróbuj wymuszonej synchronizacji przyciskiem "♻️"</li>
+                    <li>Sprawdź logi aplikacji w poszukiwaniu błędów</li>
+                </ul>
+
+                <h3>Problem: Tabela nie wyświetla się poprawnie</h3>
+                <p><strong>Rozwiązanie:</strong></p>
+                <ul>
+                    <li>Spróbuj odblokować kolumny przyciskiem "🔓"</li>
+                    <li>Kliknij przycisk odświeżania "🔄"</li>
+                    <li>Zmień miesiąc i wróć do obecnego</li>
+                    <li>Sprawdź czy wszystkie nawyki są prawidłowo załadowane</li>
+                </ul>
+
+                <h3>Problem: Nie mogę edytować komórek</h3>
+                <p><strong>Rozwiązanie:</strong></p>
+                <ul>
+                    <li>Kliknij dokładnie w komórkę nawyku (nie daty)</li>
+                    <li>Upewnij się, że nawyk istnieje i jest aktywny</li>
+                    <li>Spróbuj odświeżyć tabelę</li>
+                    <li>Sprawdź czy masz uprawnienia do edycji</li>
+                </ul>
+            </div>
+
+            <!-- FAQ -->
+            <div class="section">
+                <h2>❓ Najczęściej Zadawane Pytania</h2>
+
+                <h3>Czy mogę edytować dane historyczne?</h3>
+                <p>
+                    Tak, możesz edytować dane z przeszłości. Wystarczy kliknąć w odpowiednią
+                    komórkę tabeli i wprowadzić nową wartość. Zmiany będą automatycznie
+                    synchronizowane między urządzeniami.
+                </p>
+
+                <h3>Czy mogę usunąć nawyk?</h3>
+                <p>
+                    Tak, użyj przycisku "➖" aby otworzyć dialog usuwania nawyku.
+                    Pamiętaj, że usunięcie nawyku usunie również wszystkie jego dane historyczne.
+                </p>
+
+                <h3>Czy dane są bezpieczne?</h3>
+                <p>
+                    Tak, wszystkie dane są bezpiecznie przechowywane. Lokalnie dane są
+                    szyfrowane, a w chmurze używamy bezpiecznych protokołów transmisji.
+                </p>
+
+                <h3>Czy mogę korzystać offline?</h3>
+                <p>
+                    Tak, Habit Tracker działa w trybie offline-first. Wszystkie zmiany
+                    są zapisywane lokalnie i synchronizowane gdy pojawi się połączenie internetowe.
+                </p>
+
+                <h3>Ile nawyków mogę śledzić?</h3>
+                <p>
+                    Nie ma sztucznego limitu liczby nawyków. Jednak dla optymalnej efektywności
+                    zaleca się śledzenie maksymalnie 5-7 nawyków naraz, aby nie przeciążać systemu.
+                </p>
+
+                <h3>Czy mogę zmienić typ nawyku?</h3>
+                <p>
+                    Obecnie nie można zmienić typu istniejącego nawyku. Jeśli potrzebujesz
+                    zmienić typ, usuń stary nawyk i utwórz nowy z właściwym typem.
+                </p>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p><strong>Habit Tracker</strong> - Śledzenie Nawyków i Celów</p>
+            <p>Wersja 1.0 | Część aplikacji PRO-Ka-Po Kaizen Freak</p>
+            <p>© 2025 PRO-Ka-Po Development Team</p>
+        </div>
+    </div>
+</body>
+</html>

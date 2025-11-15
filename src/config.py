@@ -21,6 +21,18 @@ HABIT_API_BASE_URL = os.getenv(
     'http://127.0.0.1:8000'  # Default: localhost dla developmentu
 )
 
+# TeamWork API Base URL (używa tego samego backendu)
+TEAMWORK_API_BASE_URL = os.getenv(
+    'TEAMWORK_API_URL',
+    'http://127.0.0.1:8000'  # Default: localhost dla developmentu
+)
+
+# General API Base URL (fallback dla innych modułów)
+API_BASE_URL = os.getenv(
+    'API_BASE_URL',
+    'http://127.0.0.1:8000'  # Default: localhost dla developmentu
+)
+
 # ==================== DATABASE PATHS ====================
 
 # Local SQLite databases directory

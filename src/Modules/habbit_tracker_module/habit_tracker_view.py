@@ -455,7 +455,12 @@ class HabbitTrackerView(QWidget):
         
         # Dodaj obsługę kliknięć w komórki
         self.habits_table.itemClicked.connect(self.on_cell_clicked)
-        
+
+        # Dodaj obsługę zmiany szerokości kolumn
+        header = self.habits_table.horizontalHeader()
+        if header:
+            header.sectionResized.connect(self.on_column_resized)
+
         # Zmienne do przechowywania wybranej komórki
         self.selected_row = -1
         self.selected_column = -1
@@ -674,24 +679,24 @@ class HabbitTrackerView(QWidget):
         """Zapisuje aktualne szerokości kolumn jako domyślne"""
         if not hasattr(self, 'habits_table') or not self.habits_table:
             return
-            
+
         column_widths = {}
         for i in range(self.habits_table.columnCount()):
             column_widths[i] = self.habits_table.columnWidth(i)
-        
+
         # Zapisz do pliku JSON
         try:
             import json
             import os
-            
+
             settings_dir = "data"
             if not os.path.exists(settings_dir):
                 os.makedirs(settings_dir)
-                
+
             settings_file = os.path.join(settings_dir, "habit_column_widths.json")
             with open(settings_file, 'w', encoding='utf-8') as f:
                 json.dump(column_widths, f, indent=2)
-            
+
             self.saved_column_widths = column_widths
             print(f"DEBUG: Zapisano szerokości kolumn do pliku: {column_widths}")
         except Exception as e:
@@ -792,6 +797,12 @@ class HabbitTrackerView(QWidget):
             print(f"DEBUG: Błąd podczas ładowania stanu blokady: {e}")
             return False
     
+    def on_column_resized(self, logical_index, old_size, new_size):
+        """Obsługuje zmianę szerokości kolumny"""
+        # Jeśli kolumny są odblokowane, zapisuj zmiany automatycznie
+        if not self.columns_locked:
+            self.save_column_widths()
+
     def unlock_columns_after_habit_change(self):
         """Automatycznie odblokowuje kolumny po dodaniu nowego nawyku"""
         if self.columns_locked:

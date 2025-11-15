@@ -59,31 +59,40 @@ class NavigationBar(QWidget):
         
         # Filtruj tylko widoczne przyciski
         visible_buttons = [btn for btn in buttons_config if btn.get('visible', True)]
-        
+
         # Jeśli brak konfiguracji, użyj domyślnych
         if not visible_buttons:
             visible_buttons = [
                 {'id': 'tasks', 'label': 'Zadania', 'visible': True, 'is_custom': False},
                 {'id': 'kanban', 'label': 'Kanban', 'visible': True, 'is_custom': False},
                 {'id': 'pomodoro', 'label': 'Pomodoro', 'visible': True, 'is_custom': False},
+                {'id': 'habit_tracker', 'label': 'Habit Tracker', 'visible': True, 'is_custom': False},
                 {'id': 'notes', 'label': 'Notatki', 'visible': True, 'is_custom': False},
                 {'id': 'callcryptor', 'label': 'CallCryptor', 'visible': True, 'is_custom': False},
                 {'id': 'alarms', 'label': 'Alarmy', 'visible': True, 'is_custom': False},
+                {'id': 'teamwork', 'label': 'TeamWork', 'visible': True, 'is_custom': False},
+                {'id': 'fastkey', 'label': 'FastKey', 'visible': False, 'is_custom': False},
+                {'id': 'promail', 'label': 'Pro-Mail', 'visible': False, 'is_custom': False},
+                {'id': 'pfile', 'label': 'P-File', 'visible': False, 'is_custom': False},
+                {'id': 'pweb', 'label': 'P-Web', 'visible': False, 'is_custom': False},
+                {'id': 'quickboard', 'label': 'QuickBoard', 'visible': True, 'is_custom': False},
+                {'id': 'proapp', 'label': 'Pro-App', 'visible': False, 'is_custom': False},
             ]
-        
+
         # Oblicz całkowitą liczbę slotów
         total_slots = rows_count * buttons_per_row
-        
-        # Dodaj przyciski Help aby wypełnić puste sloty
-        while len(visible_buttons) < total_slots:
+
+        # Dodaj pojedynczy przycisk Help tylko jeśli są wolne sloty i nie ma już przycisku pomocy
+        has_help_button = any(btn.get('is_help', False) for btn in visible_buttons)
+        if len(visible_buttons) < total_slots and not has_help_button:
             visible_buttons.append({
-                'id': f'help_{len(visible_buttons)}',
+                'id': 'help',
                 'label': t('nav.help', 'Pomoc'),
                 'visible': True,
                 'is_custom': False,
                 'is_help': True
             })
-        
+
         # Jeśli mamy więcej widocznych przycisków niż slotów, obetnij
         if len(visible_buttons) > total_slots:
             visible_buttons = visible_buttons[:total_slots]
@@ -219,17 +228,37 @@ class NavigationBar(QWidget):
     
     def _on_button_clicked(self, view_name: str):
         """Obsługa kliknięcia przycisku nawigacyjnego"""
+        # Sprawdź czy to przycisk pomocy
+        if view_name == 'help':
+            # Emituj specjalny signal dla pomocy zamiast standardowej zmiany widoku
+            self.view_changed.emit('help')
+            logger.info("Help button clicked")
+            return
+
         # Odznacz wszystkie przyciski
         for btn in self.buttons.values():
             btn.setChecked(False)
-        
+
         # Zaznacz kliknięty przycisk
         if view_name in self.buttons:
             self.buttons[view_name].setChecked(True)
-        
+
         # Emituj signal zmiany widoku
         self.view_changed.emit(view_name)
         logger.info(f"View changed to: {view_name}")
+    
+    def switch_to_view(self, view_name: str):
+        """
+        Programowo przełącz widok na określony moduł
+        
+        Args:
+            view_name: ID modułu (np. 'tasks', 'pomodoro')
+        """
+        if view_name in self.buttons:
+            self._on_button_clicked(view_name)
+            logger.info(f"Programmatically switched to view: {view_name}")
+        else:
+            logger.warning(f"Cannot switch to view '{view_name}': button not found")
     
     def update_translations(self):
         """Odśwież tłumaczenia przycisków nawigacji"""
@@ -242,6 +271,7 @@ class NavigationBar(QWidget):
             'callcryptor': t('nav.callcryptor'),
             'alarms': t('nav.alarms'),
             'hotkey': t('nav.hotkey'),
+            'teamwork': t('nav.teamwork'),
         }
         
         for key, btn in self.buttons.items():

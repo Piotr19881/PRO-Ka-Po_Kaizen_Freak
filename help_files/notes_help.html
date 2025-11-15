@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pomoc - Moduł Notatki</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #34495e;
+            margin-top: 30px;
+            border-left: 4px solid #3498db;
+            padding-left: 15px;
+        }
+        h3 {
+            color: #7f8c8d;
+            margin-top: 20px;
+        }
+        .feature-box {
+            background: #ecf0f1;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        .info {
+            background: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        ul {
+            margin: 10px 0;
+            padding-left: 30px;
+        }
+        li {
+            margin: 5px 0;
+        }
+        .code {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .shortcut {
+            background: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+    </style>
+    <link rel="stylesheet" href="assets/lang-switcher.css">
+    <script defer src="assets/lang-switcher.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Moduł Notatki</h1>
+
+        <p>Moduł Notatki to zaawansowane narzędzie do tworzenia, organizowania i zarządzania dokumentami tekstowymi. Umożliwia tworzenie bogatych notatek z formatowaniem, tagami i kolorami, oraz efektywne wyszukiwanie i kategoryzację.</p>
+
+        <h2>Podstawowe Funkcje</h2>
+
+        <div class="feature-box">
+            <h3>Tworzenie Notatek</h3>
+            <ul>
+                <li><strong>Bogate formatowanie:</strong> Pogrubienie, kursywa, podkreślenie, kolory</li>
+                <li><strong>Listy i nagłówki:</strong> Organizowane struktury dokumentu</li>
+                <li><strong>Hiperlinki:</strong> Łącza do stron internetowych i innych zasobów</li>
+                <li><strong>Kolory notatek:</strong> Wizualne kategoryzowanie</li>
+                <li><strong>Tagi:</strong> Etykiety do grupowania i filtrowania</li>
+            </ul>
+        </div>
+
+        <div class="feature-box">
+            <h3>Organizacja</h3>
+            <ul>
+                <li><strong>Drzewo notatek:</strong> Hierarchiczna struktura w panelu bocznym</li>
+                <li><strong>Foldery logiczne:</strong> Grupowanie po kolorach i tagach</li>
+                <li><strong>Wyszukiwanie:</strong> Szybkie znajdowanie notatek po treści lub tytule</li>
+                <li><strong>Sortowanie:</strong> Po dacie utworzenia, modyfikacji lub alfabetycznie</li>
+                <li><strong>Archiwizacja:</strong> Przenoszenie starych notatek do archiwum</li>
+            </ul>
+        </div>
+
+        <div class="feature-box">
+            <h3>Integracja z Zadaniami</h3>
+            <ul>
+                <li><strong>Automatyczne tworzenie:</strong> Notatki z zadań KanBan</li>
+                <li><strong>Łączenie zadań:</strong> Powiązania między notatkami a zadaniami</li>
+                <li><strong>Transkrypcje:</strong> Import transkrypcji z modułu CallCryptor</li>
+                <li><strong>Kontekst zadań:</strong> Metadane i informacje o zadaniach</li>
+            </ul>
+        </div>
+
+        <h2>Interfejs Użytkownika</h2>
+
+        <div class="feature-box">
+            <h3>Panel Główny</h3>
+            <ul>
+                <li><strong>Edytor tekstu:</strong> Bogaty edytor z paskiem narzędzi</li>
+                <li><strong>Podgląd na żywo:</strong> Natychmiastowe wyświetlanie zmian formatowania</li>
+                <li><strong>Automatyczne zapisywanie:</strong> Zmiany są zachowywane automatycznie</li>
+                <li><strong>Informacje o notatce:</strong> Statystyki i metadane w prawym panelu</li>
+            </ul>
+        </div>
+
+        <div class="feature-box">
+            <h3>Drzewo Notatek</h3>
+            <ul>
+                <li><strong>Hierarchia:</strong> Rozwijane drzewo z kategoriami</li>
+                <li><strong>Kolory:</strong> Wizualne oznaczenia kolorów notatek</li>
+                <li><strong>Ikony statusu:</strong> Wskaźniki modyfikacji i archiwizacji</li>
+                <li><strong>Menu kontekstowe:</strong> Szybkie akcje na notatkach</li>
+            </ul>
+        </div>
+
+        <h2>Formatowanie Tekstu</h2>
+
+        <div class="feature-box">
+            <h3>Narzędzia Formatowania</h3>
+            <ul>
+                <li><strong>Czcionka:</strong> Pogrubienie, kursywa, podkreślenie, przekreślenie</li>
+                <li><strong>Kolory:</strong> Kolor tekstu i tła</li>
+                <li><strong>Wyrównanie:</strong> Do lewej, do środka, do prawej, justowanie</li>
+                <li><strong>Listy:</strong> Numerowane i wypunktowane</li>
+                <li><strong>Nagłówki:</strong> Poziomy H1-H6</li>
+                <li><strong>Hiperlinki:</strong> Wstawianie i edycja linków</li>
+                <li><strong>Obrazy:</strong> Wstawianie obrazów do notatek</li>
+            </ul>
+        </div>
+
+        <h2>System Tagów i Kolorów</h2>
+
+        <div class="feature-box">
+            <h3>Tagi</h3>
+            <ul>
+                <li><strong>Dodawanie tagów:</strong> Wielokrotne tagi na notatkę</li>
+                <li><strong>Autouzupełnianie:</strong> Sugestie istniejących tagów</li>
+                <li><strong>Filtrowanie:</strong> Wyszukiwanie po tagach</li>
+                <li><strong>Zarządzanie tagami:</strong> Dodawanie, edycja, usuwanie tagów</li>
+            </ul>
+        </div>
+
+        <div class="feature-box">
+            <h3>Kolory Notatek</h3>
+            <ul>
+                <li><strong>Predefiniowane kolory:</strong> Paleta gotowych kolorów</li>
+                <li><strong>Własne kolory:</strong> Wybór z palety kolorów</li>
+                <li><strong>Kategoryzacja:</strong> Wizualne grupowanie notatek</li>
+                <li><strong>Filtrowanie po kolorach:</strong> W drzewie notatek</li>
+            </ul>
+        </div>
+
+        <h2>Wyszukiwanie i Filtrowanie</h2>
+
+        <div class="feature-box">
+            <h3>Opcje Wyszukiwania</h3>
+            <ul>
+                <li><strong>Wyszukiwanie pełnotekstowe:</strong> W treści i tytułach</li>
+                <li><strong>Filtrowanie po tagach:</strong> Wielokrotny wybór tagów</li>
+                <li><strong>Filtrowanie po kolorach:</strong> Wybór kolorów</li>
+                <li><strong>Filtrowanie po dacie:</strong> Zakres dat utworzenia/modyfikacji</li>
+                <li><strong>Archiwum:</strong> Osobne wyszukiwanie w zarchiwizowanych notatkach</li>
+            </ul>
+        </div>
+
+        <h2>Obsługa Motywów</h2>
+
+        <div class="feature-box">
+            <h3>Dostosowanie Wyglądu</h3>
+            <ul>
+                <li><strong>Automatyczne motywy:</strong> Dostosowanie do wybranego motywu aplikacji</li>
+                <li><strong>Zachowanie kolorów notatek:</strong> Kolory notatek niezależne od motywu</li>
+                <li><strong>Responsywność:</strong> Dostosowanie do różnych rozmiarów ekranu</li>
+                <li><strong>Wysoka kontrastowość:</strong> Czytelność w różnych warunkach oświetlenia</li>
+            </ul>
+        </div>
+
+        <h2>Wsparcie Językowe</h2>
+
+        <div class="feature-box">
+            <h3>Internacjonalizacja</h3>
+            <ul>
+                <li><strong>Wiele języków:</strong> Pełne wsparcie dla tłumaczeń interfejsu</li>
+                <li><strong>Automatyczne odświeżanie:</strong> Natychmiastowa zmiana języka</li>
+                <li><strong>Lokalizacja:</strong> Formatowanie dat i liczb zgodnie z lokalizacją</li>
+            </ul>
+        </div>
+
+        <h2>Jak Korzystać</h2>
+
+        <h3>Tworzenie Nowej Notatki</h3>
+        <ol>
+            <li>Kliknij przycisk "Nowa notatka" na pasku narzędzi</li>
+            <li>Wprowadź tytuł notatki</li>
+            <li>Wybierz kolor notatki (opcjonalne)</li>
+            <li>Dodaj tagi (opcjonalne)</li>
+            <li>Rozpocznij pisanie treści używając narzędzi formatowania</li>
+        </ol>
+
+        <h3>Edycja Istniejącej Notatki</h3>
+        <ol>
+            <li>Wybierz notatkę w drzewie po lewej stronie</li>
+            <li>Kliknij dwukrotnie na notatce aby otworzyć do edycji</li>
+            <li>Użyj narzędzi formatowania do modyfikacji treści</li>
+            <li>Zmiany są zapisywane automatycznie</li>
+        </ol>
+
+        <h3>Organizacja Notatek</h3>
+        <ul>
+            <li><strong>Tagi:</strong> Dodaj tagi w polu "Tagi" na dole edytora</li>
+            <li><strong>Kolory:</strong> Kliknij przycisk koloru obok tytułu notatki</li>
+            <li><strong>Archiwizacja:</strong> Kliknij przycisk "Archiwizuj" aby przenieść do archiwum</li>
+            <li><strong>Usuwanie:</strong> Menu kontekstowe → "Usuń notatkę"</li>
+        </ul>
+
+        <h3>Wyszukiwanie Notatek</h3>
+        <ol>
+            <li>Użyj pola wyszukiwania na górze drzewa notatek</li>
+            <li>Wprowadź słowa kluczowe z tytułu lub treści</li>
+            <li>Użyj filtrów tagów i kolorów dla bardziej precyzyjnego wyszukiwania</li>
+            <li>Wyniki są aktualizowane na żywo podczas pisania</li>
+        </ol>
+
+        <h3>Import Transkrypcji</h3>
+        <ol>
+            <li>W module CallCryptor kliknij przycisk "📝" przy nagraniu</li>
+            <li>Notatka zostanie automatycznie utworzona z transkrypcją</li>
+            <li>Dodatkowe metadane (data rozmowy, kontakt) zostaną włączone</li>
+            <li>Notatka otworzy się automatycznie w edytorze</li>
+        </ol>
+
+        <h2>Menu Kontekstowe</h2>
+
+        <div class="feature-box">
+            <h3>Akcje na Notatkach</h3>
+            <ul>
+                <li><strong>Otwórz:</strong> Otwórz notatkę do edycji</li>
+                <li><strong>Duplikuj:</strong> Utwórz kopię notatki</li>
+                <li><strong>Zmień kolor:</strong> Zmień kolor notatki</li>
+                <li><strong>Dodaj tag:</strong> Dodaj tag do notatki</li>
+                <li><strong>Archiwizuj:</strong> Przenieś do archiwum</li>
+                <li><strong>Usuń:</strong> Usuń notatkę (z potwierdzeniem)</li>
+                <li><strong>Eksportuj:</strong> Zapisz jako plik HTML lub tekstowy</li>
+            </ul>
+        </div>
+
+        <h2>Eksport i Import</h2>
+
+        <div class="feature-box">
+            <h3>Opcje Eksportu</h3>
+            <ul>
+                <li><strong>HTML:</strong> Zachowanie formatowania i kolorów</li>
+                <li><strong>Tekst:</strong> Czysty tekst bez formatowania</li>
+                <li><strong>PDF:</strong> Dokument gotowy do druku</li>
+                <li><strong>Wiele notatek:</strong> Eksport zaznaczonych notatek</li>
+            </ul>
+        </div>
+
+        <h2>Wskazówki i Najlepsze Praktyki</h2>
+
+        <div class="info">
+            <h3>Organizacja Wiedzy</h3>
+            <ul>
+                <li>Używaj konsekwentnego systemu tagów</li>
+                <li>Wybieraj kolory notatek zgodnie z kategoriami</li>
+                <li>Regularnie archiwizuj stare notatki</li>
+                <li>Używaj opisowych tytułów dla łatwego wyszukiwania</li>
+                <li>Korzystaj z hierarchii nagłówków w dłuższych notatkach</li>
+            </ul>
+        </div>
+
+        <div class="warning">
+            <h3>Zarządzanie Wydajnością</h3>
+            <ul>
+                <li>Unikaj zbyt długich notatek - dziel na mniejsze</li>
+                <li>Regularnie czyść archiwum starych notatek</li>
+                <li>Ogranicz liczbę tagów na notatkę do 3-5</li>
+                <li>Używaj wyszukiwania zamiast tworzenia zbyt wielu kategorii</li>
+            </ul>
+        </div>
+
+        <div class="feature-box">
+            <h3>Integracja z Workflow</h3>
+            <ul>
+                <li>Łącz notatki z zadaniami w KanBan</li>
+                <li>Używaj transkrypcji rozmów jako podstawy notatek</li>
+                <li>Eksportuj ważne notatki do dokumentów zewnętrznych</li>
+                <li>Synchronizuj notatki między urządzeniami</li>
+            </ul>
+        </div>
+
+        <h2>Rozwiązywanie Problemów</h2>
+
+        <h3>Notatki Nie Są Zapisywane</h3>
+        <ul>
+            <li>Sprawdź połączenie z bazą danych</li>
+            <li>Upewnij się, że masz uprawnienia do zapisu</li>
+            <li>Sprawdź ilość wolnego miejsca na dysku</li>
+            <li>Spróbuj zamknąć i ponownie otworzyć aplikację</li>
+        </ul>
+
+        <h3>Formatowanie Nie Działa</h3>
+        <ul>
+            <li>Sprawdź czy edytor jest w trybie edycji (nie podglądu)</li>
+            <li>Upewnij się, że zaznaczyłeś tekst przed formatowaniem</li>
+            <li>Spróbuj przełączyć między trybami edycji</li>
+            <li>Sprawdź ustawienia przeglądarki jeśli używasz podglądu</li>
+        </ul>
+
+        <h3>Wyszukiwanie Nie Znajduje Notatek</h3>
+        <ul>
+            <li>Sprawdź czy notatki nie są w archiwum</li>
+            <li>Użyj mniejszych słów kluczowych</li>
+            <li>Sprawdź pisownię wyszukiwanych terminów</li>
+            <li>Wyczyść filtry tagów i kolorów</li>
+        </ul>
+
+        <h3>Problemy z Kolorami</h3>
+        <ul>
+            <li>Sprawdź ustawienia motywu aplikacji</li>
+            <li>Kolory notatek są niezależne od motywu</li>
+            <li>Spróbuj zmienić kolor i zapisać ponownie</li>
+            <li>Odśwież widok drzewa notatek</li>
+        </ul>
+
+        <h3>Błędy Importu Transkrypcji</h3>
+        <ul>
+            <li>Sprawdź czy nagranie ma ukończoną transkrypcję</li>
+            <li>Upewnij się, że masz uprawnienia do tworzenia notatek</li>
+            <li>Sprawdź dostępność miejsca w bazie danych</li>
+            <li>Spróbuj utworzyć notatkę ręcznie najpierw</li>
+        </ul>
+
+        <h2>Informacje Techniczne</h2>
+
+        <div class="feature-box">
+            <h3>Format Danych</h3>
+            <ul>
+                <li><strong>Baza danych:</strong> SQLite z indeksowaniem pełnotekstowym</li>
+                <li><strong>Format treści:</strong> HTML z CSS dla formatowania</li>
+                <li><strong>Metadane:</strong> JSON dla tagów, kolorów i innych właściwości</li>
+                <li><strong>Automatyczne zapisywanie:</strong> Co 30 sekund lub przy zmianie fokusu</li>
+            </ul>
+        </div>
+
+        <div class="info">
+            <h3>Backup i Synchronizacja</h3>
+            <p>Notatki są automatycznie synchronizowane między urządzeniami po zalogowaniu. Lokalna baza danych zawiera wszystkie notatki, a archiwizowane notatki są dostępne w osobnej sekcji.</p>
+        </div>
+
+        <h2>Plany Rozwoju</h2>
+
+        <div class="feature-box">
+            <h3>Przyszłe Funkcje</h3>
+            <ul>
+                <li>Zaawansowane formatowanie (tabele, kod, matematyczne formuły)</li>
+                <li>Współpraca w czasie rzeczywistym</li>
+                <li>Integracja z chmurą (Google Drive, OneDrive)</li>
+                <li>Wersjonowanie notatek</li>
+                <li>Szablony notatek</li>
+                <li>Eksport do formatów biurowych (DOCX, ODT)</li>
+                <li>Szyfrowanie wrażliwych notatek</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

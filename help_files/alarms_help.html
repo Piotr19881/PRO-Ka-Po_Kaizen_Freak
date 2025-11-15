@@ -1,0 +1,277 @@
+
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pomoc - Moduł Alarmów i Timerów</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #34495e;
+            margin-top: 30px;
+            border-left: 4px solid #3498db;
+            padding-left: 15px;
+        }
+        h3 {
+            color: #7f8c8d;
+            margin-top: 20px;
+        }
+        .feature-box {
+            background: #ecf0f1;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        .info {
+            background: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        ul {
+            margin: 10px 0;
+            padding-left: 30px;
+        }
+        li {
+            margin: 5px 0;
+        }
+        .code {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .shortcut {
+            background: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+    </style>
+    <link rel="stylesheet" href="assets/lang-switcher.css">
+    <script defer src="assets/lang-switcher.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Moduł Alarmów i Timerów</h1>
+
+        <p>Moduł alarmów i timerów pozwala na tworzenie i zarządzanie alarmami czasowymi oraz odliczającymi timerami. Funkcjonalność obejmuje zarówno proste jednorazowe przypomnienia, jak i złożone harmonogramy cykliczne.</p>
+
+        <h2>Podstawowe Funkcje</h2>
+
+        <div class="feature-box">
+            <h3>Zarządzanie Alarmami</h3>
+            <ul>
+                <li><strong>Ustawianie czasu:</strong> Wybierz godzinę i minutę dla alarmu</li>
+                <li><strong>Etykieta:</strong> Dodaj opisową nazwę dla alarmu</li>
+                <li><strong>Cykliczność:</strong> Jednorazowy, codzienny, dni robocze, weekendy lub niestandardowy wybór dni</li>
+                <li><strong>Opcje powiadomień:</strong> Dźwięk i/lub popup</li>
+                <li><strong>Dźwięki niestandardowe:</strong> Możliwość wyboru własnych plików audio</li>
+            </ul>
+        </div>
+
+        <div class="feature-box">
+            <h3>Zarządzanie Timerami</h3>
+            <ul>
+                <li><strong>Ustawianie czasu:</strong> Godziny, minuty i sekundy</li>
+                <li><strong>Etykieta:</strong> Opisowa nazwa timera</li>
+                <li><strong>Powtarzanie:</strong> Opcja automatycznego restartu po zakończeniu</li>
+                <li><strong>Okno odliczania:</strong> Dedykowane okno popup z wizualnym odliczaniem</li>
+                <li><strong>Kontrola:</strong> Pauza, wznowienie i zatrzymanie</li>
+            </ul>
+        </div>
+
+        <h2>Synchronizacja i Współpraca</h2>
+
+        <div class="info">
+            <h3>Synchronizacja z Serwerem</h3>
+            <p>Po zalogowaniu alarmy i timery są automatycznie synchronizowane między urządzeniami. Wszystkie zmiany są natychmiast odzwierciedlane na wszystkich połączonych urządzeniach.</p>
+        </div>
+
+        <div class="feature-box">
+            <h3>WebSocket - Aktualizacje w Czasie Rzeczywistym</h3>
+            <ul>
+                <li>Automatyczna synchronizacja zmian między urządzeniami</li>
+                <li>Instant powiadomienia o aktualizacjach</li>
+                <li>Możliwość współpracy w czasie rzeczywistym</li>
+            </ul>
+        </div>
+
+        <h2>Konfiguracja Dźwięków</h2>
+
+        <div class="feature-box">
+            <h3>Dostępne Dźwięki</h3>
+            <ul>
+                <li><strong>Domyślne dźwięki systemowe:</strong> Beep, Ding, Chord, Pop, Notify, Asterisk, Exclamation, Question, Critical Stop</li>
+                <li><strong>Dźwięki niestandardowe:</strong> Możliwość dodania własnych plików audio (WAV, MP3, OGG, FLAC, M4A)</li>
+                <li><strong>Konfiguracja w ustawieniach:</strong> Wybór dźwięków dla alarmów i powiadomień</li>
+            </ul>
+        </div>
+
+        <h2>Obsługa Motywów</h2>
+
+        <div class="feature-box">
+            <h3>Dostosowanie Wyglądu</h3>
+            <ul>
+                <li>Automatyczne dostosowanie do wybranego motywu aplikacji</li>
+                <li>Dynamiczna zmiana kolorów po przełączeniu motywu</li>
+                <li>Spójność z resztą interfejsu użytkownika</li>
+            </ul>
+        </div>
+
+        <h2>Wsparcie Językowe</h2>
+
+        <div class="feature-box">
+            <h3>Internacjonalizacja</h3>
+            <ul>
+                <li>Pełne wsparcie dla wielu języków</li>
+                <li>Automatyczne odświeżanie tłumaczeń po zmianie języka</li>
+                <li>Lokalizowane komunikaty i etykiety</li>
+            </ul>
+        </div>
+
+        <h2>Jak Korzystać</h2>
+
+        <h3>Dodawanie Alarmu</h3>
+        <ol>
+            <li>W sekcji "Alarmy" wypełnij pola:
+                <ul>
+                    <li>Czas alarmu</li>
+                    <li>Etykieta (nazwa)</li>
+                    <li>Wybierz cykliczność</li>
+                    <li>Zaznacz opcje dźwięku i popupu</li>
+                </ul>
+            </li>
+            <li>Opcjonalnie wybierz niestandardowy dźwięk</li>
+            <li>Kliknij "Dodaj Alarm"</li>
+        </ol>
+
+        <h3>Dodawanie Timera</h3>
+        <ol>
+            <li>W sekcji "Timery" ustaw czas (godziny:minuty:sekundy)</li>
+            <li>Wprowadź etykietę</li>
+            <li>Zaznacz opcje dźwięku, popupu i powtarzania</li>
+            <li>Opcjonalnie wybierz niestandardowy dźwięk</li>
+            <li>Kliknij "Dodaj Timer"</li>
+        </ol>
+
+        <h3>Zarządzanie Istniejącymi Alarmami/Timerami</h3>
+        <ul>
+            <li><strong>Włącz/Wyłącz:</strong> Użyj przycisku "Włącz" lub "Wyłącz"</li>
+            <li><strong>Okno timera:</strong> Dla aktywnych timerów dostępny przycisk "Otwórz okno"</li>
+            <li><strong>Usuwanie:</strong> Przycisk "Usuń" z potwierdzeniem</li>
+            <li><strong>Edycja:</strong> Funkcja edycji będzie dostępna w przyszłych wersjach</li>
+        </ul>
+
+        <h2>Okno Odliczania Timera</h2>
+
+        <div class="feature-box">
+            <h3>Funkcje Okna Popup</h3>
+            <ul>
+                <li><strong>Duży wyświetlacz czasu:</strong> Czerwone cyfry dla lepszej widoczności</li>
+                <li><strong>Pasek postępu:</strong> Wizualne przedstawienie pozostałego czasu</li>
+                <li><strong>Kontrola:</strong> Przyciski pauzy i zatrzymania</li>
+                <li><strong>Automatyczne zamykanie:</strong> Po zakończeniu timera</li>
+                <li><strong>Zawsze na wierzchu:</strong> Okno pozostaje widoczne nad innymi aplikacjami</li>
+            </ul>
+        </div>
+
+        <h2>Wskazówki i Najlepsze Praktyki</h2>
+
+        <div class="info">
+            <h3>Optymalizacja Zużycia Baterii</h3>
+            <p>Używaj timerów zamiast alarmów dla krótkich odstępów czasu. Timery są bardziej efektywne energetycznie.</p>
+        </div>
+
+        <div class="warning">
+            <h3>Uwagi Dotyczące Dźwięków</h3>
+            <ul>
+                <li>Upewnij się, że wybrane pliki audio istnieją i są dostępne</li>
+                <li>Długie pliki audio mogą powodować opóźnienia w odtwarzaniu</li>
+                <li>Sprawdź ustawienia dźwięku systemu operacyjnego</li>
+            </ul>
+        </div>
+
+        <div class="feature-box">
+            <h3>Wydajność</h3>
+            <ul>
+                <li>Moduł sprawdza alarmy co sekundę</li>
+                <li>Synchronizacja działa w tle bez wpływu na wydajność</li>
+                <li>Optymalizowane wyświetlanie list dla dużej liczby elementów</li>
+            </ul>
+        </div>
+
+        <h2>Rozwiązywanie Problemów</h2>
+
+        <h3>Alarm Nie Działa</h3>
+        <ul>
+            <li>Sprawdź czy alarm jest włączony (zielona ikona ✓)</li>
+            <li>Zweryfikuj ustawiony czas</li>
+            <li>Sprawdź ustawienia dźwięku w aplikacji i systemie</li>
+            <li>Upewnij się, że aplikacja działa w tle</li>
+        </ul>
+
+        <h3>Timer Nie Odlicza</h3>
+        <ul>
+            <li>Sprawdź czy timer jest uruchomiony (ikona ▶)</li>
+            <li>Uruchom timer ponownie jeśli został zatrzymany</li>
+            <li>Sprawdź okno popup timera</li>
+        </ul>
+
+        <h3>Problemy z Synchronizacją</h3>
+        <ul>
+            <li>Sprawdź połączenie internetowe</li>
+            <li>Upewnij się, że jesteś zalogowany</li>
+            <li>Odśwież widok (przełącz na inną zakładkę i wróć)</li>
+            <li>Sprawdź status serwera w logach aplikacji</li>
+        </ul>
+
+        <h2>Plany Rozwoju</h2>
+
+        <div class="feature-box">
+            <h3>Przyszłe Funkcje</h3>
+            <ul>
+                <li>Edycja istniejących alarmów i timerów</li>
+                <li>Zaawansowane opcje cykliczności (co tydzień, co miesiąc)</li>
+                <li>Import/eksport ustawień</li>
+                <li>Integracja z kalendarzem systemowym</li>
+                <li>Powiadomienia push na urządzeniach mobilnych</li>
+            </ul>
+        </div>
+
+        <div class="info">
+            <h3>Informacje Techniczne</h3>
+            <p>Moduł wykorzystuje PyQt6 do interfejsu użytkownika, QMediaPlayer do odtwarzania dźwięków oraz WebSocket do synchronizacji w czasie rzeczywistym. Dane są przechowywane lokalnie i opcjonalnie synchronizowane z serwerem.</p>
+        </div>
+    </div>
+</body>
+</html>

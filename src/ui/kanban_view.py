@@ -1577,73 +1577,69 @@ class KanBanView(QWidget):
         """Przełączenie widoczności kolumny 'Do sprawdzenia'"""
         show = (state == Qt.CheckState.Checked.value)
         self.settings['show_review'] = show
-        
-        # Bezpieczna manipulacja kolumną (może być usunięta przez Qt)
-        try:
-            if show:
-                self.review_column.show()
-            else:
-                self.review_column.hide()
-        except RuntimeError as e:
-            logger.warning(f"[KanBanView] Review column widget deleted: {e}")
-            return
-        
+
+        # Bezpieczna manipulacja kolumną - użyj słownika columns zamiast bezpośredniej referencji
+        column = self.columns.get('review')
+        if column:
+            try:
+                column.setVisible(show)
+            except RuntimeError:
+                # QGroupBox został usunięty
+                logger.warning("[KanBanView] Review column widget was deleted")
+                pass
+
         self._save_settings()
-        self.refresh_board()  # Odśwież tablicę aby załadować zadania
-    
+
     def _on_hold_toggled(self, state: int):
         """Przełączenie widoczności kolumny 'Odłożone'"""
         show = (state == Qt.CheckState.Checked.value)
         self.settings['show_on_hold'] = show
-        
-        # Bezpieczna manipulacja kolumną
-        try:
-            if show:
-                self.on_hold_column.show()
-            else:
-                self.on_hold_column.hide()
-        except RuntimeError as e:
-            logger.warning(f"[KanBanView] On-hold column widget deleted: {e}")
-            return
-        
+
+        # Bezpieczna manipulacja kolumną - użyj słownika columns zamiast bezpośredniej referencji
+        column = self.columns.get('on_hold')
+        if column:
+            try:
+                column.setVisible(show)
+            except RuntimeError:
+                # QGroupBox został usunięty
+                logger.warning("[KanBanView] On hold column widget was deleted")
+                pass
+
         self._save_settings()
-        self.refresh_board()  # Odśwież tablicę aby załadować zadania
 
     def _on_todo_toggled(self, state: int):
         """Przełączenie widoczności kolumny 'Do wykonania'"""
         show = (state == Qt.CheckState.Checked.value)
         self.settings['show_todo'] = show
 
-        # Bezpieczna manipulacja kolumną
-        try:
-            if show:
-                self.todo_column.show()
-            else:
-                self.todo_column.hide()
-        except RuntimeError as e:
-            logger.warning(f"[KanBanView] Todo column widget deleted: {e}")
-            return
+        # Bezpieczna manipulacja kolumną - użyj słownika columns zamiast bezpośredniej referencji
+        column = self.columns.get('todo')
+        if column:
+            try:
+                column.setVisible(show)
+            except RuntimeError:
+                # QGroupBox został usunięty
+                logger.warning("[KanBanView] Todo column widget was deleted")
+                pass
 
         self._save_settings()
-        self.refresh_board()  # Odśwież tablicę aby załadować zadania
 
     def _on_done_toggled(self, state: int):
         """Przełączenie widoczności kolumny 'Ukończone'"""
         show = (state == Qt.CheckState.Checked.value)
         self.settings['show_done'] = show
 
-        # Bezpieczna manipulacja kolumną
-        try:
-            if show:
-                self.done_column.show()
-            else:
-                self.done_column.hide()
-        except RuntimeError as e:
-            logger.warning(f"[KanBanView] Done column widget deleted: {e}")
-            return
+        # Bezpieczna manipulacja kolumną - użyj słownika columns zamiast bezpośredniej referencji
+        column = self.columns.get('done')
+        if column:
+            try:
+                column.setVisible(show)
+            except RuntimeError:
+                # QGroupBox został usunięty
+                logger.warning("[KanBanView] Done column widget was deleted")
+                pass
 
         self._save_settings()
-        self.refresh_board()  # Odśwież tablicę aby załadować zadania
     
     # ======================================================================
     # Assistant voice command endpoints

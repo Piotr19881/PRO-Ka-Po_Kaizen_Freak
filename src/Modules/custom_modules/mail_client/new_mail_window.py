@@ -45,6 +45,7 @@ from PyQt6.QtWidgets import (
     QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
+    QSizePolicy,
 )
 
 
@@ -167,11 +168,12 @@ class NewMailWindow(QDialog):
     
     mail_sent = pyqtSignal()  # Sygnał emitowany po wysłaniu maila
     
-    def __init__(self, parent=None, reply_to=None, forward=None, is_reply=False, original_mail=None):
+    def __init__(self, parent=None, reply_to=None, forward=None, is_reply=False, original_mail=None, initial_body=None):
         super().__init__(parent)
         self.reply_to = reply_to or original_mail  # Obsługa obu parametrów
         self.is_reply = is_reply
         self.forward = forward
+        self.initial_body = initial_body  # Wstępna treść wiadomości (np. z AI)
         self.mail_view_parent = parent if hasattr(parent, "favorite_files") else None
         self.favorite_files: List[Dict[str, Any]] = self._load_initial_favorites()
         self.group_definitions: Dict[str, Dict[str, str]] = self.load_group_definitions()
@@ -236,18 +238,21 @@ class NewMailWindow(QDialog):
             main_layout.addWidget(self.templates_panel)
         
         # Pionowy przycisk "Szablony" po lewej stronie
-        self.templates_toggle_btn = QPushButton("S\nZ\nA\nB\nL\nO\nN\nY")
+        self.templates_toggle_btn = QPushButton("📓")
         self.templates_toggle_btn.setCheckable(True)
-        self.templates_toggle_btn.setMaximumWidth(25)
+        self.templates_toggle_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        self.templates_toggle_btn.setFixedWidth(15)
+        self.templates_toggle_btn.setMinimumHeight(140)
+        self.templates_toggle_btn.setMaximumHeight(220)
         self.templates_toggle_btn.setStyleSheet("""
             QPushButton {
                 background-color: #FFA726;
                 color: white;
                 font-weight: bold;
-                font-size: 10pt;
+                font-size: 9pt;
                 border: none;
                 border-radius: 3px;
-                padding: 10px 2px;
+                padding: 6px 0px;
             }
             QPushButton:hover {
                 background-color: #FB8C00;
@@ -257,7 +262,15 @@ class NewMailWindow(QDialog):
             }
         """)
         self.templates_toggle_btn.clicked.connect(self.toggle_templates_panel)
-        main_layout.addWidget(self.templates_toggle_btn)
+        templates_toggle_container = QWidget()
+        templates_toggle_container.setFixedWidth(20)
+        templates_toggle_layout = QVBoxLayout(templates_toggle_container)
+        templates_toggle_layout.setContentsMargins(0, 0, 0, 0)
+        templates_toggle_layout.setSpacing(0)
+        templates_toggle_layout.addStretch()
+        templates_toggle_layout.addWidget(self.templates_toggle_btn, alignment=Qt.AlignmentFlag.AlignHCenter)
+        templates_toggle_layout.addStretch()
+        main_layout.addWidget(templates_toggle_container)
         
         # Główny obszar wiadomości
         message_widget = QWidget()
@@ -266,18 +279,21 @@ class NewMailWindow(QDialog):
         main_layout.addWidget(message_widget)
         
         # Pionowy przycisk "AI" po prawej stronie
-        self.ai_toggle_btn = QPushButton("A\nI")
+        self.ai_toggle_btn = QPushButton("🪄")
         self.ai_toggle_btn.setCheckable(True)
-        self.ai_toggle_btn.setMaximumWidth(25)
+        self.ai_toggle_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        self.ai_toggle_btn.setFixedWidth(15)
+        self.ai_toggle_btn.setMinimumHeight(140)
+        self.ai_toggle_btn.setMaximumHeight(220)
         self.ai_toggle_btn.setStyleSheet("""
             QPushButton {
                 background-color: #4CAF50;
                 color: white;
                 font-weight: bold;
-                font-size: 12pt;
+                font-size: 11pt;
                 border: none;
                 border-radius: 3px;
-                padding: 10px 2px;
+                padding: 6px 0px;
             }
             QPushButton:hover {
                 background-color: #45a049;
@@ -287,7 +303,15 @@ class NewMailWindow(QDialog):
             }
         """)
         self.ai_toggle_btn.clicked.connect(self.toggle_ai_panel)
-        main_layout.addWidget(self.ai_toggle_btn)
+        ai_toggle_container = QWidget()
+        ai_toggle_container.setFixedWidth(20)
+        ai_toggle_layout = QVBoxLayout(ai_toggle_container)
+        ai_toggle_layout.setContentsMargins(0, 0, 0, 0)
+        ai_toggle_layout.setSpacing(0)
+        ai_toggle_layout.addStretch()
+        ai_toggle_layout.addWidget(self.ai_toggle_btn, alignment=Qt.AlignmentFlag.AlignHCenter)
+        ai_toggle_layout.addStretch()
+        main_layout.addWidget(ai_toggle_container)
         
         # Panel AI (rozwijany, po prawej)
         try:
@@ -306,10 +330,6 @@ class NewMailWindow(QDialog):
             self.ai_panel.setVisible(False)
             main_layout.addWidget(self.ai_panel)
         
-        # Toolbar z akcjami
-        toolbar = self.create_toolbar()
-        layout.addWidget(toolbar)
-        
         # Formularz nagłówka
         form_layout = QFormLayout()
         
@@ -319,6 +339,7 @@ class NewMailWindow(QDialog):
         form_layout.addRow("Od:", self.from_combo)
         
         # Do
+        to_layout = QHBoxLayout()
         self.to_field = QLineEdit()
         self.to_field.setPlaceholderText("adresat@email.com (oddziel przecinkiem dla wielu)")
         # Autouzupełnianie dla pola Do
@@ -326,28 +347,57 @@ class NewMailWindow(QDialog):
         to_completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
         to_completer.setFilterMode(Qt.MatchFlag.MatchContains)
         self.to_field.setCompleter(to_completer)
-        form_layout.addRow("Do:", self.to_field)
+        to_layout.addWidget(self.to_field)
         
-        # DW (Do wiadomości - CC)
+        # Przycisk rozwijania DW/UDW
+        self.cc_bcc_toggle_btn = QPushButton("▼")
+        self.cc_bcc_toggle_btn.setCheckable(True)
+        self.cc_bcc_toggle_btn.setFixedSize(24, 24)
+        self.cc_bcc_toggle_btn.setToolTip("Pokaż/ukryj pola DW i UDW")
+        self.cc_bcc_toggle_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #E0E0E0;
+                border: 1px solid #BDBDBD;
+                border-radius: 3px;
+                font-size: 8pt;
+                padding: 2px;
+            }
+            QPushButton:hover {
+                background-color: #D0D0D0;
+            }
+            QPushButton:checked {
+                background-color: #C0C0C0;
+            }
+        """)
+        self.cc_bcc_toggle_btn.clicked.connect(self.toggle_cc_bcc_fields)
+        to_layout.addWidget(self.cc_bcc_toggle_btn)
+        
+        form_layout.addRow("Do:", to_layout)
+        
+        # DW (Do wiadomości - CC) - domyślnie ukryte
+        self.cc_label = QLabel("DW:")
         self.cc_field = QLineEdit()
         self.cc_field.setPlaceholderText("kopia@email.com")
-        # Autouzupełnianie dla pola DW
         cc_completer = QCompleter(self.email_addresses)
         cc_completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
         cc_completer.setFilterMode(Qt.MatchFlag.MatchContains)
         self.cc_field.setCompleter(cc_completer)
-        form_layout.addRow("DW:", self.cc_field)
-        
-        # UDW (Ukryte do wiadomości - BCC)
+        self.cc_label.setVisible(False)
+        self.cc_field.setVisible(False)
+        form_layout.addRow(self.cc_label, self.cc_field)
+
+        # UDW (Ukryte do wiadomości - BCC) - domyślnie ukryte
+        self.bcc_label = QLabel("UDW:")
         self.bcc_field = QLineEdit()
         self.bcc_field.setPlaceholderText("ukryta.kopia@email.com")
-        # Autouzupełnianie dla pola UDW
         bcc_completer = QCompleter(self.email_addresses)
         bcc_completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
         bcc_completer.setFilterMode(Qt.MatchFlag.MatchContains)
         self.bcc_field.setCompleter(bcc_completer)
-        form_layout.addRow("UDW:", self.bcc_field)
-        
+        self.bcc_label.setVisible(False)
+        self.bcc_field.setVisible(False)
+        form_layout.addRow(self.bcc_label, self.bcc_field)
+
         # Temat
         self.subject_field = QLineEdit()
         self.subject_field.setPlaceholderText("Temat wiadomości")
@@ -355,16 +405,19 @@ class NewMailWindow(QDialog):
         subject_font.setPointSize(11)
         self.subject_field.setFont(subject_font)
         form_layout.addRow("Temat:", self.subject_field)
-        
+
         layout.addLayout(form_layout)
-        
+
+        # Toolbar z akcjami - PRZENIESIONY tutaj (po adresach, przed treścią)
+        toolbar = self.create_toolbar()
+        layout.addWidget(toolbar)
+
         # Separator
         separator = QLabel()
         separator.setStyleSheet("background-color: #cccccc;")
         separator.setFixedHeight(1)
         layout.addWidget(separator)
-        
-        # Treść wiadomości
+
         self.body_field = QTextEdit()
         self.body_field.setPlaceholderText("Napisz wiadomość...")
         body_font = QFont()
@@ -823,11 +876,33 @@ class NewMailWindow(QDialog):
         
         toolbar.addSeparator()
         
-        # Menedżer dokumentów
-        action_document_manager = QAction('📚 Dokumenty', self)
-        action_document_manager.setStatusTip('Otwórz menedżer dokumentów (szablony, ulubione, AI)')
-        action_document_manager.triggered.connect(self.open_document_manager)
-        toolbar.addAction(action_document_manager)
+        # Kolor tekstu
+        action_text_color = QAction('🎨 Kolor', self)
+        action_text_color.setStatusTip('Zmień kolor tekstu')
+        action_text_color.triggered.connect(self.change_text_color)
+        toolbar.addAction(action_text_color)
+        
+        toolbar.addSeparator()
+        
+        # Pisanie głosowe (Windows Voice Typing)
+        action_voice_typing = QAction('🎤 Dyktowanie', self)
+        action_voice_typing.setStatusTip('Aktywuj pisanie głosowe (Win+H)')
+        action_voice_typing.triggered.connect(self.activate_voice_typing)
+        toolbar.addAction(action_voice_typing)
+        
+        toolbar.addSeparator()
+        
+        # Utwórz zadanie
+        action_create_task = QAction('📝 Zadanie', self)
+        action_create_task.setStatusTip('Utwórz zadanie z tej wiadomości')
+        action_create_task.triggered.connect(self.create_task_from_email)
+        toolbar.addAction(action_create_task)
+        
+        # Utwórz notatkę
+        action_create_note = QAction('📒 Notatka', self)
+        action_create_note.setStatusTip('Zapisz jako notatkę')
+        action_create_note.triggered.connect(self.create_note_from_email)
+        toolbar.addAction(action_create_note)
         
         return toolbar
         
@@ -838,18 +913,26 @@ class NewMailWindow(QDialog):
             self.to_field.setText(self.reply_to["from"])
             self.subject_field.setText(f"Re: {self.reply_to['subject']}")
             
-            # Cytuj oryginalną wiadomość
-            original = f"\n\n--- Oryginalna wiadomość ---\n"
-            original += f"Od: {self.reply_to['from']}\n"
-            original += f"Data: {self.reply_to['date']}\n"
-            original += f"Temat: {self.reply_to['subject']}\n\n"
-            original += self.reply_to['body']
-            
-            self.body_field.setPlainText(original)
-            # Przesuń kursor na początek
-            cursor = self.body_field.textCursor()
-            cursor.movePosition(QTextCursor.MoveOperation.Start)
-            self.body_field.setTextCursor(cursor)
+            # Użyj initial_body jeśli dostępne (np. wygenerowane przez AI)
+            if self.initial_body:
+                self.body_field.setPlainText(self.initial_body)
+                # Przesuń kursor na początek
+                cursor = self.body_field.textCursor()
+                cursor.movePosition(QTextCursor.MoveOperation.Start)
+                self.body_field.setTextCursor(cursor)
+            else:
+                # Cytuj oryginalną wiadomość
+                original = f"\n\n--- Oryginalna wiadomość ---\n"
+                original += f"Od: {self.reply_to['from']}\n"
+                original += f"Data: {self.reply_to['date']}\n"
+                original += f"Temat: {self.reply_to['subject']}\n\n"
+                original += self.reply_to['body']
+                
+                self.body_field.setPlainText(original)
+                # Przesuń kursor na początek
+                cursor = self.body_field.textCursor()
+                cursor.movePosition(QTextCursor.MoveOperation.Start)
+                self.body_field.setTextCursor(cursor)
             
     def setup_forward(self):
         """Ustawia pola dla przekazania"""
@@ -906,6 +989,141 @@ class NewMailWindow(QDialog):
         font.setPointSize(int(size))
         self.body_field.setCurrentFont(font)
     
+    def change_text_color(self):
+        """Otwiera dialog wyboru koloru tekstu"""
+        from PyQt6.QtWidgets import QColorDialog
+        from PyQt6.QtGui import QColor
+        
+        # Pobierz aktualny kolor tekstu
+        current_color = self.body_field.textColor()
+        
+        # Otwórz dialog wyboru koloru
+        color = QColorDialog.getColor(current_color, self, "Wybierz kolor tekstu")
+        
+        # Jeśli użytkownik wybrał kolor (nie anulował)
+        if color.isValid():
+            self.body_field.setTextColor(color)
+            # Ustaw focus z powrotem na pole tekstowe
+            self.body_field.setFocus()
+    
+    def activate_voice_typing(self):
+        """Aktywuje Windows Voice Typing (Win+H)"""
+        import subprocess
+        import platform
+        
+        # Upewnij się, że pole treści ma focus
+        self.body_field.setFocus()
+        
+        # Na Windows 10/11 uruchamiamy Win+H
+        if platform.system() == "Windows":
+            try:
+                # Symulacja kombinacji Win+H
+                import pyautogui
+                pyautogui.hotkey('win', 'h')
+            except ImportError:
+                # Fallback - próba uruchomienia przez PowerShell
+                try:
+                    subprocess.run([
+                        'powershell', '-Command',
+                        'Add-Type -AssemblyName System.Windows.Forms; '
+                        '[System.Windows.Forms.SendKeys]::SendWait("^({ESC})"); '
+                        'Start-Sleep -Milliseconds 100; '
+                        '[System.Windows.Forms.SendKeys]::SendWait("#{h}")'
+                    ], shell=True)
+                except Exception as e:
+                    from PyQt6.QtWidgets import QMessageBox
+                    QMessageBox.information(
+                        self,
+                        "Pisanie głosowe",
+                        "Użyj skrótu klawiszowego Win+H aby aktywować pisanie głosowe Windows.\n\n"
+                        f"Błąd automatycznej aktywacji: {str(e)}"
+                    )
+        else:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.information(
+                self,
+                "Pisanie głosowe",
+                "Funkcja pisania głosowego jest dostępna tylko na Windows 10/11.\n"
+                "Użyj skrótu Win+H."
+            )
+    
+    def create_task_from_email(self):
+        """Otwiera QuickTaskDialog z tematem email jako tytuł zadania"""
+        try:
+            from ui.quick_task_bar import QuickTaskDialog
+            
+            # Pobierz temat wiadomości
+            subject = self.subject_field.text().strip()
+            if not subject:
+                subject = "Zadanie z email"
+            
+            # Utwórz dialog bez przekazywania task_logic i local_db
+            # QuickTaskDialog ma wbudowane mechanizmy do ich znalezienia
+            task_dialog = QuickTaskDialog(parent=self)
+            
+            # Ustaw temat jako tytuł zadania
+            task_dialog.set_task_text(subject)
+            
+            # Pokaż dialog
+            task_dialog.show()
+            task_dialog.focus_input()
+            
+        except Exception as e:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                self,
+                "Błąd",
+                f"Nie udało się otworzyć okna tworzenia zadania:\n{str(e)}"
+            )
+    
+    def create_note_from_email(self):
+        """Zapisuje email jako notatkę w module notatek"""
+        try:
+            from Modules.Note_module.note_module_logic import NoteDatabase
+            from PyQt6.QtWidgets import QMessageBox
+            
+            # Pobierz dane z formularza
+            subject = self.subject_field.text().strip()
+            to_field = self.to_field.text().strip()
+            body_html = self.body_field.toHtml()
+            body_plain = self.body_field.toPlainText().strip()
+            
+            if not subject:
+                subject = "Email (bez tematu)"
+            
+            # Utwórz tytuł notatki: adresat + temat
+            title = f"Email: {to_field} - {subject}" if to_field else f"Email: {subject}"
+            
+            # Dodaj metadane do treści
+            metadata = f"<p><b>Do:</b> {to_field}</p>" if to_field else ""
+            metadata += f"<p><b>Temat:</b> {subject}</p>"
+            metadata += "<hr>"
+            
+            content = metadata + body_html
+            
+            # Utwórz notatkę
+            db = NoteDatabase()
+            note_id = db.create_note(
+                title=title,
+                content=content,
+                parent_id=None,  # Notatka główna
+                color="#fff9c4"  # Żółty kolor dla emaili
+            )
+            
+            QMessageBox.information(
+                self,
+                "Sukces",
+                f"Email został zapisany jako notatka:\n\n{title}"
+            )
+            
+        except Exception as e:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                self,
+                "Błąd",
+                f"Nie udało się zapisać notatki:\n{str(e)}"
+            )
+    
     def toggle_templates_panel(self, checked):
         """Pokazuje/ukrywa panel szablonów"""
         if hasattr(self, 'templates_panel'):
@@ -915,6 +1133,20 @@ class NewMailWindow(QDialog):
         """Pokazuje/ukrywa panel AI"""
         if hasattr(self, 'ai_panel'):
             self.ai_panel.setVisible(checked)
+    
+    def toggle_cc_bcc_fields(self, checked):
+        """Pokazuje/ukrywa pola DW i UDW"""
+        if hasattr(self, "cc_label"):
+            self.cc_label.setVisible(checked)
+        self.cc_field.setVisible(checked)
+        if hasattr(self, "bcc_label"):
+            self.bcc_label.setVisible(checked)
+        self.bcc_field.setVisible(checked)
+        # Zmiana symbolu przycisku
+        if checked:
+            self.cc_bcc_toggle_btn.setText("▲")
+        else:
+            self.cc_bcc_toggle_btn.setText("▼")
     
     def insert_template(self, template_content):
         """Wstawia szablon do treści wiadomości"""
@@ -1113,7 +1345,11 @@ class NewMailWindow(QDialog):
     
     def load_sender_accounts(self):
         """Wczytuje konta email do pola Od"""
-        accounts_file = Path("mail_client/mail_accounts.json")
+        import os
+        # Użyj __file__ aby znaleźć katalog z plikiem mail_accounts.json
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        accounts_file = Path(current_dir) / "mail_accounts.json"
+        
         if accounts_file.exists():
             try:
                 with open(accounts_file, 'r', encoding='utf-8') as f:
@@ -1127,8 +1363,9 @@ class NewMailWindow(QDialog):
                             else:
                                 display_text = account["email"]
                             self.from_combo.addItem(display_text, account["email"])
-            except Exception:
-                pass
+            except Exception as e:
+                # Dodaj informację o błędzie dla debugowania
+                print(f"Błąd ładowania kont: {e}")
         
         # Jeśli nie ma żadnych kont, dodaj placeholder
         if self.from_combo.count() == 0:

@@ -103,6 +103,8 @@ if __name__ == '__main__':
         FavoritesTreeWidget,
         RecentFavoritesListWidget,
     )
+    from mail_client.ai_quick_response_dialog import AIQuickResponseDialog
+    from mail_client.truth_sources_dialog import TruthSourcesDialog
 else:
     # Uruchomienie jako moduł - użyj importów względnych
     from .autoresponder import AutoresponderManager
@@ -114,6 +116,8 @@ else:
         FavoritesTreeWidget,
         RecentFavoritesListWidget,
     )
+    from .ai_quick_response_dialog import AIQuickResponseDialog
+    from .truth_sources_dialog import TruthSourcesDialog
 
 
 class MailViewModule(QWidget):
@@ -412,6 +416,15 @@ class MailViewModule(QWidget):
         self.refresh_btn.setToolTip("Odśwież listę wiadomości")
         self.refresh_btn.clicked.connect(self.refresh_mails)
         toolbar_layout.addWidget(self.refresh_btn)
+        
+        toolbar_layout.addSpacing(10)
+        
+        # Przycisk źródeł prawdy AI
+        self.truth_sources_btn = QPushButton("📚 Źródła AI")
+        self.truth_sources_btn.setObjectName("mail_truth_sources_btn")
+        self.truth_sources_btn.setToolTip("Zarządzaj źródłami prawdy dla AI (pliki PDF, TXT, CSV, JSON)")
+        self.truth_sources_btn.clicked.connect(self.open_truth_sources_dialog)
+        toolbar_layout.addWidget(self.truth_sources_btn)
         
         toolbar_layout.addSpacing(10)
         
@@ -2380,7 +2393,7 @@ class MailViewModule(QWidget):
             display_mails = mails
             self.mail_threads = {}
         
-        self.displayed_mails = display_mails
+        self.displayed_mails = list(display_mails)
         
         # Batch UI updates - wyłącz odświeżanie podczas wypełniania
         self.mail_list.setUpdatesEnabled(False)
@@ -2410,7 +2423,6 @@ class MailViewModule(QWidget):
         self.mail_list.blockSignals(False)
         self.mail_list.setUpdatesEnabled(True)  # Włącz odświeżanie po zakończeniu
         self.mail_list.clearSelection()
-        self.displayed_mails = list(mails)
     
     def populate_mail_cell(self, row: int, visual_idx: int, col_idx: int, mail: dict, email_only: str, name: str):
         """Wypełnia pojedynczą komórkę tabeli maili"""
@@ -2515,11 +2527,11 @@ class MailViewModule(QWidget):
             note_item.setToolTip(mail.get("note", ""))
             self.mail_list.setItem(row, visual_idx, note_item)
         
-        elif col_idx == 11:  # 🪄 (Magiczna różdżka)
+        elif col_idx == 11:  # 🪄 (Magiczna różdżka - AI Quick Response)
             magic_item = QTableWidgetItem("🪄")
             magic_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             magic_item.setFlags(magic_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            magic_item.setToolTip("Magiczna różdżka")
+            magic_item.setToolTip("Generuj szybką odpowiedź AI")
             self.mail_list.setItem(row, visual_idx, magic_item)
 
     def extract_display_name(self, from_field: str) -> str:
@@ -2786,6 +2798,7 @@ class MailViewModule(QWidget):
         """Zwraca maila powiązanego z wierszem tabeli."""
         # Sprawdź czy to wiersz podglądu
         if row in self.expanded_preview_rows.values():
+            logger.debug(f"[ProMail] get_mail_by_row - row {row} is a preview row, returning None")
             return None  # To jest wiersz podglądu, nie mail
         
         # Przelicz fizyczny wiersz na indeks w displayed_mails
@@ -2793,8 +2806,14 @@ class MailViewModule(QWidget):
         preview_rows_before = sum(1 for prev_row in self.expanded_preview_rows.values() if prev_row < row)
         mail_index = row - preview_rows_before
         
+        logger.debug(f"[ProMail] get_mail_by_row - row={row}, preview_rows_before={preview_rows_before}, calculated mail_index={mail_index}, displayed_mails count={len(self.displayed_mails)}")
+        
         if 0 <= mail_index < len(self.displayed_mails):
-            return self.displayed_mails[mail_index]
+            mail = self.displayed_mails[mail_index]
+            logger.debug(f"[ProMail] get_mail_by_row - Returning mail at index {mail_index}: subject='{mail.get('subject', 'NO_SUBJECT')[:50]}'")
+            return mail
+        
+        logger.warning(f"[ProMail] get_mail_by_row - mail_index {mail_index} out of range (0-{len(self.displayed_mails)-1})")
         return None
 
     def ensure_mail_uid(self, mail: Dict[str, Any]) -> str:
@@ -3836,10 +3855,16 @@ class MailViewModule(QWidget):
         # Zapisz aktywność użytkownika
         self._last_user_activity = datetime.now()
         
-        if not (0 <= row < len(self.displayed_mails)):
+        # Użyj get_mail_by_row() która uwzględnia rozwinięte podglądy
+        logger.debug(f"[ProMail] on_mail_clicked - row={row}, column={column}, displayed_mails count={len(self.displayed_mails)}, expanded_preview_rows={self.expanded_preview_rows}")
+        mail = self.get_mail_by_row(row)
+        if not mail:
+            # Kliknięto w wiersz podglądu lub poza zakresem
+            logger.warning(f"[ProMail] on_mail_clicked - get_mail_by_row returned None for row={row}")
             return
 
-        mail = self.displayed_mails[row]
+        subject_preview = (mail.get("subject", "NO_SUBJECT") or "")[:50]
+        logger.debug(f"[ProMail] on_mail_clicked - Retrieved mail subject preview: '{subject_preview}'")
 
         # Sprawdź czy kliknięto w emoji z akcją (kolumny 3 lub 4)
         item = self.mail_list.item(row, column)
@@ -3867,6 +3892,11 @@ class MailViewModule(QWidget):
                     "Dodano gwiazdkę" if new_state else "Usunięto gwiazdkę",
                     1500,
                 )
+            return
+        
+        # Jeśli kliknięto w kolumnę magicznej różdżki (🪄)
+        if logical_col_idx == 11:
+            self.open_ai_quick_response(mail, row)
             return
         
         # Jeśli kliknięto w kolumnę wątków i są włączone wątki
@@ -3925,7 +3955,9 @@ class MailViewModule(QWidget):
         
         # Sanityzuj treść przed wyświetleniem (zapobiega XSS)
         body_text = mail.get("body", "")
+        logger.debug(f"[ProMail] display_mail - body_text from mail: '{body_text[:100]}...' (len={len(body_text)})")
         safe_body = self.sanitize_html(body_text)
+        logger.debug(f"[ProMail] display_mail - safe_body after sanitize: '{safe_body[:100]}...' (len={len(safe_body)})")
         self.mail_body.setPlainText(safe_body)
         
         # Wyświetl załączniki
@@ -4252,6 +4284,110 @@ class MailViewModule(QWidget):
             window.exec()
         else:
             QMessageBox.information(self, "Info", "Wybierz wiadomość do przekazania")
+    
+    def open_ai_quick_response(self, mail: Dict[str, Any], row: int):
+        """Otwiera dialog AI Quick Response dla wybranego maila"""
+        try:
+            # Przygotuj kontekst emaila
+            email_context = {
+                "from": mail.get("from", ""),
+                "to": mail.get("to", "ja@mojmail.pl"),
+                "subject": mail.get("subject", ""),
+                "date": mail.get("date", ""),
+                "message_id": mail.get("message_id", "")
+            }
+            
+            # Pobierz wątek jeśli istnieje
+            thread_emails = []
+            if self.threads_enabled and mail.get("_is_thread_parent"):
+                # Znajdź wszystkie maile z tego wątku
+                thread_id = self.get_thread_id(mail)
+                if thread_id in self.mail_threads:
+                    # Przygotuj dane wszystkich maili z wątku (bez najnowszego - to jest w email_content)
+                    for thread_mail in self.mail_threads[thread_id][1:]:  # Pomiń pierwszy (najnowszy)
+                        thread_emails.append({
+                            "from": thread_mail.get("from", ""),
+                            "to": thread_mail.get("to", ""),
+                            "subject": thread_mail.get("subject", ""),
+                            "date": thread_mail.get("date", ""),
+                            "content": thread_mail.get("body", "")
+                        })
+            
+            # Utwórz dialog
+            dialog = AIQuickResponseDialog(
+                email_content=mail.get("body", ""),
+                email_context=email_context,
+                thread_emails=thread_emails,
+                parent=self
+            )
+            
+            # Podłącz sygnał do obsługi wygenerowanej odpowiedzi
+            dialog.response_generated.connect(self.on_ai_response_generated)
+            
+            # Pokaż dialog
+            dialog.exec()
+            
+        except Exception as e:
+            logger.error(f"[ProMail] Error opening AI Quick Response dialog: {e}")
+            QMessageBox.critical(
+                self,
+                "Błąd",
+                f"Nie udało się otworzyć dialogu AI Quick Response:\n{str(e)}"
+            )
+    
+    def on_ai_response_generated(self, response: str, reply_context: Dict[str, Any]):
+        """Obsługuje wygenerowaną odpowiedź AI - otwiera okno nowej wiadomości"""
+        try:
+            # Import okna nowej wiadomości
+            try:
+                from new_mail_window import NewMailWindow
+            except ImportError:
+                import sys
+                import os
+                sys.path.insert(0, os.path.dirname(__file__))
+                from new_mail_window import NewMailWindow
+            
+            # Przygotuj dane do okna odpowiedzi
+            reply_mail = {
+                "from": reply_context.get("to", ""),
+                "to": reply_context.get("from", ""),
+                "subject": reply_context.get("subject", ""),
+                "date": reply_context.get("date", ""),
+                "body": "",  # Puste - odpowiedź AI będzie w initial_body
+                "message_id": reply_context.get("in_reply_to", "")
+            }
+            
+            # Otwórz okno nowej wiadomości z wygenerowaną odpowiedzią
+            window = NewMailWindow(
+                self,
+                reply_to=reply_mail,
+                initial_body=response  # Wstaw wygenerowaną odpowiedź
+            )
+            window.exec()
+            
+            logger.info("[ProMail] AI-generated response opened in new mail window")
+            
+        except Exception as e:
+            logger.error(f"[ProMail] Error opening new mail window with AI response: {e}")
+            QMessageBox.critical(
+                self,
+                "Błąd",
+                f"Nie udało się otworzyć okna odpowiedzi:\n{e}"
+            )
+    
+    def open_truth_sources_dialog(self):
+        """Otwiera dialog zarządzania źródłami prawdy dla AI"""
+        try:
+            dialog = TruthSourcesDialog(sources_file=None, parent=self)
+            dialog.exec()
+            logger.info("[ProMail] Truth sources dialog closed")
+        except Exception as e:
+            logger.error(f"[ProMail] Error opening truth sources dialog: {e}", exc_info=True)
+            QMessageBox.critical(
+                self,
+                "Błąd",
+                f"Nie udało się otworzyć okna źródeł prawdy:\n{str(e)}"
+            )
             
     def delete_mail(self):
         """Usuwa wiadomość"""
@@ -4379,33 +4515,16 @@ class MailViewModule(QWidget):
 
     def refresh_mails(self):
         """Odświeża listę wiadomości"""
+        logger.info("[ProMail] refresh_mails called - starting email fetch")
         self.show_status_message("Odświeżanie wiadomości...", 0)
+        
+        # Rozpocznij pobieranie maili asynchronicznie
+        # Odświeżenie widoku nastąpi w on_real_emails_fetched()
         self.fetch_real_emails_async()
-        self.prepare_mail_objects()
-
-        if self.view_mode == "folders":
-            current_folder = getattr(self, "current_folder", None)
-            self.populate_folders_tree()
-            if current_folder and self.find_folder_item(current_folder):
-                self.select_folder_by_name(current_folder)
-            elif self.tree.topLevelItemCount() > 0:
-                first_item = self.tree.topLevelItem(0)
-                if first_item is not None:
-                    self.tree.setCurrentItem(first_item)
-                    self.load_folder_mails(first_item.text(0))
-            else:
-                if hasattr(self, "mail_list"):
-                    self.mail_list.setRowCount(0)
-                self.clear_mail_view()
-        else:
-            self.populate_contacts_tree()
-            if self.displayed_mails:
-                self.populate_mail_table(self.displayed_mails)
-            elif hasattr(self, "mail_list"):
-                self.mail_list.setRowCount(0)
-                self.mail_list.clearContents()
-
-        self.show_status_message("Wiadomości zostały odświeżone.", 2000)
+        
+        # NIE odświeżaj widoku tutaj - zrobi to on_real_emails_fetched()
+        # Po prostu zaktualizuj status
+        logger.info("[ProMail] Email fetch started in background thread")
     
     def auto_refresh_mails(self):
         """Automatyczne odświeżanie poczty (wywoływane przez timer)"""
@@ -4427,10 +4546,13 @@ class MailViewModule(QWidget):
 
     def fetch_real_emails_async(self):
         """Pobiera maile z IMAP w tle"""
+        logger.info("[ProMail] fetch_real_emails_async started")
+        
         # Zamknij poprzedni wątek jeśli istnieje (zapobiega memory leak)
         if hasattr(self, 'email_fetcher') and self.email_fetcher is not None:
             try:
                 if self.email_fetcher.isRunning():
+                    logger.debug("[ProMail] Stopping previous email fetcher thread")
                     self.email_fetcher.quit()
                     self.email_fetcher.wait(1000)  # Czekaj max 1 sekundę
             except RuntimeError:
@@ -4439,26 +4561,36 @@ class MailViewModule(QWidget):
         from PyQt6.QtCore import QThread, pyqtSignal
 
         class EmailFetcher(QThread):
-            finished = pyqtSignal(dict)
+            finished = pyqtSignal(dict, dict)
 
             def __init__(self, accounts):
                 super().__init__()
                 self.accounts = accounts
+                self.imap_folders = {}
 
             def run(self):
+                logger.info(f"[ProMail EmailFetcher] Thread started with {len(self.accounts)} accounts")
                 result = {}
                 for account in self.accounts:
                     try:
+                        account_email = account.get("email", "Unknown")
+                        logger.info(f"[ProMail EmailFetcher] Fetching from {account_email}")
                         mails = self.fetch_from_account(account)
                         if mails:
-                            result[account.get("email", "Unknown")] = mails
-                    except Exception:
+                            result[account_email] = mails
+                            logger.info(f"[ProMail EmailFetcher] Fetched {len(mails)} mails from {account_email}")
+                        else:
+                            logger.warning(f"[ProMail EmailFetcher] No mails fetched from {account_email}")
+                    except Exception as e:
+                        logger.error(f"[ProMail EmailFetcher] Error fetching from {account.get('email', 'Unknown')}: {e}")
                         pass
-                self.finished.emit(result)
+                logger.info(f"[ProMail EmailFetcher] Emitting finished signal with {len(result)} accounts")
+                self.finished.emit(result, self.imap_folders)
 
             def fetch_from_account(self, account):
                 """Pobiera maile z pojedynczego konta"""
                 try:
+                    account_email = account.get("email", "Unknown")
                     if account.get("imap_ssl"):
                         imap = imaplib.IMAP4_SSL(
                             account["imap_server"],
@@ -4491,10 +4623,10 @@ class MailViewModule(QWidget):
                                     imap_folders.append(folder_name)
                             
                             # Zapisz foldery dla tego konta
-                            self.imap_folders[account.get("email")] = imap_folders
+                            self.imap_folders[account_email] = imap_folders
                     except Exception as e:
                         logger.warning(f"Nie udało się pobrać listy folderów IMAP: {e}")
-                        self.imap_folders[account.get("email")] = ["INBOX"]
+                        self.imap_folders[account_email] = ["INBOX"]
                     
                     imap.select("INBOX")
 
@@ -4511,6 +4643,13 @@ class MailViewModule(QWidget):
                             email_body = msg_data[0][1]
                             message = email.message_from_bytes(email_body)
 
+                            # Ustal unikalny identyfikator wiadomości na podstawie konta i ID z IMAP
+                            if isinstance(email_id, bytes):
+                                email_id_str = email_id.decode("utf-8", errors="ignore")
+                            else:
+                                email_id_str = str(email_id)
+                            message_uid = f"{account_email}:{email_id_str}"
+
                             subject = self.decode_email_header(message.get("Subject", ""))
                             from_addr = self.decode_email_header(message.get("From", ""))
                             date_str = message.get("Date", "")
@@ -4525,6 +4664,7 @@ class MailViewModule(QWidget):
 
                             # Pobierz treść i załączniki
                             body = ""
+                            html_body = ""
                             attachments = []
                             
                             if message.is_multipart():
@@ -4532,12 +4672,38 @@ class MailViewModule(QWidget):
                                     content_type = part.get_content_type()
                                     content_disposition = str(part.get("Content-Disposition", ""))
                                     
-                                    # Treść tekstowa
+                                    # Treść tekstowa (priorytet)
                                     if content_type == "text/plain" and "attachment" not in content_disposition:
                                         if not body:
                                             try:
-                                                body = part.get_payload(decode=True).decode("utf-8", errors="ignore")
-                                            except Exception:
+                                                # decode=True automatically handles quoted-printable, base64, etc.
+                                                payload = part.get_payload(decode=True)
+                                                if payload:
+                                                    # Spróbuj różnych kodowań
+                                                    charset = part.get_content_charset() or 'utf-8'
+                                                    try:
+                                                        body = payload.decode(charset, errors="ignore")
+                                                    except (UnicodeDecodeError, LookupError):
+                                                        body = payload.decode("utf-8", errors="ignore")
+                                            except Exception as e:
+                                                logger.warning(f"[ProMail] Error decoding text/plain: {e}")
+                                                pass
+                                    
+                                    # Treść HTML (backup jeśli nie ma plain text)
+                                    elif content_type == "text/html" and "attachment" not in content_disposition:
+                                        if not html_body:
+                                            try:
+                                                # decode=True automatically handles quoted-printable, base64, etc.
+                                                payload = part.get_payload(decode=True)
+                                                if payload:
+                                                    # Spróbuj różnych kodowań
+                                                    charset = part.get_content_charset() or 'utf-8'
+                                                    try:
+                                                        html_body = payload.decode(charset, errors="ignore")
+                                                    except (UnicodeDecodeError, LookupError):
+                                                        html_body = payload.decode("utf-8", errors="ignore")
+                                            except Exception as e:
+                                                logger.warning(f"[ProMail] Error decoding text/html: {e}")
                                                 pass
                                     
                                     # Załączniki
@@ -4556,30 +4722,99 @@ class MailViewModule(QWidget):
                                             except Exception:
                                                 pass
                             else:
+                                # Non-multipart message
                                 try:
-                                    body = message.get_payload(decode=True).decode("utf-8", errors="ignore")
-                                except Exception:
+                                    payload = message.get_payload(decode=True)
+                                    if payload:
+                                        charset = message.get_content_charset() or 'utf-8'
+                                        try:
+                                            text = payload.decode(charset, errors="ignore")
+                                        except (UnicodeDecodeError, LookupError):
+                                            text = payload.decode("utf-8", errors="ignore")
+                                        
+                                        if message.get_content_type() == "text/html":
+                                            html_body = text
+                                        else:
+                                            body = text
+                                    else:
+                                        body = str(message.get_payload())
+                                except Exception as e:
+                                    logger.warning(f"[ProMail] Error decoding non-multipart message: {e}")
                                     body = str(message.get_payload())
 
+                            # Jeśli nie mamy plain text, ale mamy HTML, konwertuj HTML na plain text
+                            if not body and html_body:
+                                logger.info(f"[ProMail] Converting HTML to text for email: {subject}")
+                                try:
+                                    from html import unescape
+                                    import re
+                                    
+                                    # Usuń style i scripty
+                                    text = re.sub(r'<style[^>]*>.*?</style>', '', html_body, flags=re.DOTALL | re.IGNORECASE)
+                                    text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.DOTALL | re.IGNORECASE)
+                                    
+                                    # Zamień <br>, <p>, <div> na nowe linie
+                                    text = re.sub(r'<br\s*/?>', '\n', text, flags=re.IGNORECASE)
+                                    text = re.sub(r'</p>', '\n\n', text, flags=re.IGNORECASE)
+                                    text = re.sub(r'</div>', '\n', text, flags=re.IGNORECASE)
+                                    text = re.sub(r'</tr>', '\n', text, flags=re.IGNORECASE)
+                                    
+                                    # Usuń pozostałe tagi HTML
+                                    text = re.sub(r'<[^>]+>', '', text)
+                                    
+                                    # Odkoduj encje HTML
+                                    text = unescape(text)
+                                    
+                                    # Usuń nadmiarowe białe znaki, ale zachowaj strukturę
+                                    lines = [line.strip() for line in text.split('\n')]
+                                    lines = [line for line in lines if line]  # Usuń puste linie
+                                    text = '\n'.join(lines)
+                                    
+                                    body = text if text.strip() else ""
+                                    
+                                    if not body:
+                                        logger.warning(f"[ProMail] HTML conversion resulted in empty text for email: {subject}")
+                                    else:
+                                        logger.debug(f"[ProMail] Successfully converted HTML to text ({len(body)} chars)")
+                                        
+                                except Exception as e:
+                                    logger.warning(f"[ProMail] Failed to convert HTML to text for '{subject}': {e}")
+                                    body = ""
+
+                            # Loguj wynik
+                            if not body and not html_body:
+                                logger.warning(f"[ProMail] Email '{subject}' has no body content (neither text nor HTML)")
+                            elif not body:
+                                logger.warning(f"[ProMail] Email '{subject}' only has HTML but conversion failed")
+                            
+                            body_text = body if body else "Plain text version not available"
                             mails.append({
                                 "subject": subject or "(Bez tematu)",
                                 "from": from_addr,
                                 "date": formatted_date,
-                                "body": body[:500],  # Tylko początek
+                                "body": body_text,
+                                "body_preview": body_text[:500],
                                 "size": f"{len(email_body) // 1024} KB",
                                 "starred": False,
                                 "conversation_count": 1,
                                 "_folder": "Odebrane",
-                                "_account": account.get("email"),
+                                "_account": account_email,
+                                "_uid": message_uid,
                                 "attachments": attachments,
                             })
-                        except Exception:
+                        except Exception as e:
+                            logger.error(f"[ProMail] Error processing email '{subject}': {e}", exc_info=True)
                             continue
 
                     imap.logout()
+                    if account_email not in self.imap_folders:
+                        # Upewnij się, że mamy chociaż podstawowy folder, jeśli lista nie została pobrana
+                        self.imap_folders[account_email] = ["INBOX"]
                     return mails
 
                 except Exception:
+                    if account_email not in self.imap_folders:
+                        self.imap_folders[account_email] = ["INBOX"]
                     return []
 
             def decode_email_header(self, header_text):
@@ -4603,10 +4838,13 @@ class MailViewModule(QWidget):
             logger.info("[ProMail] No email accounts configured - skipping mail fetch")
             return
 
+        logger.info(f"[ProMail] Starting EmailFetcher with {len(self.mail_accounts)} accounts")
+        
         # Jeśli poprzedni wątek nadal działa, poczekaj na jego zakończenie
         if hasattr(self, 'email_fetcher') and self.email_fetcher is not None:
             try:
                 if self.email_fetcher.isRunning():
+                    logger.debug("[ProMail] Waiting for previous fetcher to finish")
                     self.email_fetcher.quit()
                     self.email_fetcher.wait()
             except RuntimeError:
@@ -4615,23 +4853,51 @@ class MailViewModule(QWidget):
 
         self.email_fetcher = EmailFetcher(self.mail_accounts)
         self.email_fetcher.finished.connect(self.on_real_emails_fetched)
-        self.email_fetcher.finished.connect(self.email_fetcher.deleteLater)
+        # Cleanup thread after finishing - use dedicated cleanup method
+        self.email_fetcher.finished.connect(self._cleanup_email_fetcher)
+        logger.info("[ProMail] EmailFetcher thread starting...")
         self.email_fetcher.start()
 
-    def on_real_emails_fetched(self, emails_by_account):
+    def on_real_emails_fetched(self, emails_by_account, folders_by_account):
         """Obsługuje pobrane maile"""
+        logger.info(f"[ProMail] on_real_emails_fetched called with {len(emails_by_account)} accounts")
+        
+        if isinstance(folders_by_account, dict):
+            self.imap_folders.update(folders_by_account)
+            logger.info(f"[ProMail] Updated IMAP folders: {list(folders_by_account.keys())}")
+        
         self.real_mails = emails_by_account
         
-        # Połącz prawdziwe maile z przykładowymi
+        # Zbuduj listę realnych maili i podmień folder Odebrane
+        aggregated_inbox = []
+        seen_uids = set()
+
         for account_email, mails in self.real_mails.items():
-            if "Odebrane" not in self.sample_mails:
-                self.sample_mails["Odebrane"] = []
-            
-            # Dodaj prawdziwe maile na początek listy
+            logger.info(f"[ProMail] Processing {len(mails)} mails from {account_email}")
+
             for mail in reversed(mails):
-                if mail not in self.sample_mails["Odebrane"]:
-                    self.sample_mails["Odebrane"].insert(0, mail)
+                uid = mail.get("_uid")
+                if not uid:
+                    uid = self.ensure_mail_uid(mail)
+                    mail["_uid"] = uid
+
+                if uid in seen_uids:
+                    continue
+
+                seen_uids.add(uid)
+                aggregated_inbox.insert(0, mail)
+
+        logger.info(f"[ProMail] Aggregated {len(aggregated_inbox)} unique IMAP mails for inbox")
+
+        # Podmień folder "Odebrane" prawdziwymi mailami
+        self.sample_mails["Odebrane"] = aggregated_inbox
         
+        # Wyczyść indeksy UID, przygotujemy je ponownie
+        if hasattr(self, "mail_uid_map"):
+            self.mail_uid_map.clear()
+        if hasattr(self, "_mail_index"):
+            self._mail_index.clear()
+
         # Odśwież widok
         self.prepare_mail_objects()
         if self.view_mode == "folders":
@@ -4641,7 +4907,16 @@ class MailViewModule(QWidget):
         
         total_count = sum(len(mails) for mails in self.real_mails.values())
         if total_count > 0:
+            logger.info(f"[ProMail] Successfully fetched {total_count} emails")
             self.show_status_message(f"Pobrano {total_count} wiadomości z serwerów IMAP", 3000)
+        else:
+            logger.warning("[ProMail] No emails were fetched from IMAP servers")
+    
+    def _cleanup_email_fetcher(self, *args):
+        """Czyści wątek pobierający maile po zakończeniu pracy"""
+        sender = self.sender()
+        if sender:
+            sender.deleteLater()
         
     def open_config(self, tab_index=None):
         """Otwiera dialog konfiguracji ProMail z opcjonalną kartą"""

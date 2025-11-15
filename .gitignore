@@ -247,3 +247,41 @@ screenshots/
 *.tmp
 *.temp
 ~*
+
+# ===== DANE OSOBOWE I WRAŻLIWE =====
+# Nagrania rozmów telefonicznych - NIGDY nie publikować!
+data/recordings/
+data/recordings/*.m4a
+data/recordings/*.mp3
+data/recordings/*.wav
+Nagrania/
+
+# Bazy danych z danymi osobowymi
+data/local_database/*.db
+data/local_database/*.sqlite
+data/*.db.backup*
+
+# Kopie zapasowe z danymi użytkownika
+*.backup_*
+user_settings.json.backup*
+
+# Tokeny i dane uwierzytelniające
+data/tokens.json
+data/browser_profile/
+
+# Wiadomości email (drafty)
+mail_client/drafts/
+mail_client/*.json
+
+# Historia schowka (może zawierać wrażliwe dane)
+src/Modules/QuickBoard/clipboard_history.json
+
+# Ustawienia użytkownika (mogą zawierać dane osobowe)
+user_settings.json
+data/pfile/
+data/habit_column_widths.json
+data/habit_lock_state.json
+column_widths.json
+
+# Baza CallCryptor (szyfrowane rozmowy)
+data/callcryptor.db*

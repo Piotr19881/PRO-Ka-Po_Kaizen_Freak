@@ -103,17 +103,44 @@ class CustomButtonDialog(QDialog):
             t('custom_button.external_app_info',
               'ℹ️ Obsługiwane formaty: .exe, .bat, .cmd, .py, .sh')
         )
-        external_info.setStyleSheet("color: #666; font-size: 10px; margin-left: 25px;")
+        external_info.setStyleSheet("color: #666; font-size: 10px; margin-left: 25px; margin-bottom: 10px;")
         external_info.setWordWrap(True)
         type_layout.addWidget(external_info)
+        
+        # Opcja 3: Strona internetowa
+        self.web_page_radio = QRadioButton(
+            t('custom_button.web_page', '🌐 Strona internetowa')
+        )
+        self.web_page_radio.setToolTip(
+            t('custom_button.web_page_tooltip',
+              'Otworzy stronę internetową w prostej przeglądarce')
+        )
+        self.type_button_group.addButton(self.web_page_radio, 3)
+        type_layout.addWidget(self.web_page_radio)
+        
+        web_info = QLabel(
+            t('custom_button.web_page_info',
+              'ℹ️ Wprowadź pełny adres URL (np. https://google.com)')
+        )
+        web_info.setStyleSheet("color: #666; font-size: 10px; margin-left: 25px;")
+        web_info.setWordWrap(True)
+        type_layout.addWidget(web_info)
         
         type_group.setLayout(type_layout)
         main_layout.addWidget(type_group)
         
-        # === WYBÓR PLIKU ===
-        file_group = QGroupBox(t('custom_button.file_title', 'Plik'))
+        # === WYBÓR PLIKU / URL ===
+        file_group = QGroupBox(t('custom_button.file_title', 'Plik / URL'))
         file_layout = QVBoxLayout()
         
+        # Input dla URL (widoczny tylko dla web_page)
+        self.url_input = QLineEdit()
+        self.url_input.setPlaceholderText(t('custom_button.url_placeholder', 'https://example.com'))
+        self.url_input.setMinimumHeight(35)
+        self.url_input.setVisible(False)
+        file_layout.addWidget(self.url_input)
+        
+        # File picker (widoczny dla python_module i external_app)
         file_row = QHBoxLayout()
         
         self.file_path_input = QLineEdit()
@@ -175,17 +202,33 @@ class CustomButtonDialog(QDialog):
             self.python_view_radio.setChecked(True)
         elif custom_type == 'external_app':
             self.external_app_radio.setChecked(True)
+        elif custom_type == 'web_page':
+            self.web_page_radio.setChecked(True)
         
-        # Ścieżka do pliku
+        # Ścieżka do pliku lub URL
         if self.selected_file:
-            self.file_path_input.setText(self.selected_file)
+            if custom_type == 'web_page':
+                self.url_input.setText(self.selected_file)
+            else:
+                self.file_path_input.setText(self.selected_file)
+        
+        # Ustaw widoczność pól
+        self._on_type_changed()
         
         logger.debug(f"Loaded button data: {self.button_data}")
     
     def _on_type_changed(self):
         """Obsługa zmiany typu przycisku"""
-        # Można tutaj dostosować UI w zależności od wybranego typu
-        logger.debug(f"Button type changed: {self._get_selected_type()}")
+        selected_type = self._get_selected_type()
+        
+        # Pokaż odpowiednie pola w zależności od typu
+        is_web_page = (selected_type == 'web_page')
+        
+        self.url_input.setVisible(is_web_page)
+        self.file_path_input.setVisible(not is_web_page)
+        self.browse_button.setVisible(not is_web_page)
+        
+        logger.debug(f"Button type changed: {selected_type}")
     
     def _get_selected_type(self):
         """Pobierz wybrany typ przycisku"""
@@ -194,6 +237,8 @@ class CustomButtonDialog(QDialog):
             return 'python_module'
         elif checked_id == 2:
             return 'external_app'
+        elif checked_id == 3:
+            return 'web_page'
         return 'python_module'
     
     def _on_browse_clicked(self):
@@ -237,28 +282,57 @@ class CustomButtonDialog(QDialog):
             self.name_input.setFocus()
             return
         
-        if not self.selected_file:
-            from PyQt6.QtWidgets import QMessageBox
-            QMessageBox.warning(
-                self,
-                t('custom_button.validation_error', 'Błąd walidacji'),
-                t('custom_button.file_required', 'Plik jest wymagany.')
-            )
-            self.browse_button.setFocus()
-            return
+        selected_type = self._get_selected_type()
         
-        # Sprawdź czy plik istnieje
-        from pathlib import Path
-        if not Path(self.selected_file).exists():
-            from PyQt6.QtWidgets import QMessageBox
-            QMessageBox.warning(
-                self,
-                t('custom_button.validation_error', 'Błąd walidacji'),
-                t('custom_button.file_not_exists', 'Wybrany plik nie istnieje.')
-            )
-            return
+        # Walidacja dla web_page
+        if selected_type == 'web_page':
+            url = self.url_input.text().strip()
+            if not url:
+                from PyQt6.QtWidgets import QMessageBox
+                QMessageBox.warning(
+                    self,
+                    t('custom_button.validation_error', 'Błąd walidacji'),
+                    t('custom_button.url_required', 'Adres URL jest wymagany.')
+                )
+                self.url_input.setFocus()
+                return
+            
+            # Sprawdź czy URL zaczyna się od http:// lub https://
+            if not url.startswith(('http://', 'https://')):
+                from PyQt6.QtWidgets import QMessageBox
+                QMessageBox.warning(
+                    self,
+                    t('custom_button.validation_error', 'Błąd walidacji'),
+                    t('custom_button.invalid_url', 'URL musi zaczynać się od http:// lub https://')
+                )
+                self.url_input.setFocus()
+                return
+            
+            self.selected_file = url
+        else:
+            # Walidacja dla plików
+            if not self.selected_file:
+                from PyQt6.QtWidgets import QMessageBox
+                QMessageBox.warning(
+                    self,
+                    t('custom_button.validation_error', 'Błąd walidacji'),
+                    t('custom_button.file_required', 'Plik jest wymagany.')
+                )
+                self.browse_button.setFocus()
+                return
+            
+            # Sprawdź czy plik istnieje
+            from pathlib import Path
+            if not Path(self.selected_file).exists():
+                from PyQt6.QtWidgets import QMessageBox
+                QMessageBox.warning(
+                    self,
+                    t('custom_button.validation_error', 'Błąd walidacji'),
+                    t('custom_button.file_not_exists', 'Wybrany plik nie istnieje.')
+                )
+                return
         
-        logger.info(f"Custom button saved: name={name}, type={self._get_selected_type()}, file={self.selected_file}")
+        logger.info(f"Custom button saved: name={name}, type={self._get_selected_type()}, path={self.selected_file}")
         self.accept()
     
     def get_button_data(self):
@@ -271,8 +345,8 @@ class CustomButtonDialog(QDialog):
                     'label': str,
                     'description': str,
                     'is_custom': True,
-                    'custom_type': 'python_module' | 'external_app',
-                    'custom_path': str,
+                    'custom_type': 'python_module' | 'external_app' | 'web_page',
+                    'custom_path': str (file path lub URL),
                     'visible': True
                 }
         """
