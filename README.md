@@ -1,12 +1,21 @@
-# PRO-Ka-Po - Kaizen Freak Edition 🚀# PRO-Ka-Po_Kaizen_Freak - Komercyjna Aplikacja do Organizacji Zadań
+# PRO-Ka-Po - Kaizen Freak Edition 🚀
 
-
-
-![Python](https://img.shields.io/badge/python-3.11+-blue.svg)## 📋 Opis Projektu
-
+![Python](https://img.shields.io/badge/python-3.11+-blue.svg)
 ![PyQt6](https://img.shields.io/badge/PyQt6-GUI-green.svg)
+![License](https://img.shields.io/badge/license-Open%20Source-orange.svg)
 
-![License](https://img.shields.io/badge/license-Open%20Source-orange.svg)Nowoczesna, wielojęzyczna aplikacja desktopowa do zarządzania zadaniami, oparta na PyQt6. Aplikacja oferuje intuicyjny interfejs użytkownika z systemem motywów, wielojęzycznością oraz zaawansowanymi funkcjami organizacji pracy.
+**PRO-Ka-Po** to kompleksowy zestaw minimalistycznych narzędzi do organizacji pracy i zadań, stworzony z myślą o pasjonatach **KAIZEN** i **Lean Management**. Aplikacja idealna do pracy biurowej, współpracy zespołowej i zwiększania codziennej produktywności.
+
+## 📚 Dokumentacja Online
+
+**Pełna dokumentacja pomocy dostępna online:**  
+🌐 **https://piotr19881.github.io/PRO-Ka-Po_Kaizen_Freak/**
+
+Dokumentacja zawiera szczegółowe instrukcje dla wszystkich modułów aplikacji w języku polskim, angielskim i niemieckim.
+
+## 📋 Opis Projektu
+
+Nowoczesna, wielojęzyczna aplikacja desktopowa do zarządzania zadaniami, oparta na PyQt6. Aplikacja oferuje intuicyjny interfejs użytkownika z systemem motywów, wielojęzycznością oraz zaawansowanymi funkcjami organizacji pracy.
 
 
 
