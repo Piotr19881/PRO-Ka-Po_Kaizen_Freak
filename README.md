@@ -1,750 +1,340 @@
-# PRO-Ka-Po - Kaizen Freak Edition 🚀# PRO-Ka-Po_Kaizen_Freak - Komercyjna Aplikacja do Organizacji Zadań
+PRO-Ka-Po – Kaizen Freak Edition 🚀
 
+Multilingual Productivity & Workflow OS for Kaizen Lovers
 
+PRO-Ka-Po – Kaizen Freak Edition is a modular, multilingual desktop app for organizing tasks, projects and daily work – built for people who believe in Kaizen and Lean Management.
 
-![Python](https://img.shields.io/badge/python-3.11+-blue.svg)## 📋 Opis Projektu
+Use it as your personal command center for:
 
-![PyQt6](https://img.shields.io/badge/PyQt6-GUI-green.svg)
+daily tasks and projects
 
-![License](https://img.shields.io/badge/license-Open%20Source-orange.svg)Nowoczesna, wielojęzyczna aplikacja desktopowa do zarządzania zadaniami, oparta na PyQt6. Aplikacja oferuje intuicyjny interfejs użytkownika z systemem motywów, wielojęzycznością oraz zaawansowanymi funkcjami organizacji pracy.
+habits and focus sessions
 
+notes, emails, files and calls
 
+team collaboration and AI-powered workflows
 
-**PRO-Ka-Po** to kompleksowy zestaw minimalistycznych narzędzi do organizacji pracy i zadań, stworzony z myślą o pasjonatach **KAIZEN** i **Lean Management**. Aplikacja idealna do pracy biurowej, współpracy zespołowej i zwiększania codziennej produktywności.## 🎯 Główne Założenia
+🌍 Languages & Platforms
 
+Interface languages:
 
+English
 
----### Architektura UI
+Spanish
 
-- **Górny pasek menu** - stały pasek z przyciskami nawigacyjnymi między sekcjami
+German
 
-## 📋 Spis treści- **Sekcja główna** składająca się z:
+Polish
 
-  - Pasek zarządzania (indywidualny dla każdej sekcji)
+Chinese
 
-- [Funkcje](#-funkcje)  - Tabela danych
+Japanese
 
-- [Moduły aplikacji](#-moduły-aplikacji)- **Dwuwierszowa sekcja szybkiego wprowadzania** - u dołu aplikacji
+Platforms:
 
-- [Instalacja](#-instalacja)
+Windows 10 / 11
 
-- [Wymagania](#-wymagania)### Kluczowe Funkcjonalności
+Linux (tested on Ubuntu-based distributions)
 
-- [Struktura projektu](#-struktura-projektu)- ✅ System rejestracji i logowania użytkowników
+macOS (experimental)
 
-- [Konfiguracja](#-konfiguracja)- 🌍 Wielojęzyczność (i18n) - interfejs przystosowany do wielu języków
+🎯 What PRO-Ka-Po Solves
 
-- [Użytkowanie](#-użytkowanie)- 🎨 System motywów - różne motywy i zmiany kolorystyczne
+Too many tools for tasks, notes, timers, habits and emails?
+→ PRO-Ka-Po centralizes them in one desktop app.
 
-- [Bezpieczeństwo i prywatność](#-bezpieczeństwo-i-prywatność)- 🔐 Bezpieczne przechowywanie danych użytkowników
+Hard to keep discipline and small improvements every day?
+→ Kaizen-oriented modules (Habits, Pomodoro, Kanban) keep you on track.
 
-- [Roadmap](#-roadmap)- 📊 Zarządzanie zadaniami w formie tabelarycznej
+Need both offline desktop and AI features?
+→ Local data + optional AI integrations (OpenAI, Gemini, Claude, Groq).
 
-- [Wsparcie projektu](#-wsparcie-projektu)- ⚡ Szybkie wprowadzanie danych
+Want to extend the app for your own workflows?
+→ Modular architecture + support for custom modules.
 
-- [Licencja](#-licencja)
+🧩 Core Modules & Features
+✅ Tasks & Kanban
 
-- [Kontakt](#-kontakt)## 🛠️ Technologie
 
+Task lists with priorities, tags, due dates and subtasks
 
+Fully configurable table view (columns, filters, quick search)
 
----- **Python 3.11+**
+Kanban board with drag & drop, custom columns, WIP limits and swimlanes
 
-- **PyQt6** - framework GUI
+Integration with Pomodoro, notes and habits
+<img width="1915" height="1149" alt="image" src="https://github.com/user-attachments/assets/7fee3ab3-b24f-49e0-8034-c65b8256355f" />
 
-## ✨ Funkcje- **SQLite/PostgreSQL** - baza danych
 
-- **bcrypt** - hashowanie haseł
+🍅 Pomodoro
 
-### 🔄 Synchronizacja- **PyQt6-i18n** - wsparcie wielojęzyczności
+Classic Pomodoro workflow (e.g. 25/5, editable)
 
-Automatyczna synchronizacja danych między urządzeniami z zachowaniem pełnej funkcjonalności offline.
+Session history and productivity stats
 
-## 📁 Struktura Projektu
+Sound notifications and desktop pop-ups
 
-### 🎨 Motywy kolorystyczne
+Links to tasks / projects for focused work
+<img width="1916" height="1145" alt="image" src="https://github.com/user-attachments/assets/7d0bc88e-2398-42c8-b550-4c7fc696799e" />
 
-Dynamiczne motywy z możliwością tworzenia własnych schematów kolorów. Aplikacja dostosowuje się do Twoich preferencji.```
+🎯 Habit Tracker
 
-PRO-Ka-Po_Kaizen_Freak/
+Monthly calendar view for 6 types of habits (task / counter / checkbox, etc.)
 
-### 🤖 Integracja AI├── src/
+Progress stats and simple analytics
 
-Wsparcie dla różnych dostawców AI:│   ├── ui/                     # Moduły interfejsu użytkownika
+Reminders and synchronization between devices (optional)
+<img width="1904" height="1138" alt="image" src="https://github.com/user-attachments/assets/88ba83da-e316-47ca-a2a7-ab2fc755932f" />
 
-- **OpenAI GPT-4** - zaawansowana analiza i generowanie treści│   │   ├── __init__.py
+📝 Notes
 
-- **Google Gemini** - wielomodalne AI│   │   ├── main_window.py      # Główne okno aplikacji
+Rich text editor (bold, lists, links, etc.)
 
-- **Claude** - etyczne AI od Anthropic│   │   ├── navigation_bar.py   # Górny pasek nawigacyjny
+Tags, categories and colors
 
-- **Groq** - szybka inferencja│   │   ├── management_bar.py   # Pasek zarządzania sekcją
+Full-text search
 
-│   │   ├── data_table.py       # Widok tabeli
+Linking notes to tasks, projects and calls
+<img width="1915" height="1144" alt="image" src="https://github.com/user-attachments/assets/a9639640-14b7-4941-82c7-275ee1a689a6" />
 
-### 🌐 Wielojęzyczność│   │   ├── quick_input.py      # Sekcja szybkiego wprowadzania
+⏰ Alarms & Timers
 
-Pełne wsparcie dla wielu języków:│   │   └── dialogs/            # Okna dialogowe
+One-time and recurring alarms
 
-- 🇵🇱 Polski│   │
+Custom sounds and snooze function
 
-- 🇬🇧 Angielski│   ├── core/                   # Logika biznesowa
+Desktop notifications
 
-- 🇩🇪 Niemiecki│   │   ├── __init__.py
+Can be combined with Pomodoro / tasks
+<img width="1916" height="1150" alt="image" src="https://github.com/user-attachments/assets/7ee723c6-deef-45f4-800e-6d2c4299b0d6" />
 
-- 🇪🇸 Hiszpański│   │   ├── task_manager.py     # Zarządzanie zadaniami
+🤖 AI Module
 
-- 🇯🇵 Japoński│   │   └── settings.py         # Ustawienia aplikacji
+Optional, configurable AI support (you control your API keys):
 
-- 🇨🇳 Chiński│   │
+Transcription of audio and calls
 
-│   ├── auth/                   # System autentykacji
+Smart summaries of notes and documents
 
-### 📱 Responsywność│   │   ├── __init__.py
+Content generation (emails, descriptions, checklists)
 
-Dostosowanie interfejsu do różnych rozmiarów ekranów i urządzeń.│   │   ├── login.py            # Logika logowania
+Text and sentiment analysis
 
-│   │   └── register.py         # Logika rejestracji
+Works with: OpenAI, Google Gemini, Claude, Groq
 
-### 🔒 Bezpieczeństwo│   │
+📞 CallCryptor – Calls & Transcription
 
-- Szyfrowanie wrażliwych danych│   ├── database/               # Warstwa bazodanowa
+Secure storage of call recordings (local)
 
-- Bezpieczne przechowywanie kluczy API│   │   ├── __init__.py
+AI transcription and automatic summaries
 
-- Lokalne przechowywanie danych osobowych│   │   ├── models.py           # Modele danych
+Tags, search and links to tasks/notes
 
-│   │   └── repository.py       # Repozytoria
+Designed for people working with clients on the phone
+<img width="1917" height="1151" alt="image" src="https://github.com/user-attachments/assets/237229ce-0cb1-4fcc-ad5e-98370d8c3fa2" />
 
----│   │
+👥 TeamWork (in progress)
 
-│   └── utils/                  # Narzędzia pomocnicze
+Projects and shared boards
 
-## 🧩 Moduły aplikacji│       ├── __init__.py
+Roles and permissions
 
-│       ├── theme_manager.py    # Zarządzanie motywami
+Basic team collaboration around tasks and notes
 
-### 🤖 AI Module│       ├── i18n_manager.py     # Zarządzanie tłumaczeniami
+📁 P-File – File Manager
 
-Uniwersalna integracja z AI. Wsparcie dla Gemini, OpenAI, Claude, Groq. Transkrypcja, analiza tekstu, generowanie treści.│       └── validators.py       # Walidacja danych
+Manage files and documents directly inside PRO-Ka-Po
 
-│
+Quick preview & simple versioning
 
-**Funkcje:**├── resources/
+Tags and folders for project organization
 
-- Transkrypcja audio i wideo│   ├── i18n/                   # Pliki tłumaczeń
+📧 PRO Mail (planned / experimental)
 
-- Podsumowania dokumentów│   │   ├── en.json
+Multiple email accounts
 
-- Generowanie treści│   │   ├── pl.json
+Filters, rules and templates
 
-- Analiza tekstu i sentimentu│   │   └── de.json
+AI-assisted replies and drafts
 
-- Wsparcie dla wielu dostawców AI│   │
+🎨 Themes & Customization
 
-│   ├── themes/                 # Pliki motywów (QSS)
+Built-in themes: Light, Dark and Custom
 
-### 🎯 Habit Tracker│   │   ├── light.qss
+Dynamic color schemes – the app adapts to your preferences
 
-Śledzenie nawyków w formie tabeli miesięcznej. 6 typów nawyków, statystyki, synchronizacja i analiza postępów.│   │   ├── dark.qss
+Theme engine based on QSS – you can create your own visual themes
 
-│   │   └── custom.qss
+Global & module-specific keyboard shortcuts
 
-**Funkcje:**│   │
+Configurable sounds, notifications and behavior for each module
 
-- Kalendarz miesięczny z wizualizacją│   └── icons/                  # Ikony aplikacji
+🧱 Modular Architecture & Custom Modules
 
-- 6 typów nawyków (task, counter, checkbox, etc.)│
+PRO-Ka-Po is built as a modular system:
 
-- Statystyki i wykresy postępów├── tests/                      # Testy jednostkowe
+Separate modules for: Tasks, Kanban, Notes, Habits, Pomodoro, Alarms, AI, Calls, Files, Mail, Web, TeamWork, Quickboard, Shortcuts and more
 
-- Przypomnienia i powiadomienia│   ├── test_auth.py
+Each module has a clear, single responsibility
 
-- Synchronizacja między urządzeniami│   ├── test_tasks.py
+Modules can be enabled/disabled independently
 
-│   └── test_ui.py
+You can add your own custom modules inside the Modules/ directory
 
-### 🍅 Pomodoro│
+custom logic
 
-Technika zarządzania czasem. Sesje 25-minutowe z przerwami, tematy, statystyki i synchronizacja.├── docs/                       # Dokumentacja
+custom UI in PyQt6
 
-│   ├── architecture.md
+custom integrations (APIs, internal tools)
 
-**Funkcje:**│   ├── user_guide.md
+This makes PRO-Ka-Po suitable for power-users and companies that want to adapt the app to their own processes.
 
-- Timer Pomodoro (25 min pracy + 5 min przerwy)│   └── api_reference.md
+🛠 Tech Stack
 
-- Tematy i projekty│
+Python 3.11+
 
-- Statystyki produktywności├── .gitignore
+PyQt6 – modern, native desktop GUI
 
-- Dźwięki i powiadomienia├── requirements.txt
+SQLite by default, optional PostgreSQL for server / multi-user setups
 
-- Historia sesji├── setup.py
+SQLAlchemy – ORM
 
-├── main.py                     # Punkt wejścia aplikacji
+bcrypt – password hashing
 
-### 📋 Zadania└── README.md
+Loguru – logging
 
-Główny moduł aplikacji do zarządzania zadaniami. Dynamiczna konfiguracja kolumn, filtry, subtaski i integracja z innymi modułami.```
+Optional AI integrations:
 
+OpenAI
 
+Google Gemini
 
-**Funkcje:**## 🚀 Instalacja i Uruchomienie
+Anthropic Claude
 
-- Projekty i tagi
+Groq
 
-- Priorytety i terminy### Wymagania
+🚀 Getting Started
+Option 1 – Installer (Windows)
 
-- Subtaski i zależności- Python 3.11 lub nowszy
+For Windows users, you can download a prebuilt installer:
 
-- Dynamiczne kolumny- pip (menedżer pakietów Python)
+Installer:
+https://drive.google.com/file/d/1lmC7J327hnKvGk8zwc86a1M5juNxOKdz/view?usp=drive_link
 
-- Filtry i wyszukiwanie
+(Allow running apps from external sources if Windows SmartScreen asks.)
 
-- Integracja z Kanban i Pomodoro### Kroki instalacji
-
-
-
-### 📊 KanBan1. Klonowanie repozytorium:
-
-Wizualne zarządzanie zadaniami metodą KanBan. Przeciąganie kart między kolumnami, śledzenie postępów i optymalizacja workflow.```bash
-
-git clone <repository-url>
-
-**Funkcje:**cd PRO-Ka-Po_Kaizen_Freak
-
-- Drag & drop kart```
-
-- Własne kolumny
-
-- WIP limits2. Utworzenie środowiska wirtualnego:
-
-- Swimlanes```bash
-
-- Filtrowanie i wyszukiwaniepython -m venv venv
-
-```
-
-### 📝 Notatki
-
-Bogaty edytor tekstu z formatowaniem. Tworzenie notatek, tagi, kolory, wyszukiwanie i integracja z zadaniami.3. Aktywacja środowiska wirtualnego:
-
-```bash
-
-**Funkcje:**# Windows
-
-- Rich text editor.\venv\Scripts\Activate.ps1
-
-- Tagi i kategorie
-
-- Kolory i formatowanie# Linux/Mac
-
-- Wyszukiwanie pełnotekstowesource venv/bin/activate
-
-- Załączniki```
-
-- Powiązania z zadaniami
-
-4. Instalacja zależności:
-
-### ⏰ Alarmy```bash
-
-Zarządzanie alarmami i timerami. Cykliczne przypomnienia, dźwięki, popup oraz synchronizacja między urządzeniami.pip install -r requirements.txt
-
-```
-
-**Funkcje:**
-
-- Alarmy jednorazowe i cykliczne5. Uruchomienie aplikacji:
-
-- Własne dźwięki```bash
-
-- Popup notificationspython main.py
-
-- Snooze function```
-
-- Synchronizacja
-
-## 🎨 Zasady Tworzenia Kodu
-
-### 📞 CallCryptor
-
-Zaawansowane zarządzanie nagraniami rozmów. Transkrypcja AI, podsumowania, tagi i integracja z notatkami.### Modularność
-
-- Każdy moduł powinien mieć jedną, jasno określoną odpowiedzialność
-
-**Funkcje:**- Maksymalna długość pliku: ~300 linii (orientacyjnie)
-
-- Nagrywanie rozmów- Separacja logiki biznesowej od warstwy prezentacji
-
-- Transkrypcja AI
-
-- Automatyczne podsumowania### Style Kodowania
-
-- Tagi i wyszukiwanie- PEP 8 - standard kodowania Python
-
-- Integracja z notatkami- Type hints dla wszystkich funkcji i metod
-
-- Szyfrowanie nagrań- Docstrings dla klas i funkcji publicznych
-
-- Komentarze w języku angielskim
-
-### ⚙️ Ustawienia
-
-Konfiguracja aplikacji. Motywy, języki, dźwięki, skróty klawiszowe, środowisko i ustawienia modułów.### Nazewnictwo
-
-- Klasy: PascalCase (np. `MainWindow`, `TaskManager`)
-
-**Funkcje:**- Funkcje/metody: snake_case (np. `get_user`, `save_task`)
-
-- Motywy kolorystyczne- Stałe: UPPER_SNAKE_CASE (np. `MAX_TASKS`, `DEFAULT_THEME`)
-
-- Wybór języka- Pliki: snake_case (np. `main_window.py`, `task_manager.py`)
-
-- Konfiguracja dźwięków
-
-- Globalne skróty klawiszowe## 🌍 Wielojęzyczność (i18n)
-
-- Autostart
-
-- Ustawienia modułówAplikacja wspiera następujące języki:
-
-- 🇵🇱 Polski (domyślny)
-
-### ⌨️ FastKey- 🇬🇧 Angielski
-
-Skróty klawiszowe i szybkie akcje — konfiguracja, przypisywanie, import/eksport skrótów.- 🇩🇪 Niemiecki
-
-
-
-**Funkcje:**Pliki tłumaczeń znajdują się w `resources/i18n/` w formacie JSON.
-
-- Własne skróty klawiszowe
-
-- Szybkie akcje## 🎨 System Motywów
-
-- Import/eksport konfiguracji
-
-- Globalne i lokalne skrótyDostępne motywy:
-
-- **Light** - jasny motyw (domyślny)
-
-### 📁 P-File- **Dark** - ciemny motyw
-
-Zarządzanie plikami i dokumentami w aplikacji, podgląd, wersjonowanie i synchronizacja.- **Custom** - motywy użytkownika
-
-
-
-**Funkcje:**Style definiowane są w plikach QSS w katalogu `resources/themes/`.
-
-- Zarządzanie plikami
-
-- Podgląd dokumentów## 🔐 Bezpieczeństwo
-
-- Wersjonowanie
-
-- Tagi i foldery- Hasła hashowane przy użyciu bcrypt
-
-- Synchronizacja- Sesje użytkowników z timeoutem
-
-- Walidacja danych wejściowych
-
-### 🧩 PRO App- SQL injection prevention (ORM/parametryzowane zapytania)
-
-Ogólne informacje o aplikacji PRO-Ka-Po, instalacja, konfiguracja i zależności modułów.
-
-## 📝 Roadmap
-
-### 📧 PRO Mail
-
-Integracja poczty, ustawienia kont, pobieranie załączników i automatyzacje wiadomości.### Wersja 1.0 (MVP)
-
-- [x] Struktura projektu
-
-**Funkcje:**- [ ] System logowania/rejestracji
-
-- Wiele kont email- [ ] Podstawowy interfejs (nawigacja + tabela)
-
-- Filtrowanie i reguły- [ ] Dodawanie/edycja zadań
-
-- Szablony wiadomości- [ ] System motywów (light/dark)
-
-- AI-powered odpowiedzi- [ ] Wsparcie dla PL/EN
-
-- Automatyzacje
-
-### Wersja 1.1
-
-### 🌐 P-Web- [ ] Zaawansowane filtrowanie
-
-Moduł P-Web — publikowanie treści, konfiguracja serwera i integracje webowe.- [ ] Eksport danych (CSV, PDF)
-
-- [ ] Statystyki i raporty
-
-### 🗂️ Quickboard- [ ] Wsparcie dla dodatkowych języków
-
-Szybkie tablice, notatki i przypomnienia — lekka alternatywa dla pełnego kanbanu.
-
-### Wersja 2.0
-
-**Funkcje:**- [ ] Synchronizacja w chmurze
-
-- Szybki dostęp- [ ] Aplikacja mobilna
-
-- Clipboard manager- [ ] Współdzielenie zadań
-
-- Historia schowka- [ ] Integracje (Calendar, Email)
-
-- Szybkie notatki
-
-## 🤝 Kontrybuacja
-
-### 👥 TeamWork
-
-Moduł współpracy zespołowej — role, uprawnienia, udostępnianie projektów i komunikacja.Projekt jest rozwijany zgodnie z najlepszymi praktykami:
-
-- Feature branches
-
-**Funkcje:**- Pull requests z code review
-
-- Zespoły i projekty- Automatyczne testy przed merge
-
-- Role i uprawnienia- Semantic versioning
-
-- Czat i komunikacja
-
-- Udostępnianie zadań## 📄 Licencja
-
-- Komentarze i wzmianki
-
-Aplikacja komercyjna - wszelkie prawa zastrzeżone.
-
----
-
-## 👥 Autorzy
-
-## 🛠️ Instalacja
-
-Projekt rozwijany przez PRO-Ka-Po Team
-
-### Wymagania wstępne
-
-- **Python 3.11** lub nowszy---
-
-- **PostgreSQL 13+** (opcjonalnie, dla funkcji serwerowych)
-
-- System operacyjny: Windows 10/11, Linux, macOS**Status:** 🚧 W trakcie rozwoju
-
-**Wersja:** 0.1.0-alpha
-
-### Krok 1: Klonowanie repozytorium**Ostatnia aktualizacja:** Listopad 2025
-
-# Pro-Ka-Po_V5c
-
-```bash
+Option 2 – Run from Source (All Platforms)
+1. Clone the repository
 git clone https://github.com/Piotr19881/PRO-Ka-Po_Kaizen_Freak.git
 cd PRO-Ka-Po_Kaizen_Freak
-```
 
-### Krok 2: Utworzenie środowiska wirtualnego
-
-```bash
+2. Create a virtual environment
 # Windows
 python -m venv venv
 venv\Scripts\activate
 
-# Linux/Mac
+# Linux / macOS
 python3 -m venv venv
 source venv/bin/activate
-```
 
-### Krok 3: Instalacja zależności
-
-```bash
+3. Install dependencies
 pip install -r requirements.txt
-```
 
-### Krok 4: Konfiguracja (opcjonalnie)
+4. (Optional) Configure AI & database
 
-1. Skopiuj `config.example.json` do `config.json` (jeśli istnieje)
-2. Wypełnij klucze API dla modułów AI (opcjonalnie)
-3. Skonfiguruj połączenie z bazą danych (opcjonalnie)
+Copy config.example.json to config.json (if present)
 
-### Krok 5: Uruchomienie aplikacji
+Add your AI API keys (OpenAI / Gemini / Groq / Claude)
 
-```bash
+Configure PostgreSQL connection if you want server features
+
+5. Run the app
 python main.py
-```
-
----
-
-## 📦 Wymagania
-
-### Wymagane biblioteki Python
-
-```
-PyQt6>=6.6.1
-PyQt6-Qt6>=6.6.1
-PyQt6-sip>=13.6.0
-psycopg2-binary>=2.9.9
-SQLAlchemy>=2.0.23
-openai>=1.6.1
-google-generativeai>=0.3.2
-groq>=0.4.1
-loguru>=0.7.2
-python-dotenv>=1.0.0
-requests>=2.31.0
-pillow>=10.1.0
-email-validator>=2.1.0
-```
-
-Pełna lista w pliku `requirements.txt`.
-
----
-
-## 📂 Struktura projektu
-
-```
-PRO-Ka-Po_Kaizen_Freak/
-├── src/                          # Kod źródłowy
-│   ├── core/                     # Logika biznesowa
-│   ├── ui/                       # Interfejs użytkownika (PyQt6)
-│   ├── utils/                    # Narzędzia pomocnicze
-│   ├── Modules/                  # Moduły aplikacji
-│   │   ├── AI_module/           # Moduł AI
-│   │   ├── task_module/         # Zarządzanie zadaniami
-│   │   ├── Pomodoro_module/     # Timer Pomodoro
-│   │   ├── habbit_tracker_module/ # Śledzenie nawyków
-│   │   ├── QuickBoard/          # Clipboard manager
-│   │   ├── custom_modules/      # Moduły niestandardowe
-│   │   │   ├── mail_client/    # Klient email
-│   │   │   ├── TeamWork/       # Współpraca zespołowa
-│   │   │   ├── PFile/          # Zarządzanie plikami
-│   │   │   └── Shortcuts/      # Skróty klawiszowe
-│   │   └── p_web/              # Moduł web
-│   └── resources/               # Zasoby (ikony, dźwięki)
-├── data/                        # Baza danych i cache
-│   ├── i18n/                   # Tłumaczenia
-│   ├── shortcuts/              # Konfiguracja skrótów
-│   └── browser_profile/        # Profil przeglądarki (NIE W REPO)
-├── help_files/                  # Pliki pomocy (HTML)
-├── docs/                        # Dokumentacja
-├── tests/                       # Testy jednostkowe
-├── logs/                        # Logi aplikacji (NIE W REPO)
-├── main.py                      # Punkt wejścia
-├── requirements.txt             # Zależności Python
-└── README.md                    # Ten plik
-```
-
----
-
-## ⚙️ Konfiguracja
-
-### Klucze API (opcjonalnie)
-
-Aby korzystać z funkcji AI, skonfiguruj klucze API w ustawieniach aplikacji:
-
-1. Otwórz **Ustawienia** → **AI Settings**
-2. Dodaj klucze API dla:
-   - OpenAI
-   - Google Gemini
-   - Groq
-   - Claude (Anthropic)
-
-### Baza danych
-
-Aplikacja domyślnie używa SQLite. Dla zaawansowanych funkcji serwerowych możesz skonfigurować PostgreSQL.
-
----
-
-## 🚀 Użytkowanie
-
-### Szybki start
-
-1. **Uruchom aplikację**: `python main.py`
-2. **Wybierz język**: Kliknij ikonę flagi w prawym górnym rogu
-3. **Utwórz pierwsze zadanie**: Przejdź do modułu **Zadania** → **Nowe zadanie**
-4. **Skonfiguruj nawyki**: Otwórz **Habit Tracker** → **Dodaj nawyk**
-5. **Rozpocznij sesję Pomodoro**: Kliknij **Pomodoro** → **Start**
-
-### Skróty klawiszowe
-
-- `Ctrl+N` - Nowe zadanie
-- `Ctrl+Shift+N` - Nowa notatka
-- `Ctrl+P` - Pomodoro timer
-- `Ctrl+H` - Habit Tracker
-- `Ctrl+K` - KanBan
-- `Ctrl+,` - Ustawienia
 
-### Pomoc
+🔐 Security & Privacy
 
-Kliknij ikonę **?** lub przejdź do `help_files/index.html` w przeglądarce, aby uzyskać szczegółową pomoc dla każdego modułu.
+User passwords are hashed using bcrypt
 
----
+Sensitive data (tokens, API keys, email credentials) are stored securely
 
-## 🔒 Bezpieczeństwo i prywatność
+Call recordings and personal data are stored locally, not in the repo
 
-### Dane osobowe - WYKLUCZONE z repozytorium
+Public GitHub repo contains only:
 
-**To repozytorium jest publiczne. Wszystkie wrażliwe dane są wykluczone:**
+source code
 
-- ❌ **Nagrania rozmów** (`data/recordings/`)
-- ❌ **Backend i serwer** (`Render_upload/` - zawiera klucze, migracje, konfigurację)
-- ❌ **Bazy danych lokalnych** (`*.db`, `*.sqlite`)
-- ❌ **Tokeny uwierzytelniające** (`data/tokens.json`)
-- ❌ **Ustawienia użytkownika** (`user_settings.json`)
-- ❌ **Historia schowka** (`clipboard_history.json`)
-- ❌ **Drafty email** (`mail_client/drafts/`)
-- ❌ **Profil przeglądarki** (`data/browser_profile/`)
-- ❌ **Logi** (`logs/`)
-- ❌ **Pliki .env** i konfiguracje z sekretami
+themes, icons, sounds
 
-### Co znajdziesz w repozytorium
+translations (i18n)
 
-✅ Kod źródłowy aplikacji  
-✅ Pliki pomocy i dokumentacja  
-✅ Tłumaczenia (i18n)  
-✅ Zasoby (ikony, dźwięki)  
-✅ Motywy kolorystyczne  
-✅ Przykładowe konfiguracje  
-✅ Testy jednostkowe  
+documentation and examples
 
-### Szyfrowanie
+🗺️ Roadmap (High Level)
 
-- Nagrania rozmów są szyfrowane lokalnie
-- Klucze API są przechowywane w bezpiecznej konfiguracji
-- Hasła do kont email są szyfrowane
+Short term:
 
-### Synchronizacja
+Improved TeamWork module (roles, projects, shared boards)
 
-Dane synchronizowane są przez bezpieczne połączenie HTTPS. Możesz wyłączyć synchronizację w ustawieniach.
+Better cloud sync options
 
----
+More powerful stats & reports (tasks, habits, Pomodoro)
 
-## 🎯 Roadmap
+Mid term:
 
-### Wersja 2.0 (Q1 2026)
-- [ ] Aplikacja mobilna (React Native)
-- [ ] Synchronizacja w chmurze (własny serwer)
-- [ ] Rozszerzona integracja AI
-- [ ] Plugin system
-- [ ] Marketplace dodatków
+Mobile companion app
 
-### Wersja 2.1 (Q2 2026)
-- [ ] Integracja z kalendarzami (Google, Outlook)
-- [ ] Eksport/import danych (CSV, JSON, Excel)
-- [ ] Zaawansowane raporty i statystyki
-- [ ] API dla integracji zewnętrznych
-- [ ] Dark mode improvements
+Plugin system & marketplace for community modules
 
-### Długoterminowe
-- [ ] Desktop apps (Electron)
-- [ ] Współpraca real-time
-- [ ] Integracja z Slack, Teams
-- [ ] Voice commands
-- [ ] Blockchain-based sync
+Deep calendar integration (Google / Outlook)
 
----
+Long term:
 
-## 🤝 Wsparcie projektu
+Real-time collaboration
 
-### Wkład w rozwój
+Voice commands and hands-free control
 
-Zapraszamy do współtworzenia! Proces:
+Advanced automations between modules
 
-1. **Fork** repozytorium
-2. Utwórz **branch** dla funkcji (`git checkout -b feature/AmazingFeature`)
-3. **Commit** zmian (`git commit -m 'feat: Add AmazingFeature'`)
-4. **Push** do brancha (`git push origin feature/AmazingFeature`)
-5. Otwórz **Pull Request**
+🤝 Contributing
 
-### Konwencje commitów
+Contributions are welcome!
 
-- `feat:` - nowa funkcja
-- `fix:` - poprawka błędu
-- `docs:` - dokumentacja
-- `style:` - formatowanie kodu
-- `refactor:` - refaktoryzacja
-- `test:` - testy
-- `chore:` - maintenance
+Fork the repo
 
-### Zgłaszanie błędów
+Create a feature branch:
 
-Znalazłeś błąd? [Otwórz issue](https://github.com/Piotr19881/PRO-Ka-Po_Kaizen_Freak/issues/new) z opisem:
-- Kroki do reprodukcji
-- Oczekiwane zachowanie
-- Aktualne zachowanie
-- Środowisko (OS, Python version)
+git checkout -b feature/AmazingFeature
 
-### Propozycje funkcji
 
-Masz pomysł na nową funkcję? [Otwórz dyskusję](https://github.com/Piotr19881/PRO-Ka-Po_Kaizen_Freak/discussions/new) w kategorii **Ideas**.
+Commit your changes:
 
----
+git commit -m "feat: Add AmazingFeature"
 
-## 💝 Podziękowania
 
-Aplikacja wykorzystuje następujące biblioteki open-source:
-- **PyQt6** - GUI framework
-- **SQLAlchemy** - ORM
-- **Loguru** - logging
-- **OpenAI, Google, Anthropic** - AI APIs
+Push and open a Pull Request
 
-Dziękujemy wszystkim kontrybutom i społeczności open-source!
+Use conventional commit prefixes: feat:, fix:, docs:, style:, refactor:, test:, chore:.
 
----
+For bugs or feature ideas, open an Issue or Discussion on GitHub.
 
-## 📄 Licencja
+📄 License
 
-Ten projekt jest udostępniony na licencji **Open Source**.
+This project is released under an Open Source license (MIT-style).
+See the full license text in the repository.
 
-```
-Copyright (c) 2025 Piotr Prokop
+📧 Contact
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Author: Piotr Prokop
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+Website: www.promirbud.eu
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
+Email: piotr.prokop@promirbud.eu
 
----
+GitHub: @Piotr19881
 
-## 📧 Kontakt
+🏢 About the Company
 
-**Piotr Prokop**
+Promir-Bud is a manufacturer of modular and container buildings.
+PRO-Ka-Po was originally built as an internal tool for managing construction projects and has been opened to the community.
 
-- 🌐 Website: [www.promirbud.eu](https://www.promirbud.eu)
-- 📧 Email: [piotr.prokop@promirbud.eu](mailto:piotr.prokop@promirbud.eu)
-- 🐙 GitHub: [@Piotr19881](https://github.com/Piotr19881)
-
----
-
-## 🏢 O firmie
-
-**Promir-Bud** to producent budynków modułowych i kontenerowych. Nasza aplikacja PRO-Ka-Po została stworzona wewnętrznie do zarządzania projektami budowlanymi i została udostępniona społeczności open-source.
-
-Odwiedź nas: [www.promirbud.eu](https://www.promirbud.eu)
-
----
-
-<p align="center">
-  <strong>Stworzone z ❤️ dla pasjonatów KAIZEN</strong>
-</p>
-
-<p align="center">
-  <a href="#-spis-treści">⬆️ Wróć do góry</a>
-</p>
+Made with ❤️ for people who treat productivity as a Kaizen journey, not a one-time event.
