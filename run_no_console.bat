@@ -25,11 +25,8 @@ if not exist "%PY%" set "PY=%APP_DIR%\.venv\Scripts\python.exe"
 if not exist "%PY%" set "PY=%APP_DIR%\env\Scripts\python.exe"
 
 if exist "%PY%" (
-    set "VBSFILE=%TEMP%\run_py_hidden.vbs"
-    >"%VBSFILE%" echo Set WshShell = CreateObject("WScript.Shell")
-    >>"%VBSFILE%" echo WshShell.Run Chr(34) ^& "%PY%" ^& Chr(34) ^& " " ^& Chr(34) ^& "%APP_DIR%\main.py" ^& Chr(34), 0, False
-    cscript //nologo "%VBSFILE%"
-    del "%VBSFILE%" >nul 2>&1
+    rem Use the repository-local VBS launcher to avoid TEMP quoting issues
+    cscript //nologo "%APP_DIR%\launch_hidden.vbs" "%PY%" "%APP_DIR%\main.py"
     endlocal
     exit /b 0
 )
@@ -46,11 +43,8 @@ rem 4) Try system python + VBS wrapper
 where python >nul 2>nul
 if %ERRORLEVEL%==0 (
     set "PY=python"
-    set "VBSFILE=%TEMP%\run_py_hidden.vbs"
-    >"%VBSFILE%" echo Set WshShell = CreateObject("WScript.Shell")
-    >>"%VBSFILE%" echo WshShell.Run Chr(34) ^& "%PY%" ^& Chr(34) ^& " " ^& Chr(34) ^& "%APP_DIR%\main.py" ^& Chr(34), 0, False
-    cscript //nologo "%VBSFILE%"
-    del "%VBSFILE%" >nul 2>&1
+    rem Use repository-local VBS launcher
+    cscript //nologo "%APP_DIR%\launch_hidden.vbs" "%PY%" "%APP_DIR%\main.py"
     endlocal
     exit /b 0
 )
