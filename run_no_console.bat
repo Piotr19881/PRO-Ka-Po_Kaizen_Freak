@@ -26,7 +26,7 @@ if not exist "%PY%" set "PY=%APP_DIR%\env\Scripts\python.exe"
 
 if exist "%PY%" (
     rem Use the repository-local VBS launcher to avoid TEMP quoting issues
-    cscript //nologo "%~dp0launch_hidden.vbs" "%PY%" "%~dp0main.py"
+    cscript //nologo "%~dp0launch_hidden.vbs" "%PY%" "%~dp0run_main_and_log.py"
     endlocal
     exit /b 0
 )
@@ -44,7 +44,7 @@ where python >nul 2>nul
 if %ERRORLEVEL%==0 (
     set "PY=python"
     rem Use repository-local VBS launcher
-    cscript //nologo "%~dp0launch_hidden.vbs" "%PY%" "%~dp0main.py"
+    cscript //nologo "%~dp0launch_hidden.vbs" "%PY%" "%~dp0run_main_and_log.py"
     endlocal
     exit /b 0
 )
