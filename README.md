@@ -133,13 +133,15 @@ Tags, search and links to tasks/notes
 Designed for people working with clients on the phone
 <img width="1917" height="1151" alt="image" src="https://github.com/user-attachments/assets/237229ce-0cb1-4fcc-ad5e-98370d8c3fa2" />
 
-👥 TeamWork (in progress)
+👥 TeamWork 
 
 Projects and shared boards
 
 Roles and permissions
 
 Basic team collaboration around tasks and notes
+<img width="1918" height="1149" alt="image" src="https://github.com/user-attachments/assets/8fba3b2d-52e2-4e6b-8bc4-b750c20d26a0" />
+
 
 📁 P-File – File Manager
 
@@ -148,6 +150,8 @@ Manage files and documents directly inside PRO-Ka-Po
 Quick preview & simple versioning
 
 Tags and folders for project organization
+<img width="1919" height="1150" alt="image" src="https://github.com/user-attachments/assets/b8f42da8-128c-4e0c-b4af-38de09b2404e" />
+
 
 📧 PRO Mail (planned / experimental)
 
@@ -156,6 +160,8 @@ Multiple email accounts
 Filters, rules and templates
 
 AI-assisted replies and drafts
+<img width="1913" height="1154" alt="image" src="https://github.com/user-attachments/assets/ad046ed6-c2ac-44fc-9c79-b780b099fbb5" />
+<img width="1909" height="1140" alt="image" src="https://github.com/user-attachments/assets/f65775aa-7a25-4ee0-981e-34873e84d5b1" />
 
 🎨 Themes & Customization
 
@@ -168,6 +174,8 @@ Theme engine based on QSS – you can create your own visual themes
 Global & module-specific keyboard shortcuts
 
 Configurable sounds, notifications and behavior for each module
+<img width="1916" height="1150" alt="image" src="https://github.com/user-attachments/assets/bdc86010-8a87-49e9-9771-99f282c3c862" />
+
 
 🧱 Modular Architecture & Custom Modules
 
@@ -188,6 +196,9 @@ custom UI in PyQt6
 custom integrations (APIs, internal tools)
 
 This makes PRO-Ka-Po suitable for power-users and companies that want to adapt the app to their own processes.
+<img width="1916" height="1148" alt="image" src="https://github.com/user-attachments/assets/572b1151-4112-492c-b8dc-f8fef5340d94" />
+<img width="1892" height="1138" alt="image" src="https://github.com/user-attachments/assets/256f9fb0-abbb-455b-810a-aaa6a05ba705" />
+
 
 🛠 Tech Stack
 
