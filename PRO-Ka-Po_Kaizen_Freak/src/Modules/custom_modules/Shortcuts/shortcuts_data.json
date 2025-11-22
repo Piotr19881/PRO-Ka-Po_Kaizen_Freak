@@ -1,0 +1,52 @@
+[
+  {
+    "name": "test",
+    "shortcut_type": "Przytrzymaj klawisz",
+    "shortcut_value": "R",
+    "action_type": "Wykonaj sekwencję kliknięć",
+    "action_value": "[\n  {\n    \"button\": \"left\",\n    \"time_offset\": 1008,\n    \"x\": 293,\n    \"y\": 227\n  },\n  {\n    \"button\": \"left\",\n    \"time_offset\": 1517,\n    \"x\": 770,\n    \"y\": 657\n  },\n  {\n    \"button\": \"left\",\n    \"time_offset\": 2056,\n    \"x\": 983,\n    \"y\": 389\n  }\n]",
+    "description": "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+    "enabled": true,
+    "created": "2025-11-02 19:07:58"
+  },
+  {
+    "name": "test2",
+    "shortcut_type": "Przytrzymaj klawisz",
+    "shortcut_value": "Alt+T",
+    "action_type": "Wklej tekst",
+    "action_value": "siemka",
+    "description": "",
+    "enabled": true,
+    "created": "2025-11-02 19:13:25"
+  },
+  {
+    "name": "notatnik",
+    "shortcut_type": "Magiczna fraza",
+    "shortcut_value": "test3",
+    "action_type": "Polecenie wiersza poleceń",
+    "action_value": "notepad",
+    "description": "tsiemkarrrrrrrrrrrrrr",
+    "enabled": true,
+    "created": "2025-11-02 19:14:39"
+  },
+  {
+    "name": "test5",
+    "shortcut_type": "Kombinacja klawiszy",
+    "shortcut_value": "Shift+Home",
+    "action_type": "Menu z szablonami",
+    "action_value": "[\n  {\n    \"name\": \"1\",\n    \"content\": \"aaa\"\n  },\n  {\n    \"name\": \"2\",\n    \"content\": \"bbb\"\n  },\n  {\n    \"name\": \"3\",\n    \"content\": \"ccc\"\n  }\n]",
+    "description": "",
+    "enabled": true,
+    "created": "2025-11-03 18:39:58"
+  },
+  {
+    "name": "aa",
+    "shortcut_type": "Kombinacja klawiszy",
+    "shortcut_value": "Ctrl+Z",
+    "action_type": "Wklej tekst",
+    "action_value": "aaaa",
+    "description": "",
+    "enabled": true,
+    "created": "2025-11-03 18:44:29"
+  }
+]

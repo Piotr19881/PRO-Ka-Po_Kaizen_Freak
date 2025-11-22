@@ -1,0 +1,2569 @@
+"""
+Main Window - Główne okno aplikacji
+"""
+import subprocess
+from pathlib import Path
+from PyQt6.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QPushButton, QLabel, QStackedWidget, QFrame,
+    QLineEdit, QTableWidget, QMenu, QSystemTrayIcon
+)
+from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QTimer, QUrl
+from PyQt6.QtGui import QFont, QMouseEvent, QAction, QKeySequence, QShortcut, QIcon, QPixmap, QPainter
+from loguru import logger
+
+from ..utils.i18n_manager import t, get_i18n
+from ..utils.theme_manager import get_theme_manager
+from ..core.config import config
+from .config_view import SettingsView
+from .alarms_view import AlarmsView
+from .pomodoro_view import PomodoroView
+from .note_view import NoteView
+from .callcryptor_view import CallCryptorView
+from .status_led import StatusLED, get_status_led_manager
+from .task_view import TaskView
+from .task_config_dialog import TaskConfigDialog
+from .kanban_view import KanBanView
+from .task_bar import TaskBar
+from .quick_task_bar import QuickTaskDialog
+from .navigation_bar import NavigationBar
+from ..Modules.habbit_tracker_module import HabbitTrackerView
+from .pro_app_view import ProAppView
+from .p_web_view import PWebView
+from .quickboard_view import QuickBoardView
+from ..Modules.pro_app.module_viewer import ModuleViewer
+from ..Modules.custom_modules.Shortcuts import ShortcutsWidget
+from ..Modules.custom_modules.PFile import PFileWidget
+from ..Modules.custom_modules.TeamWork import TeamWorkModule
+
+
+class CustomTitleBar(QWidget):
+    """Własny pasek tytułowy z przyciskami okna"""
+    
+    # Sygnały
+    logout_requested = pyqtSignal()
+    settings_tab_requested = pyqtSignal(int)  # index karty w ustawieniach
+    help_requested = pyqtSignal()
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.parent_window = parent
+        self.dragging = False
+        self.drag_position = QPoint()
+        self._setup_ui()
+    
+    def _setup_ui(self):
+        """Konfiguracja paska tytułowego"""
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(5, 5, 5, 5)
+        layout.setSpacing(10)
+        
+        # === LEWA STRONA: Użytkownik + Motyw ===
+        left_layout = QHBoxLayout()
+        left_layout.setSpacing(5)
+        
+        # Przycisk użytkownika z menu
+        self.user_btn = QPushButton("👤")
+        self.user_btn.setFixedSize(35, 35)
+        self.user_btn.setObjectName("titleBarUserButton")
+        self.user_btn.setToolTip("Menu użytkownika")
+        self.user_btn.clicked.connect(self._show_user_menu)
+        left_layout.addWidget(self.user_btn)
+        
+        # Przycisk zmiany motywu
+        self.theme_btn = QPushButton("☀")
+        self.theme_btn.setFixedSize(35, 35)
+        self.theme_btn.setObjectName("titleBarThemeButton")
+        self.theme_btn.setToolTip("Zmień motyw")
+        left_layout.addWidget(self.theme_btn)
+        
+        layout.addLayout(left_layout)
+        
+        # === ŚRODEK: Nazwa aplikacji ===
+        layout.addStretch()
+        
+        self.title_label = QLabel("🚀 PRO-Ka-Po Kaizen Freak")
+        self.title_label.setObjectName("titleBarLabel")
+        title_font = QFont()
+        title_font.setPointSize(12)
+        title_font.setBold(True)
+        self.title_label.setFont(title_font)
+        layout.addWidget(self.title_label)
+        
+        layout.addStretch()
+        
+        # === PRAWA STRONA: Status LED + Przyciski okna (Minimize/Maximize/Close) ===
+        right_layout = QHBoxLayout()
+        right_layout.setSpacing(0)
+        
+        # Status LED
+        self.status_led = StatusLED()
+        self.status_led.setFixedSize(25, 25)
+        self.status_led.setToolTip("Status połączenia z bazą danych\nDwukrotne kliknięcie: otwórz konsolę sieciową")
+        right_layout.addWidget(self.status_led)
+        
+        # Minimize
+        self.minimize_btn = QPushButton("−")
+        self.minimize_btn.setFixedSize(45, 35)
+        self.minimize_btn.setObjectName("minimizeButton")
+        self.minimize_btn.setToolTip("Minimalizuj")
+        self.minimize_btn.clicked.connect(self._on_minimize)
+        right_layout.addWidget(self.minimize_btn)
+        
+        # Maximize/Restore
+        self.maximize_btn = QPushButton("□")
+        self.maximize_btn.setFixedSize(45, 35)
+        self.maximize_btn.setObjectName("maximizeButton")
+        self.maximize_btn.setToolTip("Maksymalizuj")
+        self.maximize_btn.clicked.connect(self._on_maximize)
+        right_layout.addWidget(self.maximize_btn)
+        
+        # Close
+        self.close_btn = QPushButton("✕")
+        self.close_btn.setFixedSize(45, 35)
+        self.close_btn.setObjectName("closeButton")
+        self.close_btn.setToolTip("Zamknij")
+        self.close_btn.clicked.connect(self._on_close)
+        right_layout.addWidget(self.close_btn)
+        
+        layout.addLayout(right_layout)
+        
+        # Ustaw wysokość paska
+        self.setFixedHeight(45)
+        self.setObjectName("customTitleBar")
+    
+    def _show_user_menu(self):
+        """Pokaż menu użytkownika"""
+        menu = QMenu(self)
+        
+        # === WYLOGUJ ===
+        logout_action = QAction(f"🚪 {t('user_menu.logout')}", self)
+        logout_action.triggered.connect(self.logout_requested.emit)
+        menu.addAction(logout_action)
+        
+        # Separator
+        menu.addSeparator()
+        
+        # === USTAWIENIA (z podmenu) ===
+        settings_menu = menu.addMenu(f"⚙️ {t('user_menu.settings')}")
+        
+        # Lista kart ustawień (zgodna z config_view.py)
+        settings_tabs = [
+            (t('user_menu.settings.general', 'Ogólne'), 0),
+            (t('user_menu.settings.assistant', 'Asystent'), 1),
+            (t('user_menu.settings.ai', 'AI'), 2),
+            (t('user_menu.settings.email_accounts', 'Konta E-mail'), 3),
+            (t('user_menu.settings.environment', 'Środowisko'), 4),
+            (t('user_menu.settings.about', 'O aplikacji'), 5),
+        ]
+        
+        for tab_name, tab_index in settings_tabs:
+            action = QAction(tab_name, self)
+            action.triggered.connect(lambda checked, idx=tab_index: self.settings_tab_requested.emit(idx))
+            settings_menu.addAction(action)
+        
+        # Separator
+        menu.addSeparator()
+        
+        # === POMOC ===
+        help_action = QAction(f"❓ {t('user_menu.help')}", self)
+        help_action.triggered.connect(self.help_requested.emit)
+        menu.addAction(help_action)
+        
+        # Pokaż menu pod przyciskiem
+        menu.exec(self.user_btn.mapToGlobal(self.user_btn.rect().bottomLeft()))
+    
+    def _on_minimize(self):
+        """Minimalizuj okno"""
+        if self.parent_window:
+            self.parent_window.showMinimized()
+    
+    def _on_maximize(self):
+        """Maksymalizuj/Przywróć okno"""
+        if self.parent_window:
+            if self.parent_window.isMaximized():
+                self.parent_window.showNormal()
+                self.maximize_btn.setText("□")
+                self.maximize_btn.setToolTip("Maksymalizuj")
+            else:
+                self.parent_window.showMaximized()
+                self.maximize_btn.setText("❐")
+                self.maximize_btn.setToolTip("Przywróć")
+    
+    def _on_close(self):
+        """Zamknij okno"""
+        if self.parent_window:
+            self.parent_window.close()
+    
+    def mousePressEvent(self, event: QMouseEvent):
+        """Rozpocznij przeciąganie okna"""
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.dragging = True
+            self.drag_position = event.globalPosition().toPoint() - self.parent_window.frameGeometry().topLeft()
+            event.accept()
+    
+    def mouseMoveEvent(self, event: QMouseEvent):
+        """Przeciągnij okno"""
+        if self.dragging and event.buttons() == Qt.MouseButton.LeftButton:
+            if not self.parent_window.isMaximized():
+                self.parent_window.move(event.globalPosition().toPoint() - self.drag_position)
+            event.accept()
+    
+    def mouseReleaseEvent(self, event: QMouseEvent):
+        """Zakończ przeciąganie okna"""
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.dragging = False
+            event.accept()
+    
+    def mouseDoubleClickEvent(self, event: QMouseEvent):
+        """Podwójne kliknięcie maksymalizuje/przywraca okno"""
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._on_maximize()
+            event.accept()
+    
+    def update_translations(self):
+        """Odśwież tłumaczenia tooltipów"""
+        self.user_btn.setToolTip(t('user_menu.settings'))
+        self.theme_btn.setToolTip(t('settings.theme'))
+        self.minimize_btn.setToolTip(t('button.minimize') if 'button.minimize' in dir(t) else "Minimalizuj")
+        self.maximize_btn.setToolTip(t('button.maximize') if 'button.maximize' in dir(t) else "Maksymalizuj")
+        self.close_btn.setToolTip(t('button.close'))
+        
+        # Zaktualizuj tooltip przycisku nawigacji
+        if hasattr(self, 'nav_toggle_btn'):
+            # Sprawdź obecny stan z NavigationBar jeśli dostępny
+            tooltip = t('nav.hide_more') if self.nav_toggle_btn.text() == "▲" else t('nav.show_more')
+            self.nav_toggle_btn.setToolTip(tooltip)
+    
+    def apply_theme(self):
+        """Zastosuj motyw z poprawioną czytelnością tekstu"""
+        try:
+            from ..utils.theme_manager import get_theme_manager
+            theme_manager = get_theme_manager()
+            colors = theme_manager.get_current_colors()
+            
+            # Kolor tła paska tytułowego - lekko ciemniejszy niż tło główne dla kontrastu
+            bg_color = colors.get('bg_secondary', '#2C2C2C')
+            text_color = colors.get('text_primary', '#FFFFFF')
+            accent_color = colors.get('accent_primary', '#4CAF50')
+            
+            # Upewnij się że tekst jest dobrze widoczny - wymuś wysoki kontrast
+            # Jeśli tło jest jasne, użyj ciemnego tekstu
+            from PyQt6.QtGui import QColor
+            bg_qcolor = QColor(bg_color)
+            # Oblicz jasność (0-255)
+            brightness = (bg_qcolor.red() * 299 + bg_qcolor.green() * 587 + bg_qcolor.blue() * 114) / 1000
+            
+            if brightness > 128:
+                # Jasne tło - użyj ciemnego tekstu
+                text_color = '#000000'
+                button_hover = '#E0E0E0'
+            else:
+                # Ciemne tło - użyj jasnego tekstu
+                text_color = '#FFFFFF'
+                button_hover = '#404040'
+            
+            # Style CSS z wysokim kontrastem
+            title_bar_style = f"""
+                QWidget#customTitleBar {{
+                    background-color: {bg_color};
+                    border-bottom: 2px solid {accent_color};
+                }}
+                
+                QLabel#titleBarLabel {{
+                    color: {text_color};
+                    font-weight: bold;
+                    font-size: 12pt;
+                    padding: 0 10px;
+                }}
+                
+                QPushButton#titleBarUserButton,
+                QPushButton#titleBarThemeButton {{
+                    background-color: transparent;
+                    color: {text_color};
+                    border: 1px solid {accent_color};
+                    border-radius: 17px;
+                    font-size: 16pt;
+                }}
+                
+                QPushButton#titleBarUserButton:hover,
+                QPushButton#titleBarThemeButton:hover {{
+                    background-color: {button_hover};
+                    border: 2px solid {accent_color};
+                }}
+                
+                QPushButton#minimizeButton,
+                QPushButton#maximizeButton {{
+                    background-color: transparent;
+                    color: {text_color};
+                    border: none;
+                    font-size: 18pt;
+                    font-weight: bold;
+                }}
+                
+                QPushButton#minimizeButton:hover,
+                QPushButton#maximizeButton:hover {{
+                    background-color: {button_hover};
+                }}
+                
+                QPushButton#closeButton {{
+                    background-color: transparent;
+                    color: {text_color};
+                    border: none;
+                    font-size: 18pt;
+                    font-weight: bold;
+                }}
+                
+                QPushButton#closeButton:hover {{
+                    background-color: #E53935;
+                    color: #FFFFFF;
+                }}
+            """
+            
+            self.setStyleSheet(title_bar_style)
+            
+            # Zaktualizuj również kolor tekstu bezpośrednio
+            self.title_label.setStyleSheet(f"color: {text_color}; font-weight: bold; font-size: 12pt;")
+            
+            logger.debug(f"[CustomTitleBar] Applied theme with text color: {text_color} on background: {bg_color}")
+            
+        except Exception as e:
+            logger.warning(f"[CustomTitleBar] Could not apply theme: {e}")
+
+
+
+class ManagementBar(QWidget):
+    """Pasek zarządzania - indywidualny dla każdego widoku"""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._setup_ui()
+    
+    def _setup_ui(self):
+        """Konfiguracja paska zarządzania"""
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(5, 5, 5, 5)
+        
+        # Przykładowe przyciski zarządzania (będą różne dla każdego widoku)
+        self.btn_add = QPushButton(t('button.add'))
+        self.btn_edit = QPushButton(t('button.edit'))
+        self.btn_delete = QPushButton(t('button.delete'))
+        
+        layout.addWidget(self.btn_add)
+        layout.addWidget(self.btn_edit)
+        layout.addWidget(self.btn_delete)
+        layout.addStretch()
+        
+        # Dodatkowe kontrolki
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText(t('button.search'))
+        self.search_input.setMaximumWidth(200)
+        layout.addWidget(self.search_input)
+    
+    def update_translations(self):
+        """Odśwież tłumaczenia"""
+        self.btn_add.setText(t('button.add'))
+        self.btn_edit.setText(t('button.edit'))
+        self.btn_delete.setText(t('button.delete'))
+        self.search_input.setPlaceholderText(t('button.search'))
+
+
+class DataDisplayArea(QWidget):
+    """Obszar wyświetlania danych - tabele lub inne widoki"""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._setup_ui()
+    
+    def _setup_ui(self):
+        """Konfiguracja obszaru wyświetlania"""
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Placeholder - tabela
+        self.table = QTableWidget()
+        self.table.setColumnCount(5)
+        self.table.setHorizontalHeaderLabels([
+            t('task.title'),
+            t('task.status'),
+            t('task.priority'),
+            t('task.due_date'),
+            t('task.category')
+        ])
+        
+        layout.addWidget(self.table)
+    
+    def update_translations(self):
+        """Odśwież tłumaczenia nagłówków tabeli"""
+        self.table.setHorizontalHeaderLabels([
+            t('task.title'),
+            t('task.status'),
+            t('task.priority'),
+            t('task.due_date'),
+            t('task.category')
+        ])
+
+
+
+class MainContentArea(QWidget):
+    """Główna zawartość - pasek zarządzania + obszar danych"""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._setup_ui()
+    
+    def _setup_ui(self):
+        """Konfiguracja głównej zawartości"""
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        
+        # Pasek zarządzania
+        self.management_bar = ManagementBar()
+        layout.addWidget(self.management_bar)
+        
+        # Separator
+        separator = QFrame()
+        separator.setFrameShape(QFrame.Shape.HLine)
+        separator.setFrameShadow(QFrame.Shadow.Sunken)
+        layout.addWidget(separator)
+        
+        # Obszar wyświetlania danych
+        self.data_area = DataDisplayArea()
+        layout.addWidget(self.data_area)
+
+
+class MainWindow(QMainWindow):
+    """Główne okno aplikacji"""
+    
+    def __init__(self, on_token_refreshed=None):
+        super().__init__()
+        self.user_data = None  # Dane zalogowanego użytkownika
+        self.on_token_refreshed = on_token_refreshed  # Callback dla odświeżonych tokenów
+        self._quick_add_shortcut: QShortcut | None = None
+        self._toggle_nav_shortcut: QShortcut | None = None
+        self._fullscreen_shortcut: QShortcut | None = None  # Skrót F11 dla trybu pełnoekranowego
+        self._is_fullscreen = False  # Stan trybu pełnoekranowego
+        self.theme_manager = get_theme_manager()  # Theme manager
+        
+        # Słownik przechowujący custom module viewers
+        self.custom_module_views = {}
+        
+        # Inicjalizacja asystenta głosowego
+        self._assistant_core = None
+        self._assistant_watcher = None
+        self._quick_task_watcher = None
+        self._task_assistant_module = None
+        
+        self._setup_window()
+        self._setup_ui()
+        self._connect_signals()
+        self._initialize_theme_icon()
+        self._initialize_status_led()
+        self._initialize_assistant()
+        self._initialize_system_tray()
+        self._initialize_global_shortcuts()
+    
+    def _initialize_global_shortcuts(self):
+        """Inicjalizuj manager globalnych skrótów klawiszowych"""
+        from ..utils.global_shortcuts import get_shortcuts_manager
+        from ..core.config import load_settings
+        
+        # Pobierz singleton manager
+        self.shortcuts_manager = get_shortcuts_manager(self)
+        
+        # Podłącz signal do przełączania widoków
+        self.shortcuts_manager.shortcut_activated.connect(self._on_global_shortcut)
+        
+        # Załaduj skróty z konfiguracji
+        settings = load_settings()
+        env_config = settings.get('environment', {})
+        buttons_config = env_config.get('buttons_config', [])
+        
+        if buttons_config:
+            self.shortcuts_manager.load_shortcuts_from_config(buttons_config)
+        
+        logger.info("Global shortcuts manager initialized")
+    
+    def _on_global_shortcut(self, module_id: str):
+        """Obsługa globalnego skrótu - przełącz na moduł"""
+        logger.info(f"Global shortcut triggered for module: {module_id}")
+        
+        # Przełącz widok
+        if hasattr(self, 'navigation_bar'):
+            self.navigation_bar.switch_to_view(module_id)
+    
+    def _initialize_system_tray(self):
+        """Inicjalizuj system tray icon"""
+        # Utwórz system tray icon
+        self.tray_icon = QSystemTrayIcon(self)
+        
+        # Utwórz ikonę z emoji 🚀
+        pixmap = QPixmap(64, 64)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        
+        painter = QPainter(pixmap)
+        painter.setFont(QFont("Segoe UI Emoji", 48))
+        painter.drawText(pixmap.rect(), Qt.AlignmentFlag.AlignCenter, "🚀")
+        painter.end()
+        
+        self.tray_icon.setIcon(QIcon(pixmap))
+        
+        # Utwórz menu kontekstowe
+        tray_menu = QMenu()
+        
+        show_action = tray_menu.addAction("Pokaż")
+        show_action.triggered.connect(self._show_from_tray)
+        
+        tray_menu.addSeparator()
+        
+        quit_action = tray_menu.addAction("Zakończ")
+        quit_action.triggered.connect(self._quit_application)
+        
+        self.tray_icon.setContextMenu(tray_menu)
+        
+        # Podwójne kliknięcie na ikonie przywraca okno
+        self.tray_icon.activated.connect(self._on_tray_activated)
+        
+        # Pokaż ikonę w zasobniku
+        self.tray_icon.show()
+        
+        logger.info("System tray icon initialized")
+        self.tray_icon.show()
+        
+        logger.info("System tray icon initialized")
+    
+    def _on_tray_activated(self, reason):
+        """Obsługa kliknięcia na ikonę w zasobniku"""
+        if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
+            self._show_from_tray()
+    
+    def _show_from_tray(self):
+        """Przywróć okno z zasobnika systemowego"""
+        self.show()
+        self.activateWindow()
+        if self.isMinimized():
+            self.showNormal()
+    
+    def _quit_application(self):
+        """Wymuszaj zakończenie aplikacji (cleanup i zamknięcie)"""
+        logger.info("Quit application requested from tray menu")
+        
+        # Zapisz, że użytkownik chce zamknąć aplikację (a nie zminimalizować)
+        self._force_quit = True
+        
+        # Ukryj ikonę tray
+        if hasattr(self, 'tray_icon'):
+            self.tray_icon.hide()
+        
+        # Zamknij okno (to wywoła closeEvent z _force_quit=True)
+        self.close()
+        
+        # Jeśli close() nie zadziałało (okno ukryte), wymuś zamknięcie aplikacji
+        QApplication.quit()
+    
+    def _initialize_theme_icon(self):
+        """Ustaw ikonę motywu zgodnie z aktualnym layoutem"""
+        from ..utils.theme_manager import get_theme_manager
+        from ..core.config import load_settings
+        
+        settings = load_settings()
+        current_layout = settings.get('current_layout', 1)
+        
+        if current_layout == 1:
+            self.title_bar.theme_btn.setText("☀")
+        else:
+            self.title_bar.theme_btn.setText("🌙")
+    
+    def _initialize_status_led(self):
+        """Inicjalizuj Status LED Manager i podłącz do modułów"""
+        # Pobierz singleton manager
+        self.status_led_manager = get_status_led_manager()
+        
+        # Podłącz LED widget z title bar
+        self.status_led_manager.set_led_widget(self.title_bar.status_led)
+        
+        # Ustaw początkowy status jako disconnected
+        self.status_led_manager.set_status('disconnected')
+        
+        logger.info("Status LED Manager initialized")
+    
+    def set_user_data(self, user_data: dict):
+        """Ustaw dane zalogowanego użytkownika"""
+        self.user_data = user_data
+        email = user_data.get('email', 'Unknown')
+        logger.info(f"User data set: {email}")
+        
+        # Zaktualizuj UI z danymi użytkownika
+        if hasattr(self, 'title_bar'):
+            name = user_data.get('name', '')
+            self.title_bar.user_btn.setToolTip(f"{name}\n{email}\nKliknij aby się wylogować")
+        
+        # Przekaż dane użytkownika do AlarmsView aby włączyć synchronizację
+        if hasattr(self, 'alarms_view'):
+            self.alarms_view.set_user_data(user_data, on_token_refreshed=self.on_token_refreshed)
+            # Podłącz sygnały synchronizacji do Status LED
+            self._connect_alarms_to_status_led()
+        
+        # Przekaż dane użytkownika do PomodoroView z callbackiem dla tokenów
+        if hasattr(self, 'pomodoro_view'):
+            self.pomodoro_view.set_user_data(user_data, on_token_refreshed=self.on_token_refreshed)
+            # Podłącz sygnały synchronizacji do Status LED
+            self._connect_pomodoro_to_status_led()
+        
+        # Przekaż dane użytkownika do NoteView aby włączyć synchronizację
+        if hasattr(self, 'notes_view'):
+            self.notes_view.set_user_data(user_data, on_token_refreshed=self.on_token_refreshed)
+        
+        # Przekaż dane użytkownika do CallCryptorView
+        if hasattr(self, 'callcryptor_view'):
+            self.callcryptor_view.set_user_data(user_data)
+            logger.info("[MAIN] ✅ CallCryptor initialized")
+        
+        # Przekaż dane użytkownika do HabitTrackerView aby włączyć synchronizację
+        if hasattr(self, 'habit_view') and self.habit_view:
+            self.habit_view.set_user_data(user_data)
+            logger.info("[MAIN] ✅ Habit tracker synchronization enabled")
+        
+        # Przekaż dane użytkownika do TeamWorkModule
+        if hasattr(self, 'teamwork_view') and hasattr(self.teamwork_view, 'set_user_data'):
+            self.teamwork_view.set_user_data(user_data)
+            logger.info("[MAIN] ✅ TeamWork module initialized with user data")
+        
+        # Przekaż dane użytkownika do TasksManager aby włączyć synchronizację
+        if hasattr(self, 'tasks_manager'):
+            self._enable_tasks_sync(user_data)
+            # Podłącz sygnały synchronizacji do Status LED
+            self._connect_tasks_to_status_led()
+        
+        # Przekaż dane użytkownika do Email Settings Card
+        if hasattr(self, 'settings_view') and hasattr(self.settings_view, 'tab_email'):
+            self.settings_view.tab_email.set_user_data(user_data)
+            logger.info("[MAIN] ✅ Email settings initialized")
+        
+        # Przekaż dane użytkownika do ProMail
+        if hasattr(self, 'promail_view') and hasattr(self.promail_view, 'set_user_data'):
+            self.promail_view.set_user_data(user_data)
+            logger.info("[MAIN] ✅ ProMail initialized with user data")
+        
+        # Status LED: user logged in, connected
+        if hasattr(self, 'status_led_manager'):
+            self.status_led_manager.set_status('connected_idle')
+            self.status_led_manager._on_log_message(f"✓ User logged in: {email}")
+        
+        # NIE nadpisuj języka - używamy zapisanego w user_settings.json
+        # Język jest już ustawiony w main.py przed utworzeniem okna
+        # theme = user_data.get('theme', 'light')
+    
+    def _apply_layout_configuration(self):
+        """
+        Zastosuj konfigurację układu z user_settings.json
+        - Pozycja NavigationBar (top/bottom)
+        - Pozycja TaskBar (top/bottom)
+        - Widoczność TaskBar
+        - Konfiguracja przycisków NavigationBar
+        """
+        from ..core.config import load_settings
+        
+        settings = load_settings()
+        logger.debug(f"Loaded settings: {settings}")
+        
+        env_config = settings.get('environment', {})
+        logger.debug(f"Environment config: {env_config}")
+        
+        # Pobierz konfigurację
+        navbar_position = env_config.get('navbar_position', 'top')  # 'top' lub 'bottom'
+        taskbar_position = env_config.get('taskbar_position', 'bottom')  # 'top' lub 'bottom'
+        taskbar_visible = env_config.get('taskbar_visible', False)  # True/False
+        
+        logger.info(f"Applying layout: navbar={navbar_position}, taskbar={taskbar_position}, taskbar_visible={taskbar_visible}")
+        logger.debug(f"TaskBar widget exists: {self.quick_input is not None}")
+        logger.debug(f"TaskBar current parent: {self.quick_input.parent() if self.quick_input else 'None'}")
+        logger.debug(f"TaskBar current visibility: {self.quick_input.isVisible() if self.quick_input else 'None'}")
+        
+        # Wyczyść oba layouty - TYLKO removeWidget, NIE setParent(None)
+        while self.top_section_layout.count():
+            item = self.top_section_layout.takeAt(0)
+            if item.widget():
+                widget = item.widget()
+                # NIE usuwaj parenta - tylko wyjmij z layoutu
+                widget.hide()
+        
+        while self.bottom_section_layout.count():
+            item = self.bottom_section_layout.takeAt(0)
+            if item.widget():
+                widget = item.widget()
+                widget.hide()
+        
+        # Umieść NavigationBar według konfiguracji
+        if navbar_position == 'top':
+            self.top_section_layout.addWidget(self.navigation_bar)
+        else:  # bottom
+            self.bottom_section_layout.addWidget(self.navigation_bar)
+        
+        self.navigation_bar.show()
+        
+        # Umieść TaskBar według konfiguracji
+        if taskbar_visible:
+            if taskbar_position == 'top':
+                self.top_section_layout.addWidget(self.quick_input)
+            else:  # bottom
+                self.bottom_section_layout.addWidget(self.quick_input)
+            self.quick_input.show()
+            logger.info(f"TaskBar added to {taskbar_position} section and made visible")
+        else:
+            # Ukryj TaskBar
+            self.quick_input.hide()
+            logger.info("TaskBar hidden (taskbar_visible=False)")
+        
+        # Pokaż/ukryj kontenery w zależności od zawartości
+        top_has_widgets = self.top_section_layout.count() > 0
+        bottom_has_widgets = self.bottom_section_layout.count() > 0
+        
+        self.top_section_container.setVisible(top_has_widgets)
+        self.bottom_section_container.setVisible(bottom_has_widgets)
+        
+        logger.info(f"Layout applied: top_section has {self.top_section_layout.count()} widgets (visible={top_has_widgets}), "
+                   f"bottom_section has {self.bottom_section_layout.count()} widgets (visible={bottom_has_widgets})")
+        logger.info("Layout configuration applied successfully")
+    
+    def _logout(self):
+        """Wyloguj użytkownika"""
+        from ..core.config import config
+        import json
+        
+        logger.info("User logging out")
+        
+        # Cleanup TasksManager sync przed wylogowaniem
+        if hasattr(self, 'tasks_manager') and self.tasks_manager:
+            logger.info("Stopping tasks sync...")
+            self.tasks_manager.cleanup()
+        
+        # Usuń zapisane tokeny
+        tokens_file = config.DATA_DIR / "tokens.json"
+        if tokens_file.exists():
+            tokens_file.unlink()
+            logger.info("Tokens file deleted")
+        
+        # Zamknij główne okno
+        self.close()
+        
+        # Pokaż okno logowania ponownie
+        from .auth_window import AuthWindow
+        auth_window = AuthWindow()
+        auth_window.login_successful.connect(lambda user_data: (
+            auth_window.close(),
+            self.set_user_data(user_data),
+            self.show()
+        ))
+        auth_window.show()
+    
+    def _on_theme_toggle(self):
+        """Obsługa przełączania między układem 1 a 2"""
+        from ..utils.theme_manager import get_theme_manager
+        from ..core.config import save_settings
+        
+        theme_manager = get_theme_manager()
+        new_layout = theme_manager.toggle_layout()
+        
+        # Zmień ikonę w zależności od układu
+        if new_layout == 1:
+            self.title_bar.theme_btn.setText("☀")
+            logger.info("Switched to layout 1 (light mode)")
+        else:
+            self.title_bar.theme_btn.setText("🌙")
+            logger.info("Switched to layout 2 (dark mode)")
+        
+        # 🎨 ODŚWIEŻ MOTYWY WSZYSTKICH WIDOKÓW
+        # Upewnij się, że wszystkie widoki aktualizują swoje style
+        self._refresh_all_views_theme()
+        
+        # Zapisz aktualny layout
+        save_settings({'current_layout': new_layout})
+    
+    def _refresh_all_views_theme(self):
+        """Odśwież motywy wszystkich widoków po zmianie motywu"""
+        try:
+            logger.info(f"🎨 [MAIN] _refresh_all_views_theme() called")
+            
+            # Notes View
+            if hasattr(self, 'notes_view') and self.notes_view:
+                logger.info(f"[MAIN] Found notes_view: {self.notes_view}")
+                if hasattr(self.notes_view, 'apply_theme'):
+                    logger.info(f"[MAIN] Calling notes_view.apply_theme()")
+                    try:
+                        self.notes_view.apply_theme()
+                        logger.info(f"[MAIN] notes_view.apply_theme() completed successfully")
+                    except Exception as e:
+                        logger.error(f"[MAIN] Exception in notes_view.apply_theme(): {e}")
+                        import traceback
+                        logger.error(f"[MAIN] Traceback: {traceback.format_exc()}")
+                    logger.debug("Refreshed notes_view theme")
+                else:
+                    logger.warning(f"[MAIN] notes_view has no apply_theme method!")
+            else:
+                logger.warning(f"[MAIN] notes_view not found! hasattr={hasattr(self, 'notes_view')}")
+            
+            # 🎨 Pomodoro View
+            if hasattr(self, 'pomodoro_view') and self.pomodoro_view:
+                if hasattr(self.pomodoro_view, 'apply_theme'):
+                    self.pomodoro_view.apply_theme()
+                    logger.debug("Refreshed pomodoro_view theme")
+            
+            # 🎨 Alarms View
+            if hasattr(self, 'alarms_view') and self.alarms_view:
+                if hasattr(self.alarms_view, 'apply_theme'):
+                    self.alarms_view.apply_theme()
+                    logger.debug("Refreshed alarms_view theme")
+                    
+            # 🎨 Settings View
+            if hasattr(self, 'settings_view') and self.settings_view:
+                if hasattr(self.settings_view, 'apply_theme'):
+                    self.settings_view.apply_theme()
+                    logger.debug("Refreshed settings_view theme")
+            
+            # 🎨 Habit Tracker View
+            if hasattr(self, 'habit_view') and self.habit_view:
+                if hasattr(self.habit_view, 'apply_theme'):
+                    try:
+                        self.habit_view.apply_theme()
+                        logger.info("[MAIN] habit_view.apply_theme() completed successfully")
+                    except Exception as e:
+                        logger.error(f"[MAIN] Exception in habit_view.apply_theme(): {e}")
+                        import traceback
+                        logger.error(f"[MAIN] Traceback: {traceback.format_exc()}")
+                    logger.debug("Refreshed habit_view theme")
+                else:
+                    logger.warning("[MAIN] habit_view has no apply_theme method!")
+            else:
+                logger.warning(f"[MAIN] habit_view not found! hasattr={hasattr(self, 'habit_view')}")
+            
+            # 🎨 CallCryptor View
+            if hasattr(self, 'callcryptor_view') and self.callcryptor_view:
+                if hasattr(self.callcryptor_view, 'apply_theme'):
+                    try:
+                        self.callcryptor_view.apply_theme()
+                        logger.info("[MAIN] callcryptor_view.apply_theme() completed successfully")
+                    except Exception as e:
+                        logger.error(f"[MAIN] Exception in callcryptor_view.apply_theme(): {e}")
+                        import traceback
+                        logger.error(f"[MAIN] Traceback: {traceback.format_exc()}")
+                    logger.debug("Refreshed callcryptor_view theme")
+                else:
+                    logger.warning("[MAIN] callcryptor_view has no apply_theme method!")
+            else:
+                logger.warning(f"[MAIN] callcryptor_view not found! hasattr={hasattr(self, 'callcryptor_view')}")
+            
+            if getattr(self, 'quick_task_dialog', None):
+                self.quick_task_dialog.apply_theme()
+                    
+        except Exception as e:
+            logger.error(f"Error refreshing view themes: {e}")
+    
+    def _open_settings_tab(self, tab_index: int):
+        """Otwórz widok ustawień na konkretnej karcie"""
+        logger.info(f"Opening settings tab: {tab_index}")
+        
+        # Przełącz na widok ustawień
+        self.content_stack.setCurrentWidget(self.settings_view)
+        
+        # Ustaw odpowiednią kartę
+        self.settings_view.tabs.setCurrentIndex(tab_index)
+        
+        # Odznacz wszystkie przyciski nawigacji (ustawienia są teraz w menu)
+        for btn in self.navigation_bar.buttons.values():
+            btn.setChecked(False)
+    
+    def _show_help(self):
+        """Pokaż okno pomocy - otwórz stronę index.html w MinimalBrowserWidget"""
+        logger.info("Help requested")
+
+        # Ścieżka do pliku pomocy
+        help_file_path = Path(__file__).parent.parent.parent / "help_files" / "index.html"
+
+        # Sprawdź czy plik istnieje
+        if not help_file_path.exists():
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                self,
+                t('help.title', 'Pomoc'),
+                t('help.file_not_found', f'Plik pomocy nie został znaleziony:\n{help_file_path}')
+            )
+            logger.error(f"Help file not found: {help_file_path}")
+            return
+
+        # Użyj MinimalBrowserWidget do wyświetlenia pomocy
+        self._open_help_in_minimal_browser(help_file_path)
+
+    def _open_help_in_minimal_browser(self, help_file_path: Path):
+        """Otwiera plik pomocy w MinimalBrowserWidget"""
+        from ..Modules.p_web.p_web_single import MinimalBrowserWidget
+
+        # Sprawdź czy viewer dla pomocy już istnieje
+        if 'help' in self.custom_module_views:
+            viewer = self.custom_module_views['help']
+            self.content_stack.setCurrentWidget(viewer)
+            logger.info("Switched to existing help browser view")
+            return
+
+        # Utwórz nowy MinimalBrowserWidget dla pomocy
+        try:
+            # Konwertuj ścieżkę na URL file:// - upewnij się że używasz forward slashes
+            file_url = f"file:///{help_file_path.as_posix().replace('\\', '/')}"
+
+            logger.info(f"Loading help file URL: {file_url}")
+            logger.info(f"Help file exists: {help_file_path.exists()}")
+
+            browser_widget = MinimalBrowserWidget(file_url, parent=self)
+
+            # Dodaj do content_stack i zapisz referencję
+            self.content_stack.addWidget(browser_widget)
+            self.custom_module_views['help'] = browser_widget
+            self.content_stack.setCurrentWidget(browser_widget)
+
+            logger.info(f"Opened help file in minimal browser: {file_url}")
+        except Exception as e:
+            logger.error(f"Error opening help in minimal browser: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.critical(
+                self,
+                t('help.title', 'Błąd'),
+                t('help.error_message', f'Nie udało się otworzyć pomocy:\n{str(e)}')
+            )
+            self.content_stack.setCurrentWidget(self.main_content)
+
+    def _open_help_in_system_browser(self, help_file_path: Path):
+        """Otwiera plik pomocy w systemowej przeglądarce"""
+        from PyQt6.QtGui import QDesktopServices
+        from PyQt6.QtWidgets import QMessageBox
+
+        file_url = QUrl.fromLocalFile(str(help_file_path))
+
+        if QDesktopServices.openUrl(file_url):
+            logger.info(f"Opened help file in system browser: {file_url.toString()}")
+        else:
+            QMessageBox.warning(
+                self,
+                t('help.title', 'Pomoc'),
+                t('help.open_failed', 'Nie udało się otworzyć pliku pomocy.')
+            )
+            logger.error("Failed to open help file in system browser")
+    
+    def _setup_window(self):
+        """Konfiguracja okna"""
+        self.setWindowTitle(config.WINDOW_TITLE)
+        self.setMinimumSize(config.WINDOW_MIN_WIDTH, config.WINDOW_MIN_HEIGHT)
+        self.resize(config.WINDOW_DEFAULT_WIDTH, config.WINDOW_DEFAULT_HEIGHT)
+        
+        # Usuń standardową ramkę Windows
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+        # Włącz cień dla okna (Windows 10/11)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
+        self._center_on_screen()
+
+    def _center_on_screen(self):
+        """Ustawienie okna na środku bieżącego ekranu."""
+        screen = self.screen()
+        if not screen and self.windowHandle():
+            screen = self.windowHandle().screen()
+        if not screen:
+            screen = QApplication.primaryScreen()
+        if not screen:
+            return
+
+        available = screen.availableGeometry()
+        frame = self.frameGeometry()
+        frame.moveCenter(available.center())
+
+        x_min = available.left()
+        y_min = available.top()
+        x_max = x_min + max(0, available.width() - frame.width())
+        y_max = y_min + max(0, available.height() - frame.height())
+        target_x = max(x_min, min(frame.left(), x_max))
+        target_y = max(y_min, min(frame.top(), y_max))
+        self.move(int(target_x), int(target_y))
+
+    def showEvent(self, event):
+        """Pilnuj, aby przy starcie okno było w pełni widoczne."""
+        super().showEvent(event)
+        QTimer.singleShot(0, self._center_on_screen)
+    
+    def _setup_ui(self):
+        """Konfiguracja interfejsu użytkownika"""
+        from ..core.config import load_settings
+        
+        # Centralny widget
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        
+        # Główny layout
+        main_layout = QVBoxLayout(central_widget)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+        
+        # 0. Własny pasek tytułowy
+        self.title_bar = CustomTitleBar(self)
+        main_layout.addWidget(self.title_bar)
+        
+        # Podłącz sygnały paska tytułowego
+        self.title_bar.logout_requested.connect(self._logout)
+        self.title_bar.settings_tab_requested.connect(self._open_settings_tab)
+        self.title_bar.help_requested.connect(self._show_help)
+        self.title_bar.theme_btn.clicked.connect(self._on_theme_toggle)
+        
+        # Separator
+        separator0 = QFrame()
+        separator0.setFrameShape(QFrame.Shape.HLine)
+        separator0.setFrameShadow(QFrame.Shadow.Sunken)
+        main_layout.addWidget(separator0)
+        
+        # ========== TOP SECTION CONTAINER ==========
+        # Może zawierać NavigationBar lub TaskBar (konfigurowalne)
+        self.top_section_container = QWidget()
+        self.top_section_layout = QVBoxLayout(self.top_section_container)
+        self.top_section_layout.setContentsMargins(0, 0, 0, 0)
+        self.top_section_layout.setSpacing(0)
+        
+        # Stwórz NavigationBar (zostanie dodany do layoutu przez _apply_layout_configuration())
+        self.navigation_bar = NavigationBar()
+        
+        main_layout.addWidget(self.top_section_container)
+        
+        # Separator
+        separator1 = QFrame()
+        separator1.setFrameShape(QFrame.Shape.HLine)
+        separator1.setFrameShadow(QFrame.Shadow.Sunken)
+        main_layout.addWidget(separator1)
+        
+        # 2. Sekcja główna - Zmienna zawartość (StackedWidget)
+        self.content_stack = QStackedWidget()
+        
+        # Główny widok (domyślny)
+        self.main_content = MainContentArea()
+        self.content_stack.addWidget(self.main_content)
+        
+        # Widok ustawień
+        self.settings_view = SettingsView()
+        self.content_stack.addWidget(self.settings_view)
+        
+        # Widok alarmów
+        self.alarms_view = AlarmsView(get_i18n(), config.DATA_DIR)
+        self.content_stack.addWidget(self.alarms_view)
+        
+        # Widok Pomodoro
+        self.pomodoro_view = PomodoroView()
+        self.content_stack.addWidget(self.pomodoro_view)
+        
+        # Widok Notatek
+        self.notes_view = NoteView()
+        self.content_stack.addWidget(self.notes_view)
+        
+        # Widok CallCryptor
+        self.callcryptor_view = CallCryptorView(parent=self)
+        self.content_stack.addWidget(self.callcryptor_view)
+        
+        # Widok Zadań (nasz nowy TaskView)
+        try:
+            # Import TasksManager (nowa wersja z sync) oraz backward-compatible TaskLogic
+            from ..Modules.task_module.task_logic import TasksManager, TaskLogic
+            from ..Modules.task_module.task_local_database import TaskLocalDatabase
+            
+            # Utwórz ścieżkę do bazy danych zadań
+            db_dir = Path(__file__).parent.parent / 'database'
+            db_dir.mkdir(exist_ok=True)
+            
+            # DELAY: Nie inicjalizuj TasksManager tutaj - zostanie utworzony w set_user_data()
+            # Tymczasowo ustaw None - TaskView obsłuży brak task_logic
+            self.tasks_manager = None
+            self.task_logic = None
+            self.task_local_db = None
+            
+            # Utwórz TaskView bez task_logic (zostanie ustawiony w set_user_data)
+            self.task_view = TaskView(task_logic=None, local_db=None)
+            
+            # Przekaż alarm_manager do TaskView
+            if hasattr(self, 'alarms_view') and hasattr(self.alarms_view, 'alarm_manager'):
+                logger.info(f"[MainWindow] Passing alarm_manager to TaskView: {self.alarms_view.alarm_manager}")
+                self.task_view.set_alarm_manager(self.alarms_view.alarm_manager)
+            else:
+                logger.warning("[MainWindow] Could not pass alarm_manager to TaskView - alarms_view not ready")
+            
+            # pozwól TaskView zgłaszać prośbę o konfigurację
+            self.task_view.on_configure = lambda: self._open_task_config_dialog()
+            self.content_stack.addWidget(self.task_view)
+            
+            # Widok KanBan - używa tej samej logiki i bazy co TaskView
+            self.kanban_view = KanBanView()
+            self.kanban_view.set_task_logic(self.task_logic)
+            # Zapewnij obsługę notatek i podzadań zgodną z TaskView
+            self.kanban_view.open_task_note = lambda task_id: self._handle_note_button_click(task_id)
+            self.kanban_view.add_subtask = lambda parent_id: self._handle_add_subtask(parent_id)
+            self.content_stack.addWidget(self.kanban_view)
+            
+            # Połącz sygnały między widokami
+            # Gdy zadanie zostanie przeniesione w KanBan, odśwież widok zadań
+            self.kanban_view.task_moved.connect(lambda: self.task_view.refresh_tasks())
+            
+            # Podmień metodę open_task_note aby obsługiwała integrację z notatkami
+            self.task_view.open_task_note = lambda task_id: self._handle_note_button_click(task_id)
+            
+            # Podmień metodę _add_subtask_dialog aby obsługiwała dodawanie subtasków
+            self.task_view._add_subtask_dialog = lambda parent_id: self._handle_add_subtask(parent_id)
+            
+            # TasksManager zostanie zainicjalizowany w set_user_data()
+            logger.info("TaskView initialized (TasksManager will be set after login)")
+        except Exception as e:
+            logger.error(f"Failed to initialize TaskView: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            self.task_view = None
+            self.kanban_view = None
+            self.task_local_db = None
+            self.task_logic = None
+        
+        # Widok Habit Tracker
+        try:
+            from ..Modules.habbit_tracker_module.habit_database import HabitDatabase
+            
+            # Utwórz ścieżkę do bazy danych habit tracker
+            db_dir = Path(__file__).parent.parent / 'database'
+            db_dir.mkdir(exist_ok=True)
+            habit_db_path = db_dir / 'habit_tracker.db'
+            
+            # Utwórz bazę danych nawyków (user_id będzie ustawiony w set_user_data)
+            self.habit_db = HabitDatabase(habit_db_path, user_id=1)
+            
+            # Utwórz HabbitTrackerView z bazą danych
+            self.habit_view = HabbitTrackerView(db_manager=self.habit_db)
+            self.content_stack.addWidget(self.habit_view)
+            
+            logger.info("HabbitTrackerView initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize HabbitTrackerView: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            self.habit_view = None
+            self.habit_db = None
+        
+        # Widok Pro-App
+        try:
+            self.pro_app_view = ProAppView(parent=self)
+            self.content_stack.addWidget(self.pro_app_view)
+            logger.info("ProAppView initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize ProAppView: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            self.pro_app_view = None
+        
+        # Widok P-Web
+        try:
+            self.p_web_view = PWebView(parent=self)
+            self.content_stack.addWidget(self.p_web_view)
+            logger.info("PWebView initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize PWebView: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            self.p_web_view = None
+        
+        # Widok QuickBoard
+        try:
+            self.quickboard_view = QuickBoardView(parent=self)
+            self.content_stack.addWidget(self.quickboard_view)
+            logger.info("QuickBoardView initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize QuickBoardView: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            self.quickboard_view = None
+        
+        # Widok ProMail
+        try:
+            from src.Modules.custom_modules.mail_client.mail_view import MailViewModule
+            self.promail_view = MailViewModule(parent=self)
+            self.content_stack.addWidget(self.promail_view)
+            logger.info("ProMail view initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize ProMail view: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            # Fallback - pusty widget z komunikatem błędu
+            self.promail_view = QWidget()
+            error_label = QLabel(f"Błąd inicjalizacji ProMail:\n{str(e)}")
+            error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            error_layout = QVBoxLayout(self.promail_view)
+            error_layout.addWidget(error_label)
+            self.content_stack.addWidget(self.promail_view)
+        
+        # Widok FastKey (Shortcuts)
+        try:
+            self.shortcuts_view = ShortcutsWidget(parent=self)
+            # Połącz sygnał status_message z głównym statusBar
+            self.shortcuts_view.status_message.connect(
+                lambda msg, timeout: self.statusBar().showMessage(msg, timeout)
+            )
+            self.content_stack.addWidget(self.shortcuts_view)
+            logger.info("ShortcutsWidget (FastKey) initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize ShortcutsWidget: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            self.shortcuts_view = None
+        
+        # Widok P-File (File Management)
+        try:
+            logger.info("[PFILE INIT] Starting PFileWidget initialization...")
+            self.pfile_view = PFileWidget(parent=self)
+            logger.info("[PFILE INIT] PFileWidget instance created")
+            # Połącz sygnał status_message z głównym statusBar
+            self.pfile_view.status_message.connect(
+                lambda msg: self.statusBar().showMessage(msg, 5000)
+            )
+            logger.info("[PFILE INIT] status_message signal connected")
+            self.content_stack.addWidget(self.pfile_view)
+            logger.info("PFileWidget initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize PFileWidget: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            self.pfile_view = None
+        
+        # Widok TeamWork (Team Collaboration)
+        try:
+            logger.info("[TEAMWORK INIT] Starting TeamWorkModule initialization...")
+            self.teamwork_view = TeamWorkModule(parent=self)
+            logger.info("[TEAMWORK INIT] TeamWorkModule instance created")
+            self.content_stack.addWidget(self.teamwork_view)
+            logger.info("TeamWorkModule initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize TeamWorkModule: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            self.teamwork_view = None
+        
+        main_layout.addWidget(self.content_stack, stretch=1)
+        
+        # Separator
+        separator2 = QFrame()
+        separator2.setFrameShape(QFrame.Shape.HLine)
+        separator2.setFrameShadow(QFrame.Shadow.Sunken)
+        main_layout.addWidget(separator2)
+        
+        # ========== BOTTOM SECTION CONTAINER ==========
+        # Może zawierać TaskBar lub NavigationBar (konfigurowalne)
+        self.bottom_section_container = QWidget()
+        self.bottom_section_layout = QVBoxLayout(self.bottom_section_container)
+        self.bottom_section_layout.setContentsMargins(0, 0, 0, 0)
+        self.bottom_section_layout.setSpacing(0)
+        
+        # Stwórz TaskBar (będzie dodany do layoutu przez _apply_layout_configuration())
+        task_logic_ref = getattr(self, 'task_logic', None)
+        local_db_ref = getattr(self, 'task_local_db', None)
+        self.quick_input = TaskBar(
+            parent=self,  # WAŻNE: Ustaw parent aby widget był częścią hierarchii okna
+            task_logic=task_logic_ref,
+            local_db=local_db_ref
+        )
+        
+        # Początkowy stan - ukryty, zostanie skonfigurowany przez _apply_layout_configuration()
+        self.quick_input.setVisible(False)
+        self.bottom_section_container.setVisible(False)
+        
+        main_layout.addWidget(self.bottom_section_container)
+
+        try:
+            self.quick_task_dialog = QuickTaskDialog(
+                task_logic=task_logic_ref,
+                local_db=local_db_ref,
+                parent=self,
+            )
+            self.quick_task_dialog.task_bar.task_added.connect(self._on_task_added)
+            self.quick_task_dialog.task_bar.note_requested.connect(self._on_quick_note_requested)
+        except Exception as exc:  # pragma: no cover - defensive logging
+            self.quick_task_dialog = None
+            logger.error(f"Failed to initialize QuickTaskDialog: {exc}")
+
+        self._install_quick_add_shortcut(config.SHORTCUT_QUICK_ADD)
+        
+        # Zainstaluj skrót dla toggle navigation (z environment settings)
+        settings = load_settings()
+        env_config = settings.get('environment', {})
+        toggle_nav_shortcut = env_config.get('shortcut_toggle_nav', 'Ctrl+Shift+N')
+        self._install_toggle_nav_shortcut(toggle_nav_shortcut)
+        
+        logger.info("Main window UI setup completed")
+        
+        # Zastosuj konfigurację layoutu z settings
+        QTimer.singleShot(100, self._apply_layout_configuration)
+        
+        QTimer.singleShot(0, self._select_default_view)
+    
+    def _connect_signals(self):
+        """Połączenie sygnałów i slotów"""
+        self.navigation_bar.view_changed.connect(self._on_view_changed)
+        self.navigation_bar.second_row_toggled.connect(self._on_nav_row_toggled)  # Nowe połączenie
+        
+        # Skrót klawiszowy F11 dla trybu pełnoekranowego
+        self._fullscreen_shortcut = QShortcut(QKeySequence("F11"), self)
+        self._fullscreen_shortcut.setContext(Qt.ShortcutContext.ApplicationShortcut)
+        self._fullscreen_shortcut.activated.connect(self._toggle_fullscreen)
+        
+        # TaskBar signals - tylko jeśli TaskBar istnieje
+        if hasattr(self, 'quick_input') and self.quick_input:
+            self.quick_input.task_added.connect(self._on_task_added)
+            self.quick_input.note_requested.connect(self._on_quick_note_requested)
+        
+        if hasattr(self.settings_view, 'tab_general'):
+            self.settings_view.tab_general.settings_changed.connect(self._on_settings_updated)
+        
+        if hasattr(self.settings_view, 'tab_environment'):
+            self.settings_view.tab_environment.settings_changed.connect(self._on_settings_updated)
+        
+        # Połącz sygnał zmiany języka
+        get_i18n().language_changed.connect(self._on_language_changed)
+
+    def _install_quick_add_shortcut(self, shortcut_text: str) -> None:
+        sequence_text = (shortcut_text or "").strip()
+        if not sequence_text:
+            return
+
+        sequence = QKeySequence(sequence_text)
+        if sequence == QKeySequence():
+            logger.warning(f"[MainWindow] Ignoring invalid quick add shortcut: '{shortcut_text}'")
+            return
+
+        if self._quick_add_shortcut is None:
+            self._quick_add_shortcut = QShortcut(sequence, self)
+            self._quick_add_shortcut.setContext(Qt.ShortcutContext.ApplicationShortcut)
+            self._quick_add_shortcut.activated.connect(self._show_quick_add_dialog)
+        else:
+            self._quick_add_shortcut.setKey(sequence)
+        logger.info(f"[MainWindow] Quick add shortcut set to: {sequence.toString()}")
+
+    def _install_toggle_nav_shortcut(self, shortcut_text: str) -> None:
+        """Zainstaluj skrót klawiszowy dla toggle drugiego rzędu nawigacji"""
+        sequence_text = (shortcut_text or "").strip()
+        if not sequence_text:
+            return
+
+        sequence = QKeySequence(sequence_text)
+        if sequence == QKeySequence():
+            logger.warning(f"[MainWindow] Ignoring invalid toggle nav shortcut: '{shortcut_text}'")
+            return
+
+        if self._toggle_nav_shortcut is None:
+            self._toggle_nav_shortcut = QShortcut(sequence, self)
+            self._toggle_nav_shortcut.setContext(Qt.ShortcutContext.ApplicationShortcut)
+            self._toggle_nav_shortcut.activated.connect(self._on_toggle_nav_shortcut)
+        else:
+            self._toggle_nav_shortcut.setKey(sequence)
+        logger.info(f"[MainWindow] Toggle navigation shortcut set to: {sequence.toString()}")
+    
+    def _on_toggle_nav_shortcut(self) -> None:
+        """Obsługa skrótu klawiszowego toggle navigation"""
+        if hasattr(self, 'navigation_bar') and self.navigation_bar:
+            self.navigation_bar.toggle_second_row()
+            logger.info("[MainWindow] Toggle navigation triggered by shortcut")
+    
+    def _show_quick_add_dialog(self) -> None:
+        if not getattr(self, 'quick_task_dialog', None):
+            logger.warning("[MainWindow] QuickTaskDialog is not available")
+            return
+
+        self.quick_task_dialog.clear_inputs()
+        self.quick_task_dialog.reload_configuration()
+        self.quick_task_dialog.apply_theme()
+        self.quick_task_dialog.update_translations()
+        self.quick_task_dialog.show()
+        self.quick_task_dialog.raise_()
+        self.quick_task_dialog.activateWindow()
+
+    def _on_settings_updated(self, changes: dict) -> None:
+        if not isinstance(changes, dict):
+            return
+        
+        # Obsługa zmiany skrótu klawiszowego
+        shortcut = changes.get('shortcut_quick_add')
+        if shortcut is not None:
+            self._install_quick_add_shortcut(shortcut)
+        
+        # Obsługa zmiany motywu
+        if 'current_layout' in changes or 'theme' in changes:
+            logger.info("[MainWindow] Theme changed, applying to all views...")
+            self.apply_theme()
+        
+        # Obsługa zmiany environment settings
+        if 'environment' in changes:
+            logger.info("Environment settings changed, applying new layout...")
+            
+            # Przebuduj NavigationBar z nowej konfiguracji
+            if hasattr(self, 'navigation_bar') and self.navigation_bar:
+                logger.info("Rebuilding NavigationBar from updated configuration...")
+                self.navigation_bar.rebuild_from_config()
+            
+            self._apply_layout_configuration()
+            
+            # Zaktualizuj skrót toggle navigation jeśli się zmienił
+            env_config = changes.get('environment', {})
+            toggle_nav_shortcut = env_config.get('shortcut_toggle_nav')
+            if toggle_nav_shortcut:
+                self._install_toggle_nav_shortcut(toggle_nav_shortcut)
+
+    def _select_default_view(self) -> None:
+        """Ustaw domyślny widok na listę zadań po starcie aplikacji."""
+        try:
+            if hasattr(self, "navigation_bar") and "tasks" in getattr(self.navigation_bar, "buttons", {}):
+                self.navigation_bar.buttons["tasks"].setChecked(True)
+            self._on_view_changed("tasks")
+        except Exception as exc:  # pragma: no cover - log only
+            logger.error(f"[MainWindow] Failed to select default view: {exc}")
+    
+    def _on_nav_row_toggled(self, is_visible: bool):
+        """Obsługa zmiany widoczności drugiego rzędu (z NavigationBar) - placeholder dla przyszłych funkcji"""
+        logger.info(f"Second navigation row toggled: {is_visible}")
+    
+    def _toggle_fullscreen(self):
+        """Przełącza tryb pełnoekranowy (F11) - pasek nawigacyjny pozostaje widoczny"""
+        if self._is_fullscreen:
+            # Wyjdź z trybu pełnoekranowego
+            self.showNormal()
+            self._is_fullscreen = False
+            # Przywróć pasek tytułowy
+            if hasattr(self, 'title_bar'):
+                self.title_bar.setVisible(True)
+            # Pasek nawigacyjny zawsze widoczny
+            logger.info("[MainWindow] Exited fullscreen mode")
+        else:
+            # Przejdź do trybu pełnoekranowego
+            self.showFullScreen()
+            self._is_fullscreen = True
+            # Ukryj tylko pasek tytułowy, zostaw pasek nawigacyjny
+            if hasattr(self, 'title_bar'):
+                self.title_bar.setVisible(False)
+            # Pasek nawigacyjny pozostaje widoczny
+            logger.info("[MainWindow] Entered fullscreen mode - navigation bar visible")
+    
+    def _on_view_changed(self, view_name: str):
+        """Obsługa zmiany widoku"""
+        logger.info(f"View changed to: {view_name}")
+
+        # Przełącz widok w zależności od wybranego przycisku
+        if view_name == 'settings':
+            self.content_stack.setCurrentWidget(self.settings_view)
+        elif view_name == 'alarms':
+            self.content_stack.setCurrentWidget(self.alarms_view)
+            # TaskBar visibility będzie kontrolowana z settings
+        elif view_name == 'pomodoro':
+            self.content_stack.setCurrentWidget(self.pomodoro_view)
+            # TaskBar visibility będzie kontrolowana z settings
+        elif view_name == 'notes':
+            self.content_stack.setCurrentWidget(self.notes_view)
+            # TaskBar visibility będzie kontrolowana z settings
+        elif view_name == 'callcryptor':
+            if hasattr(self, 'callcryptor_view') and self.callcryptor_view:
+                self.content_stack.setCurrentWidget(self.callcryptor_view)
+            else:
+                logger.warning("CallCryptorView not initialized")
+                self.content_stack.setCurrentWidget(self.main_content)
+        elif view_name == 'tasks':
+            if hasattr(self, 'task_view') and self.task_view:
+                self.content_stack.setCurrentWidget(self.task_view)
+            else:
+                logger.warning("TaskView not initialized")
+                self.content_stack.setCurrentWidget(self.main_content)
+        elif view_name == 'kanban':
+            if hasattr(self, 'kanban_view') and self.kanban_view:
+                self.content_stack.setCurrentWidget(self.kanban_view)
+                # Odśwież tablicę KanBan przy każdym wejściu
+                self.kanban_view.refresh_board()
+            else:
+                logger.warning("KanBanView not initialized")
+                self.content_stack.setCurrentWidget(self.main_content)
+        elif view_name == 'habit_tracker':
+            if hasattr(self, 'habit_view') and self.habit_view:
+                self.content_stack.setCurrentWidget(self.habit_view)
+                # Odśwież widok nawyków przy każdym wejściu
+                self.habit_view.refresh_table()
+            else:
+                logger.warning("HabbitTrackerView not initialized")
+                self.content_stack.setCurrentWidget(self.main_content)
+        elif view_name == 'proapp':
+            if hasattr(self, 'pro_app_view') and self.pro_app_view:
+                self.content_stack.setCurrentWidget(self.pro_app_view)
+            else:
+                logger.warning("ProAppView not initialized")
+                self.content_stack.setCurrentWidget(self.main_content)
+        elif view_name == 'pweb':
+            if hasattr(self, 'p_web_view') and self.p_web_view:
+                self.content_stack.setCurrentWidget(self.p_web_view)
+            else:
+                logger.warning("PWebView not initialized")
+                self.content_stack.setCurrentWidget(self.main_content)
+        elif view_name == 'quickboard':
+            if hasattr(self, 'quickboard_view') and self.quickboard_view:
+                self.content_stack.setCurrentWidget(self.quickboard_view)
+                # Odśwież statystyki przy każdym wejściu
+                self.quickboard_view.update_stats()
+            else:
+                logger.warning("QuickBoardView not initialized")
+                self.content_stack.setCurrentWidget(self.main_content)
+        elif view_name == 'promail':
+            if hasattr(self, 'promail_view') and self.promail_view:
+                self.content_stack.setCurrentWidget(self.promail_view)
+                # Odśwież foldery przy każdym wejściu
+                if hasattr(self.promail_view, 'refresh_folders'):
+                    self.promail_view.refresh_folders()
+            else:
+                logger.warning("ProMail view not initialized")
+                self.content_stack.setCurrentWidget(self.main_content)
+        elif view_name == 'fastkey':
+            if hasattr(self, 'shortcuts_view') and self.shortcuts_view:
+                self.content_stack.setCurrentWidget(self.shortcuts_view)
+            else:
+                logger.warning("ShortcutsWidget (FastKey) not initialized")
+                self.content_stack.setCurrentWidget(self.main_content)
+        elif view_name == 'pfile':
+            if hasattr(self, 'pfile_view') and self.pfile_view:
+                self.content_stack.setCurrentWidget(self.pfile_view)
+            else:
+                logger.warning("PFileWidget not initialized")
+                self.content_stack.setCurrentWidget(self.main_content)
+        elif view_name == 'teamwork':
+            if hasattr(self, 'teamwork_view') and self.teamwork_view:
+                self.content_stack.setCurrentWidget(self.teamwork_view)
+                # Aktywuj moduł przy wejściu
+                self.teamwork_view.activate()
+            else:
+                logger.warning("TeamWorkModule not initialized")
+                self.content_stack.setCurrentWidget(self.main_content)
+        elif view_name == 'help':
+            # Obsługa przycisku pomocy z navigation bar
+            self._show_help()
+        elif view_name.startswith('custom_'):
+            # Obsługa custom buttons
+            self._handle_custom_button(view_name)
+        else:
+            self.content_stack.setCurrentWidget(self.main_content)
+    
+    def _handle_custom_button(self, button_id: str):
+        """Obsługa custom buttons (python_module lub external_app)"""
+        from ..core.config import load_settings
+        
+        # Wczytaj konfigurację custom buttons
+        settings = load_settings()
+        env_config = settings.get('environment', {})
+        buttons_config = env_config.get('buttons_config', [])
+        
+        # Znajdź odpowiedni custom button
+        custom_button = None
+        for btn in buttons_config:
+            if btn.get('id') == button_id and btn.get('is_custom', False):
+                custom_button = btn
+                break
+        
+        if not custom_button:
+            logger.warning(f"Custom button not found: {button_id}")
+            self.content_stack.setCurrentWidget(self.main_content)
+            return
+        
+        custom_type = custom_button.get('custom_type')
+        custom_path = custom_button.get('custom_path')
+        
+        if not custom_path:
+            logger.warning(f"Custom button {button_id} has no path defined")
+            self.content_stack.setCurrentWidget(self.main_content)
+            return
+        
+        if custom_type == 'python_module':
+            # Obsługa modułu Python (.pro)
+            self._load_python_module(button_id, custom_path)
+        elif custom_type == 'external_app':
+            # Obsługa aplikacji zewnętrznej
+            self._launch_external_app(custom_path)
+        elif custom_type == 'web_page':
+            # Obsługa strony internetowej
+            self._open_web_page(button_id, custom_path)
+        else:
+            logger.warning(f"Unknown custom_type: {custom_type}")
+            self.content_stack.setCurrentWidget(self.main_content)
+    
+    def _load_python_module(self, button_id: str, module_path: str):
+        """Ładuje moduł Python (.pro) w ModuleViewer"""
+        from PyQt6.QtWidgets import QMessageBox
+        
+        # Sprawdź czy viewer dla tego modułu już istnieje
+        if button_id in self.custom_module_views:
+            viewer = self.custom_module_views[button_id]
+            self.content_stack.setCurrentWidget(viewer)
+            logger.info(f"Switched to existing module viewer: {button_id}")
+            return
+        
+        # Utwórz nowy ModuleViewer
+        try:
+            viewer = ModuleViewer(parent=self)
+            
+            # Załaduj moduł
+            success = viewer.load_module(module_path)
+            
+            if success:
+                # Dodaj do content_stack i zapisz referencję
+                self.content_stack.addWidget(viewer)
+                self.custom_module_views[button_id] = viewer
+                self.content_stack.setCurrentWidget(viewer)
+                logger.info(f"Loaded custom module: {button_id} from {module_path}")
+            else:
+                # Błąd ładowania - pokaż komunikat
+                logger.error(f"Failed to load module from {module_path}")
+                QMessageBox.critical(
+                    self,
+                    t('custom_module.error_title', 'Błąd ładowania modułu'),
+                    t('custom_module.error_message', f'Nie udało się załadować modułu z pliku:\n{module_path}')
+                )
+                self.content_stack.setCurrentWidget(self.main_content)
+        except Exception as e:
+            logger.error(f"Error creating ModuleViewer for {button_id}: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            QMessageBox.critical(
+                self,
+                t('custom_module.error_title', 'Błąd'),
+                t('custom_module.error_exception', f'Wystąpił błąd podczas ładowania modułu:\n{str(e)}')
+            )
+            self.content_stack.setCurrentWidget(self.main_content)
+    
+    def _launch_external_app(self, app_path: str):
+        """Uruchamia aplikację zewnętrzną (.exe, .bat, etc.)"""
+        from PyQt6.QtWidgets import QMessageBox
+        
+        try:
+            # Uruchom proces w tle bez blokowania aplikacji
+            subprocess.Popen(app_path, shell=True)
+            logger.info(f"Launched external app: {app_path}")
+            
+            # Pozostań na obecnym widoku
+            # Opcjonalnie możesz pokazać powiadomienie
+            QMessageBox.information(
+                self,
+                t('external_app.launched_title', 'Aplikacja uruchomiona'),
+                t('external_app.launched_message', f'Uruchomiono:\n{app_path}'),
+                QMessageBox.StandardButton.Ok
+            )
+        except FileNotFoundError:
+            logger.error(f"External app not found: {app_path}")
+            QMessageBox.critical(
+                self,
+                t('external_app.not_found_title', 'Nie znaleziono pliku'),
+                t('external_app.not_found_message', f'Nie można znaleźć aplikacji:\n{app_path}')
+            )
+        except PermissionError:
+            logger.error(f"Permission denied for external app: {app_path}")
+            QMessageBox.critical(
+                self,
+                t('external_app.permission_title', 'Brak uprawnień'),
+                t('external_app.permission_message', f'Brak uprawnień do uruchomienia:\n{app_path}')
+            )
+        except Exception as e:
+            logger.error(f"Error launching external app {app_path}: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            QMessageBox.critical(
+                self,
+                t('external_app.error_title', 'Błąd'),
+                t('external_app.error_message', f'Nie udało się uruchomić aplikacji:\n{str(e)}')
+            )
+    
+    def _open_web_page(self, button_id: str, url: str):
+        """Otwiera stronę internetową w prostej przeglądarce"""
+        from ..Modules.p_web.p_web_single import MinimalBrowserWidget
+        
+        # Sprawdź czy viewer dla tego URL już istnieje
+        if button_id in self.custom_module_views:
+            viewer = self.custom_module_views[button_id]
+            self.content_stack.setCurrentWidget(viewer)
+            logger.info(f"Switched to existing browser view: {button_id}")
+            return
+        
+        # Utwórz nowy MinimalBrowserWidget
+        try:
+            browser_widget = MinimalBrowserWidget(url, parent=self)
+            
+            # Dodaj do content_stack i zapisz referencję
+            self.content_stack.addWidget(browser_widget)
+            self.custom_module_views[button_id] = browser_widget
+            self.content_stack.setCurrentWidget(browser_widget)
+            
+            logger.info(f"Opened web page: {button_id} - {url}")
+        except Exception as e:
+            logger.error(f"Error opening web page {url}: {e}")
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.critical(
+                self,
+                t('web_page.error_title', 'Błąd'),
+                t('web_page.error_message', f'Nie udało się otworzyć strony:\n{str(e)}')
+            )
+            self.content_stack.setCurrentWidget(self.main_content)
+    
+    def _on_task_added(self, payload: dict):
+        """Obsługuje dodanie zadania z paska szybkiego wprowadzania."""
+        if not isinstance(payload, dict):
+            logger.warning(f"[MainWindow] Ignoring malformed quick task payload: {payload}")
+            return
+
+        title = str(payload.get('title', '')).strip()
+        if not title:
+            return
+
+        if not getattr(self, 'task_logic', None):
+            logger.warning("[MainWindow] Cannot add task – task logic not ready")
+            return
+        
+        # TasksManager ma local_db, TaskLogic (legacy) ma db
+        has_db = getattr(self.task_logic, 'local_db', None) or getattr(self.task_logic, 'db', None)
+        if not has_db:
+            logger.warning("[MainWindow] Cannot add task – database not ready")
+            return
+
+        source = self.sender()
+        source_task_bar = source if isinstance(source, TaskBar) else None
+        checkbox_selected = source_task_bar.is_kanban_selected() if source_task_bar else False
+        quick_dialog_bar = getattr(getattr(self, 'quick_task_dialog', None), 'task_bar', None)
+
+        add_to_kanban = bool(payload.get('add_to_kanban'))
+        task_data = dict(payload)
+        task_data.pop('add_to_kanban', None)
+
+        new_task = self.task_logic.add_task(task_data)
+        if not new_task:
+            logger.error(f"[MainWindow] Failed to add quick task: {title}")
+            return
+
+        task_id = new_task.get('id')
+        logger.debug(f"[MainWindow] Task added with id={task_id}, add_to_kanban={add_to_kanban}, checkbox_selected={checkbox_selected}")
+        
+        task_view = getattr(self, 'task_view', None)
+        if task_view:
+            task_view.refresh_tasks()
+            should_send_to_kanban = add_to_kanban or checkbox_selected
+            logger.debug(f"[MainWindow] should_send_to_kanban={should_send_to_kanban}")
+            if should_send_to_kanban and task_id:
+                try:
+                    logger.info(f"[MainWindow] Sending task {task_id} to KanBan...")
+                    task_view._on_add_to_kanban(task_id)
+                except Exception as exc:
+                    logger.error(f"[MainWindow] Failed to send task {task_id} to KanBan: {exc}")
+
+        if source_task_bar:
+            source_task_bar.clear_inputs()
+        else:
+            self.quick_input.clear_inputs()
+
+        if quick_dialog_bar and source_task_bar is quick_dialog_bar:
+            self.quick_task_dialog.hide()
+        logger.info(f"[MainWindow] Quick task added with id {task_id}")
+
+    def _on_quick_note_requested(self, note_title: str):
+        """Tworzy nową notatkę i przełącza widok, gdy użytkownik wybierze przycisk notatki."""
+        source = self.sender()
+        source_task_bar = source if isinstance(source, TaskBar) else None
+        quick_dialog_bar = getattr(getattr(self, 'quick_task_dialog', None), 'task_bar', None)
+        if not getattr(self, 'notes_view', None):
+            logger.warning("[MainWindow] Notes view not initialized; cannot create quick note")
+            return
+
+        title = note_title.strip() or t('notes.quick_note_default', 'Szybka notatka')
+        content = "<p></p>"
+        # Use theme accent color for quick notes
+        colors = self.theme_manager.get_current_colors()
+        note_color = colors.get('accent_primary', '#2196F3')
+        try:
+            note_id = self.notes_view.db.create_note(title=title, content=content, color=note_color)
+        except Exception as exc:
+            logger.error(f"[MainWindow] Failed to create quick note: {exc}")
+            return
+
+        if source_task_bar:
+            source_task_bar.clear_inputs()
+        else:
+            self.quick_input.clear_inputs()
+        if quick_dialog_bar and source_task_bar is quick_dialog_bar:
+            self.quick_task_dialog.hide()
+        self._on_view_changed("notes")
+        self.notes_view.refresh_tree()
+        QTimer.singleShot(150, lambda: self.notes_view.select_note_in_tree(note_id))
+        logger.info(f"[MainWindow] Quick note created with id {note_id}")
+    
+    def _on_language_changed(self, language_code: str):
+        """Obsługa zmiany języka - odśwież wszystkie tłumaczenia"""
+        logger.info(f"Refreshing UI translations for language: {language_code}")
+        
+        # Odśwież tytuł okna
+        self.setWindowTitle(t('app.title'))
+        
+        # Odśwież komponenty
+        self.title_bar.update_translations()
+        self.navigation_bar.update_translations()
+        self.main_content.management_bar.update_translations()
+        self.main_content.data_area.update_translations()
+        
+        # TaskBar - tylko jeśli istnieje
+        if hasattr(self, 'quick_input') and self.quick_input:
+            self.quick_input.update_translations()
+        
+        self.settings_view.update_translations()
+        self.alarms_view.update_translations()
+        
+        if getattr(self, 'quick_task_dialog', None):
+            self.quick_task_dialog.update_translations()
+        
+        # Odśwież widok Pomodoro jeśli istnieje
+        if hasattr(self, 'pomodoro_view'):
+            # PomodoroView nie ma jeszcze update_translations, ale ma _t() dla runtime
+            pass
+        
+        logger.info("UI translations refreshed successfully")
+    
+    def _connect_alarms_to_status_led(self):
+        """Podłącz sygnały modułu Alarms do Status LED"""
+        try:
+            # Alarms logic jest w alarms_view.logic
+            if hasattr(self.alarms_view, 'logic') and self.alarms_view.logic:
+                logic = self.alarms_view.logic
+                
+                # Podłącz do sync manager jeśli istnieje
+                if hasattr(logic, 'sync_manager') and logic.sync_manager:
+                    sync_mgr = logic.sync_manager
+                    
+                    # Symuluj podłączenie do eventów synchronizacji
+                    # Ponieważ SyncManager nie ma gotowych sygnałów, będziemy monitorować w NetworkMonitor
+                    logger.info("Alarms module connected to Status LED monitoring")
+                else:
+                    logger.warning("Alarms sync_manager not found")
+        except Exception as e:
+            logger.error(f"Failed to connect Alarms to Status LED: {e}")
+    
+    def _connect_pomodoro_to_status_led(self):
+        """Podłącz sygnały modułu Pomodoro do Status LED"""
+        try:
+            # Pomodoro logic jest w pomodoro_view.logic
+            if hasattr(self.pomodoro_view, 'logic') and self.pomodoro_view.logic:
+                logic = self.pomodoro_view.logic
+                
+                # Podłącz do sync manager jeśli istnieje
+                if hasattr(logic, 'sync_manager') and logic.sync_manager:
+                    sync_mgr = logic.sync_manager
+                    
+                    # Symuluj podłączenie do eventów synchronizacji
+                    logger.info("Pomodoro module connected to Status LED monitoring")
+                else:
+                    logger.warning("Pomodoro sync_manager not found")
+        except Exception as e:
+            logger.error(f"Failed to connect Pomodoro to Status LED: {e}")
+    
+    def _enable_tasks_sync(self, user_data: dict):
+        """
+        Włącz synchronizację dla modułu Tasks.
+        Tworzy TasksManager z prawdziwym user_id i włączoną synchronizacją.
+        
+        Args:
+            user_data: Słownik z danymi użytkownika (id/user_id, email, access_token, refresh_token)
+        """
+        try:
+            # Pobierz dane do synchronizacji
+            user_id = user_data.get('user_id') or user_data.get('id')
+            access_token = user_data.get('access_token')
+            refresh_token = user_data.get('refresh_token')
+            
+            if not user_id or not access_token:
+                logger.warning("Cannot enable tasks sync: missing user_id or access_token")
+                return
+            
+            # Jeśli TasksManager już istnieje i ma sync włączony, zatrzymaj go
+            if hasattr(self, 'tasks_manager') and self.tasks_manager and self.tasks_manager.enable_sync:
+                logger.info("Stopping previous tasks sync...")
+                self.tasks_manager.cleanup()
+            
+            # Przygotuj ścieżkę do bazy danych
+            from ..Modules.task_module.task_logic import TasksManager
+            from pathlib import Path
+            
+            db_dir = Path(__file__).parent.parent / 'database'
+            db_dir.mkdir(exist_ok=True)
+            
+            # Stwórz nowy TasksManager z user_id i synchronizacją
+            logger.info(f"Creating TasksManager for user_id={user_id}")
+            self.tasks_manager = TasksManager(
+                data_dir=db_dir,
+                user_id=str(user_id),
+                api_base_url=config.API_BASE_URL,
+                auth_token=access_token,
+                refresh_token=refresh_token,
+                on_token_refreshed=self.on_token_refreshed,
+                enable_sync=True
+            )
+            
+            # Ustaw callbacks dla real-time updates
+            self.tasks_manager.on_tasks_changed = self._on_tasks_updated
+            self.tasks_manager.on_sync_complete = self._on_tasks_sync_complete
+            
+            # Zaktualizuj referencje
+            self.task_logic = self.tasks_manager  # Backward compatibility
+            self.task_local_db = self.tasks_manager.local_db
+            
+            # Zaktualizuj task_view z nowym manager (używamy set_task_logic dla pełnej inicjalizacji)
+            if hasattr(self, 'task_view') and self.task_view:
+                self.task_view.set_task_logic(self.task_logic, self.task_local_db)
+            
+            # Zaktualizuj kanban_view z nowym manager
+            if hasattr(self, 'kanban_view') and self.kanban_view:
+                self.kanban_view.set_task_logic(self.task_logic)
+            
+            # FIXED: Zaktualizuj quick_input używając set_data_sources() (przeładowuje konfigurację)
+            if hasattr(self, 'quick_input') and self.quick_input:
+                self.quick_input.set_data_sources(
+                    task_logic=self.task_logic, 
+                    local_db=self.task_local_db
+                )
+                logger.info("[TaskBar] Data sources updated and configuration reloaded")
+            
+            # FIXED: Zaktualizuj quick_task_dialog używając set_data_sources()
+            if hasattr(self, 'quick_task_dialog') and self.quick_task_dialog:
+                self.quick_task_dialog.set_data_sources(
+                    task_logic=self.task_logic,
+                    local_db=self.task_local_db
+                )
+                logger.info("[QuickTaskDialog] Data sources updated and configuration reloaded")
+            
+            logger.info(f"✅ Tasks sync enabled for user: {user_data.get('email')}")
+            
+        except Exception as e:
+            logger.error(f"Failed to enable tasks sync: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+    
+    def _connect_tasks_to_status_led(self):
+        """Podłącz sygnały modułu Tasks do Status LED"""
+        try:
+            if hasattr(self, 'tasks_manager') and self.tasks_manager:
+                # Podłącz do sync manager jeśli istnieje
+                if hasattr(self.tasks_manager, 'sync_manager') and self.tasks_manager.sync_manager:
+                    sync_mgr = self.tasks_manager.sync_manager
+                    logger.info("Tasks module connected to Status LED monitoring")
+                else:
+                    logger.warning("Tasks sync_manager not found")
+        except Exception as e:
+            logger.error(f"Failed to connect Tasks to Status LED: {e}")
+    
+    def _on_tasks_updated(self):
+        """Callback wywoływany gdy zadania zostały zaktualizowane przez WebSocket"""
+        logger.info("Tasks updated via WebSocket")
+        if hasattr(self, 'task_view') and self.task_view:
+            self.task_view.refresh_tasks()
+        if hasattr(self, 'kanban_view') and self.kanban_view:
+            self.kanban_view.refresh_board()
+    
+    def _on_tasks_sync_complete(self):
+        """Callback wywoływany po zakończeniu synchronizacji zadań"""
+        logger.debug("Tasks sync complete")
+        # Opcjonalnie: pokazać notyfikację lub zaktualizować status
+
+    
+    def _open_task_config_dialog(self):
+        """Otwórz dialog konfiguracji zadania"""
+        try:
+            import traceback
+            
+            # Przekaż local_db do dialogu
+            local_db = getattr(self, 'task_local_db', None)
+            # Pass the tasks sync manager (if available) so the dialog can enqueue custom list changes
+            sync_mgr = None
+            if hasattr(self, 'tasks_manager') and getattr(self, 'tasks_manager', None) and getattr(self.tasks_manager, 'sync_manager', None):
+                sync_mgr = self.tasks_manager.sync_manager
+            dialog = TaskConfigDialog(self, local_db=local_db, sync_manager=sync_mgr)
+            result = dialog.exec()
+            
+            # Po zamknięciu dialogu (niezależnie od Save/Cancel), odśwież widok zadań
+            # gdyż konfiguracja kolumn mogła się zmienić
+            if hasattr(self, 'task_view') and self.task_view:
+                try:
+                    self.task_view.refresh_columns()
+                    logger.info("Task view columns refreshed after config dialog")
+                except Exception as e:
+                    logger.error(f"Failed to refresh task view columns: {e}")
+
+            if hasattr(self, 'quick_input') and self.quick_input:
+                try:
+                    self.quick_input.reload_configuration()
+                    logger.info("Quick input bar reloaded after config dialog")
+                except Exception as exc:
+                    logger.error(f"Failed to reload quick input bar: {exc}")
+            if getattr(self, 'quick_task_dialog', None):
+                try:
+                    self.quick_task_dialog.reload_configuration()
+                    logger.info("Quick add dialog reloaded after config dialog")
+                except Exception as exc:
+                    logger.error(f"Failed to reload quick-add dialog: {exc}")
+            
+            if result:
+                # Użytkownik kliknął Save
+                config_data = dialog.get_config()
+                logger.info(f"Task config saved: {len(config_data.get('columns', []))} columns, "
+                           f"{len(config_data.get('tags', []))} tags, "
+                           f"{len(config_data.get('custom_lists', []))} lists")
+                
+                # Dodaj zadanie przez logic (jeśli konfiguracja zawiera dane zadania)
+                if hasattr(self, 'task_logic') and self.task_logic and 'title' in config_data:
+                    import datetime
+                    task = {
+                        'title': config_data.get('title', ''),
+                        'status': config_data.get('status', 'Nowe'),
+                        'tags': config_data.get('tags', ''),
+                        'created_at': datetime.date.today().isoformat()
+                    }
+                    self.task_logic.add_task(task)
+                    
+                    # Odśwież tabelę w task_view (dane, nie kolumny - już odświeżone wyżej)
+                    if hasattr(self, 'task_view') and self.task_view:
+                        self.task_view.populate_table()
+        except Exception as e:
+            import traceback
+            logger.error(f"Failed to open task config dialog: {e}")
+            logger.error(traceback.format_exc())
+
+    def _handle_note_button_click(self, task_id: int):
+        """Obsługuje kliknięcie przycisku notatki - główna logika integracji zadań z notatkami
+        
+        Args:
+            task_id: ID zadania dla którego obsługujemy notatkę
+        """
+        try:
+            if not self.task_logic or not self.task_logic.db:
+                logger.error("[MainWindow] No database connection available for notes")
+                return
+            
+            if not hasattr(self, 'notes_view') or not self.notes_view:
+                logger.error("[MainWindow] Notes view not initialized")
+                return
+            
+            # Pobierz dane zadania
+            tasks = self.task_logic.db.get_tasks()
+            task = next((t for t in tasks if t.get('id') == task_id), None)
+            
+            if not task:
+                logger.error(f"[MainWindow] Task {task_id} not found")
+                return
+            
+            task_title = task.get('title', f'Zadanie {task_id}')
+            note_id = task.get('note_id')
+            
+            if note_id:
+                # SCENARIUSZ 1: Notatka już istnieje - otwórz ją
+                logger.info(f"[MainWindow] Opening existing note {note_id} for task {task_id}")
+                self._on_view_changed("notes")
+                
+                # Wybierz notatkę w drzewie po przełączeniu widoku
+                QTimer.singleShot(100, lambda: self.notes_view.select_note_in_tree(str(note_id)))
+            else:
+                # SCENARIUSZ 2: Utwórz nową notatkę
+                logger.info(f"[MainWindow] Creating new note for task {task_id}: {task_title}")
+                from datetime import datetime
+                
+                # Utwórz notatkę w bazie danych notatek
+                note_title = f"Notatka - {task_title}"
+                note_content = (
+                    f"<p><strong>Notatka do zadania:</strong> {task_title}</p>"
+                    f"<p><em>Data utworzenia: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</em></p>"
+                    f"<p><br></p>"
+                )
+                
+                # Use theme accent color for task notes
+                colors = self.theme_manager.get_current_colors()
+                note_color = colors.get('accent_primary', '#2196F3')
+                
+                # Użyj bazy danych z notes_view
+                new_note_id = self.notes_view.db.create_note(
+                    title=note_title,
+                    content=note_content,
+                    color=note_color  # Task notes color from theme
+                )
+                
+                if new_note_id:
+                    # Połącz zadanie z notatką
+                    self.task_logic.db.update_task(task_id, note_id=new_note_id)
+                    logger.info(f"[MainWindow] Created note {new_note_id} and linked to task {task_id}")
+                    
+                    # Przełącz na widok notatek
+                    self._on_view_changed("notes")
+                    
+                    # Odśwież drzewo notatek i wybierz nową notatkę
+                    def open_new_note():
+                        self.notes_view.refresh_tree()
+                        self.notes_view.select_note_in_tree(str(new_note_id))
+                    
+                    QTimer.singleShot(100, open_new_note)
+                    
+                    # Odśwież widok zadań aby zaktualizować kolor przycisku (niebieski → zielony)
+                    if hasattr(self, 'task_view') and self.task_view:
+                        QTimer.singleShot(200, self.task_view.populate_table)
+                else:
+                    logger.error("[MainWindow] Failed to create note in database")
+                
+        except Exception as e:
+            logger.error(f"[MainWindow] Error handling note button click: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def _handle_add_subtask(self, parent_id: int):
+        """Obsługuje dodawanie subtaska do zadania
+        
+        Args:
+            parent_id: ID zadania nadrzędnego
+        """
+        from PyQt6.QtWidgets import QInputDialog
+        
+        try:
+            if not self.task_logic or not self.task_logic.db:
+                logger.error("[MainWindow] No database connection available for subtasks")
+                return
+            
+            # Pobierz dane zadania nadrzędnego
+            tasks = self.task_logic.db.get_tasks()
+            parent_task = next((t for t in tasks if t.get('id') == parent_id), None)
+            
+            if not parent_task:
+                logger.error(f"[MainWindow] Parent task {parent_id} not found")
+                return
+            
+            parent_title = parent_task.get('title', f'Zadanie {parent_id}')
+            
+            # Dialog wprowadzania tytułu subtaska
+            subtask_title, ok = QInputDialog.getText(
+                self,
+                "Dodaj subtask",
+                f"Wprowadź tytuł subtaska dla zadania:\n{parent_title}",
+                text=""
+            )
+            
+            if ok and subtask_title.strip():
+                # Utwórz subtask w bazie danych
+                logger.info(f"[MainWindow] Creating subtask '{subtask_title}' for parent task {parent_id}")
+                
+                subtask_id = self.task_logic.db.add_task(
+                    title=subtask_title.strip(),
+                    parent_id=parent_id
+                )
+                
+                if subtask_id:
+                    logger.info(f"[MainWindow] Subtask {subtask_id} created successfully")
+                    
+                    # Odśwież widok zadań
+                    if hasattr(self, 'task_view') and self.task_view:
+                        self.task_view.populate_table()
+                        
+                        # Automatycznie rozwiń subtaski dla tego zadania
+                        # Znajdź wiersz zadania nadrzędnego w tabeli
+                        for row in range(self.task_view.table.rowCount()):
+                            # Pobierz ID zadania z pierwszej kolumny (zakładając że tam jest)
+                            # lub użyj innego sposobu identyfikacji wiersza
+                            pass  # TODO: Lepszy mechanizm identyfikacji wiersza
+                        
+                        # Na razie po prostu odśwież tabelę
+                        # Przycisk subtasków zmieni kolor na zielony
+                else:
+                    logger.error("[MainWindow] Failed to create subtask in database")
+            
+        except Exception as e:
+            logger.error(f"[MainWindow] Error handling add subtask: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def closeEvent(self, event):
+        """Obsługa zamknięcia okna - cleanup zasobów lub minimalizacja do zasobnika"""
+        from ..core.config import load_settings
+        
+        # Sprawdź czy użytkownik wymusza zamknięcie (z menu tray) czy po prostu zamyka okno
+        if not hasattr(self, '_force_quit'):
+            self._force_quit = False
+        
+        # Sprawdź ustawienie "praca w tle"
+        settings = load_settings()
+        run_in_background = settings.get('run_in_background', True)
+        
+        if run_in_background and not self._force_quit:
+            # Ukryj okno do zasobnika systemowego zamiast zamykać
+            logger.info("Minimizing to system tray (run in background enabled)")
+            event.ignore()  # Anuluj zamknięcie
+            self.hide()  # Ukryj okno
+            
+            # Pokaż powiadomienie w zasobniku
+            if hasattr(self, 'tray_icon') and self.tray_icon:
+                self.tray_icon.showMessage(
+                    "PRO-Ka-Po",
+                    "Aplikacja działa w tle. Kliknij dwukrotnie ikonę w zasobniku aby przywrócić.",
+                    QSystemTrayIcon.MessageIcon.Information,
+                    2000
+                )
+            return
+        
+        # Pełne zamknięcie aplikacji - cleanup zasobów
+        logger.info("MainWindow closing - cleaning up resources...")
+        
+        try:
+            # Cleanup TasksManager (stop sync workers, WebSocket)
+            if hasattr(self, 'tasks_manager') and self.tasks_manager:
+                logger.info("Cleaning up TasksManager...")
+                self.tasks_manager.cleanup()
+            
+            # Cleanup AlarmManager (jeśli ma cleanup)
+            if hasattr(self, 'alarms_view') and hasattr(self.alarms_view, 'alarm_manager'):
+                if hasattr(self.alarms_view.alarm_manager, 'cleanup'):
+                    logger.info("Cleaning up AlarmManager...")
+                    self.alarms_view.alarm_manager.cleanup()
+            
+            # Cleanup QuickBoard (zatrzymaj monitoring schowka)
+            if hasattr(self, 'quickboard_view') and self.quickboard_view:
+                logger.info("Cleaning up QuickBoard...")
+                self.quickboard_view.cleanup()
+            
+            # Cleanup ProMail
+            if hasattr(self, 'promail_view') and self.promail_view:
+                if hasattr(self.promail_view, 'cleanup'):
+                    logger.info("Cleaning up ProMail...")
+                    self.promail_view.cleanup()
+            
+            logger.info("Cleanup complete")
+            
+        except Exception as e:
+            logger.error(f"Error during cleanup: {e}")
+        
+        # Wywołaj oryginalny closeEvent
+        super().closeEvent(event)
+    
+    # =========================================================================
+    # ASSISTANT INTEGRATION
+    # =========================================================================
+    def _initialize_assistant(self) -> None:
+        """Inicjalizuj system asystenta głosowego."""
+        try:
+            logger.info("[MainWindow] Initializing voice assistant...")
+            
+            from ..core.assisstant.assistant_core import AssistantCore
+            from ..core.assisstant.assistant_database import AssistantDatabase
+            from ..core.assisstant.modules.task_assist import TaskAssistantModule
+            from ..core.assisstant.input_watcher import AssistantInputWatcher
+            
+            logger.info("[MainWindow] Assistant imports successful")
+            
+            # Utwórz bazę danych asystenta
+            db_path = config.DATA_DIR / "assistant.db"
+            logger.info(f"[MainWindow] Creating assistant database at: {db_path}")
+            
+            assistant_db = AssistantDatabase(db_path=str(db_path))
+            assistant_db.init_default_phrases()
+            
+            logger.info("[MainWindow] Assistant database initialized")
+            
+            # Utwórz rdzeń asystenta
+            self._assistant_core = AssistantCore(
+                database=assistant_db,
+                language_provider=lambda: get_i18n().get_current_language(),
+            )
+            
+            logger.info("[MainWindow] Assistant core created")
+            
+            # Załaduj frazy do cache
+            self._assistant_core.refresh_cache()
+            
+            logger.info("[MainWindow] Phrases cache refreshed")
+            
+            # Utwórz moduł asystenta zadań
+            self._task_assistant_module = TaskAssistantModule(task_controller=self)
+            
+            logger.info("[MainWindow] Task assistant module created")
+            
+            # Zarejestruj moduł w rdzeniu asystenta
+            self._assistant_core.register_module(self._task_assistant_module)
+            
+            logger.info("[MainWindow] Task module registered in core")
+            
+            # Utwórz i zarejestruj moduł asystenta kanban
+            from ..core.assisstant.modules.kanban_assist import KanbanAssistantModule
+            
+            self._kanban_assistant_module = KanbanAssistantModule(kanban_controller=self)
+            self._assistant_core.register_module(self._kanban_assistant_module)
+            
+            logger.info("[MainWindow] Kanban module registered in core")
+            
+            # Utwórz i zarejestruj moduł asystenta pomodoro
+            from ..core.assisstant.modules.pomodoro_assist import PomodoroAssistantModule
+            
+            self._pomodoro_assistant_module = PomodoroAssistantModule(pomodoro_controller=self.pomodoro_view)
+            self._assistant_core.register_module(self._pomodoro_assistant_module)
+            
+            logger.info("[MainWindow] Pomodoro module registered in core")
+            
+            # Podłącz watcher do pola quick input (dolny pasek)
+            if hasattr(self, 'quick_input'):
+                logger.info("[MainWindow] quick_input found, checking task_input...")
+                
+                if hasattr(self.quick_input, 'task_input'):
+                    logger.info("[MainWindow] task_input found, creating watcher...")
+                    
+                    self._assistant_watcher = AssistantInputWatcher(
+                        line_edit=self.quick_input.task_input,
+                        assistant=self._assistant_core,
+                        debounce_ms=1200,
+                        context_name="quick_task_bar",
+                    )
+                    logger.info("[MainWindow] Assistant watcher attached to quick_input")
+                else:
+                    logger.warning("[MainWindow] quick_input.task_input not found!")
+            else:
+                logger.warning("[MainWindow] quick_input not found!")
+            
+            # Podłącz watcher do QuickTaskDialog (floating window)
+            if hasattr(self, 'quick_task_dialog') and self.quick_task_dialog:
+                logger.info("[MainWindow] quick_task_dialog found, checking task_bar...")
+                
+                if hasattr(self.quick_task_dialog, 'task_bar') and hasattr(self.quick_task_dialog.task_bar, 'task_input'):
+                    logger.info("[MainWindow] task_bar.task_input found, creating watcher...")
+                    
+                    self._quick_task_watcher = AssistantInputWatcher(
+                        line_edit=self.quick_task_dialog.task_bar.task_input,
+                        assistant=self._assistant_core,
+                        debounce_ms=1200,
+                        context_name="floating_quick_task",
+                    )
+                    logger.info("[MainWindow] Assistant watcher attached to QuickTaskDialog")
+                else:
+                    logger.warning("[MainWindow] quick_task_dialog.task_bar.task_input not found!")
+            else:
+                logger.warning("[MainWindow] quick_task_dialog not available!")
+            
+            logger.success("[MainWindow] Voice assistant initialized successfully")
+            
+        except Exception as exc:
+            logger.error(f"[MainWindow] Failed to initialize assistant: {exc}")
+            import traceback
+            logger.error(traceback.format_exc())
+    
+    def handle_assistant_task_create(self, command, title: str) -> None:
+        """
+        Obsługuje tworzenie zadania przez asystenta głosowego.
+        
+        Args:
+            command: Sparsowana komenda ParsedCommand
+            title: Tytuł zadania
+        """
+        if not title:
+            logger.warning("[MainWindow] Assistant create task: empty title")
+            return
+        
+        # Deleguj do istniejącej logiki dodawania zadań
+        payload = {"title": title}
+        self._on_task_added(payload)
+        
+        logger.success(f"[MainWindow] Assistant created task: '{title}'")
+    
+    # ======================================================================
+    # Assistant - Kanban handlers
+    # ======================================================================
+    
+    def handle_assistant_kanban_open(self, command) -> None:
+        """
+        Otwiera widok kanban przez asystenta głosowego.
+        
+        Args:
+            command: Sparsowana komenda ParsedCommand
+        """
+        if not hasattr(self, 'kanban_view') or not self.kanban_view:
+            logger.warning("[MainWindow] Kanban view not available")
+            return
+        
+        # Przełącz na widok kanban
+        self.content_stack.setCurrentWidget(self.kanban_view)
+        
+        # Odśwież tablicę
+        self.kanban_view.refresh_board()
+        
+        logger.success("[MainWindow] Assistant opened kanban view")
+    
+    def handle_assistant_kanban_show_all(self, command) -> None:
+        """
+        Pokazuje wszystkie kolumny kanban przez asystenta głosowego.
+        
+        Args:
+            command: Sparsowana komenda ParsedCommand
+        """
+        if not hasattr(self, 'kanban_view') or not self.kanban_view:
+            logger.warning("[MainWindow] Kanban view not available")
+            return
+        
+        # Przełącz na widok kanban jeśli nie jesteśmy już tam
+        current_is_kanban = self.content_stack.currentWidget() == self.kanban_view
+        if not current_is_kanban:
+            self.content_stack.setCurrentWidget(self.kanban_view)
+            # Odśwież tylko przy pierwszym wejściu do widoku
+            self.kanban_view.refresh_board()
+        
+        # Pokaż wszystkie kolumny (bez refresh - checkboxy same pokażą kolumny)
+        self.kanban_view.assistant_show_all_columns()
+        
+        logger.success("[MainWindow] Assistant showed all kanban columns")
+    
+    def handle_assistant_kanban_show_column(self, command, column_name: str) -> None:
+        """
+        Pokazuje konkretną kolumnę kanban przez asystenta głosowego.
+        
+        Args:
+            command: Sparsowana komenda ParsedCommand
+            column_name: Internal column name ('todo', 'done', 'review', 'on_hold', 'in_progress')
+        """
+        if not hasattr(self, 'kanban_view') or not self.kanban_view:
+            logger.warning("[MainWindow] Kanban view not available")
+            return
+        
+        # Przełącz na widok kanban jeśli nie jesteśmy już tam
+        current_is_kanban = self.content_stack.currentWidget() == self.kanban_view
+        if not current_is_kanban:
+            self.content_stack.setCurrentWidget(self.kanban_view)
+            # Odśwież tylko przy pierwszym wejściu do widoku
+            self.kanban_view.refresh_board()
+        
+        # Pokaż kolumnę
+        changed = self.kanban_view.assistant_show_column(column_name)
+        
+        if changed:
+            logger.success(f"[MainWindow] Assistant showed kanban column: {column_name}")
+        else:
+            logger.info(f"[MainWindow] Kanban column '{column_name}' already visible")
+    
+    def handle_assistant_kanban_hide_column(self, command, column_name: str) -> None:
+        """
+        Ukrywa konkretną kolumnę kanban przez asystenta głosowego.
+        
+        Args:
+            command: Sparsowana komenda ParsedCommand
+            column_name: Internal column name ('todo', 'done', 'review', 'on_hold')
+        """
+        if not hasattr(self, 'kanban_view') or not self.kanban_view:
+            logger.warning("[MainWindow] Kanban view not available")
+            return
+        
+        # Przełącz na widok kanban jeśli nie jesteśmy już tam
+        current_is_kanban = self.content_stack.currentWidget() == self.kanban_view
+        if not current_is_kanban:
+            self.content_stack.setCurrentWidget(self.kanban_view)
+            # Odśwież tylko przy pierwszym wejściu do widoku
+            self.kanban_view.refresh_board()
+        
+        
+        # Ukryj kolumnę (bez refresh - checkbox sam ukryje kolumnę)
+        changed = self.kanban_view.assistant_hide_column(column_name)
+        
+        if changed:
+            logger.success(f"[MainWindow] Assistant hid kanban column: {column_name}")
+        else:
+            logger.info(f"[MainWindow] Kanban column '{column_name}' already hidden")
+    
+    # ========== POMODORO ASSISTANT HANDLERS ==========
+    
+    def handle_assistant_pomodoro_open(self, command) -> None:
+        """
+        Otwiera widok Pomodoro przez asystenta głosowego.
+        
+        Args:
+            command: Sparsowana komenda ParsedCommand
+        """
+        if not hasattr(self, 'pomodoro_view') or not self.pomodoro_view:
+            logger.warning("[MainWindow] Pomodoro view not available")
+            return
+        
+        # Przełącz na widok pomodoro
+        self.content_stack.setCurrentWidget(self.pomodoro_view)
+        logger.success("[MainWindow] Assistant opened pomodoro view")
+    
+    def handle_assistant_pomodoro_start(self, command) -> None:
+        """
+        Rozpoczyna sesję Pomodoro przez asystenta głosowego.
+        
+        Args:
+            command: Sparsowana komenda ParsedCommand
+        """
+        if not hasattr(self, 'pomodoro_view') or not self.pomodoro_view:
+            logger.warning("[MainWindow] Pomodoro view not available")
+            return
+        
+        # Przełącz na widok pomodoro jeśli nie jesteśmy już tam
+        current_is_pomodoro = self.content_stack.currentWidget() == self.pomodoro_view
+        if not current_is_pomodoro:
+            self.content_stack.setCurrentWidget(self.pomodoro_view)
+        
+        # Rozpocznij sesję
+        self.pomodoro_view.assistant_start()
+        logger.success("[MainWindow] Assistant started pomodoro session")
+    
+    def handle_assistant_pomodoro_pause(self, command) -> None:
+        """
+        Pauzuje sesję Pomodoro przez asystenta głosowego.
+        
+        Args:
+            command: Sparsowana komenda ParsedCommand
+        """
+        if not hasattr(self, 'pomodoro_view') or not self.pomodoro_view:
+            logger.warning("[MainWindow] Pomodoro view not available")
+            return
+        
+        # Pauzuj sesję
+        self.pomodoro_view.assistant_pause()
+        logger.success("[MainWindow] Assistant paused pomodoro session")
+    
+    def handle_assistant_pomodoro_stop(self, command) -> None:
+        """
+        Zatrzymuje sesję Pomodoro przez asystenta głosowego.
+        
+        Args:
+            command: Sparsowana komenda ParsedCommand
+        """
+        if not hasattr(self, 'pomodoro_view') or not self.pomodoro_view:
+            logger.warning("[MainWindow] Pomodoro view not available")
+            return
+        
+        # Zatrzymaj sesję
+        self.pomodoro_view.assistant_stop()
+        logger.success("[MainWindow] Assistant stopped pomodoro session")
+    
+    def apply_theme(self):
+        """Aplikuje aktualny motyw do wszystkich widoków"""
+        logger.info("[MainWindow] Applying theme to all views")
+        
+        # Aplikuj motyw do wszystkich widoków które mają metodę apply_theme
+        views_to_update = [
+            ('settings_view', self.settings_view),
+            ('task_view', self.task_view),
+            ('kanban_view', self.kanban_view),
+            ('notes_view', self.notes_view),
+            ('habit_view', getattr(self, 'habit_view', None)),
+            ('callcryptor_view', getattr(self, 'callcryptor_view', None)),
+            ('navigation_bar', getattr(self, 'navigation_bar', None)),
+            ('title_bar', getattr(self, 'title_bar', None)),
+            ('quick_input', getattr(self, 'quick_input', None)),
+        ]
+        
+        for view_name, view in views_to_update:
+            if view and hasattr(view, 'apply_theme'):
+                try:
+                    view.apply_theme()
+                    logger.debug(f"[MainWindow] Applied theme to {view_name}")
+                except Exception as e:
+                    logger.error(f"[MainWindow] Failed to apply theme to {view_name}: {e}")
+        
+        logger.success("[MainWindow] Theme applied to all views")
+
+
+
+
+
+

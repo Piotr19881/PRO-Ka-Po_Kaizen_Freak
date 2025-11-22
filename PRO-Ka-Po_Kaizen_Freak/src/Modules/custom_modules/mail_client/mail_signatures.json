@@ -1,0 +1,17 @@
+[
+  {
+    "name": "Służbowy",
+    "content": "Pozdrawiam,\nJan Kowalski\nDział IT",
+    "default": true
+  },
+  {
+    "name": "Krótki",
+    "content": "Pozdrawiam\nJan",
+    "default": false
+  },
+  {
+    "name": "Kura dorosła",
+    "content": "Kura dorosła\n(",
+    "default": false
+  }
+]

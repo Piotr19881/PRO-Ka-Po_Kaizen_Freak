@@ -1,0 +1,11 @@
+[
+  {
+    "name": "Newslettery",
+    "enabled": true,
+    "field": "subject",
+    "operator": "contains",
+    "value": "newsletter",
+    "target_folder": "Newslettery",
+    "mark_as_read": false
+  }
+]

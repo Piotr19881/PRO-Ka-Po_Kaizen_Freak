@@ -1,0 +1,211 @@
+{
+  "phrases": [
+    {
+      "id": "72441021-79e7-444d-8c49-7a4376a2dee6",
+      "method_name": "create_task",
+      "language": "pl",
+      "phrase": "utwórz zadanie",
+      "is_active": true,
+      "is_custom": false,
+      "priority": 10
+    },
+    {
+      "id": "f0a6b455-7458-4a21-aa6f-8f6d67b0c4f0",
+      "method_name": "create_task",
+      "language": "pl",
+      "phrase": "dodaj zadanie",
+      "is_active": true,
+      "is_custom": false,
+      "priority": 10
+    },
+    {
+      "id": "a4d2b496-8337-4536-a853-6cb79aec6b5c",
+      "method_name": "create_task",
+      "language": "pl",
+      "phrase": "nowe zadanie",
+      "is_active": true,
+      "is_custom": false,
+      "priority": 10
+    },
+    {
+      "id": "15f4d20c-1b48-4e3f-b259-2b8fb4333133",
+      "method_name": "create_task",
+      "language": "pl",
+      "phrase": "stwórz zadanie",
+      "is_active": true,
+      "is_custom": false,
+      "priority": 9
+    },
+    {
+      "id": "a3f74687-62b5-42a4-9c26-01c082fe898b",
+      "method_name": "create_task",
+      "language": "pl",
+      "phrase": "zadanie",
+      "is_active": true,
+      "is_custom": false,
+      "priority": 8
+    },
+    {
+      "id": "c80de0f3-c7cd-4bab-bd0d-f7330c5d6765",
+      "method_name": "create_task",
+      "language": "en",
+      "phrase": "create task",
+      "is_active": true,
+      "is_custom": false,
+      "priority": 10
+    },
+    {
+      "id": "f76cab91-2149-4763-ab76-f071508b788d",
+      "method_name": "create_task",
+      "language": "en",
+      "phrase": "add task",
+      "is_active": true,
+      "is_custom": false,
+      "priority": 10
+    },
+    {
+      "id": "b0b2605c-9669-4272-8fdd-e54a275bc4ae",
+      "method_name": "create_task",
+      "language": "en",
+      "phrase": "new task",
+      "is_active": true,
+      "is_custom": false,
+      "priority": 10
+    },
+    {
+      "id": "3b58bb1c-2349-40b9-bf41-3e8ffdc75a7c",
+      "method_name": "create_task",
+      "language": "en",
+      "phrase": "task",
+      "is_active": true,
+      "is_custom": false,
+      "priority": 8
+    },
+    {
+      "id": "823b56a6-9a05-40a8-97ee-4923dab1e2bc",
+      "method_name": "create_task",
+      "language": "de",
+      "phrase": "aufgabe erstellen",
+      "is_active": true,
+      "is_custom": false,
+      "priority": 10
+    },
+    {
+      "id": "df881744-5ecc-431e-96cc-a1b4a5b09ff2",
+      "method_name": "create_task",
+      "language": "de",
+      "phrase": "aufgabe hinzufügen",
+      "is_active": true,
+      "is_custom": false,
+      "priority": 10
+    },
+    {
+      "id": "ebaebb89-fb1d-48d8-935f-49973f0f8cdd",
+      "method_name": "create_task",
+      "language": "de",
+      "phrase": "neue aufgabe",
+      "is_active": true,
+      "is_custom": false,
+      "priority": 10
+    },
+    {
+      "id": "22b6db19-64cf-452d-b965-3713e764c8c7",
+      "method_name": "create_note",
+      "language": "pl",
+      "phrase": "utwórz notatkę",
+      "is_active": true,
+      "is_custom": false,
+      "priority": 10
+    },
+    {
+      "id": "9c32bee3-6312-4732-8a1e-be74adaef917",
+      "method_name": "create_note",
+      "language": "pl",
+      "phrase": "dodaj notatkę",
+      "is_active": true,
+      "is_custom": false,
+      "priority": 10
+    },
+    {
+      "id": "1e338761-050b-45f1-bf27-42b086323b04",
+      "method_name": "create_note",
+      "language": "pl",
+      "phrase": "nowa notatka",
+      "is_active": true,
+      "is_custom": false,
+      "priority": 10
+    },
+    {
+      "id": "cc75816b-ccfe-4967-a229-a36295d2c59f",
+      "method_name": "create_note",
+      "language": "pl",
+      "phrase": "notatka",
+      "is_active": true,
+      "is_custom": false,
+      "priority": 8
+    },
+    {
+      "id": "c563538e-f1bb-48d9-9230-8222577bd905",
+      "method_name": "create_note",
+      "language": "en",
+      "phrase": "create note",
+      "is_active": true,
+      "is_custom": false,
+      "priority": 10
+    },
+    {
+      "id": "a93ca3cf-739a-48a6-a8db-4f5c0a4b3c83",
+      "method_name": "create_note",
+      "language": "en",
+      "phrase": "add note",
+      "is_active": true,
+      "is_custom": false,
+      "priority": 10
+    },
+    {
+      "id": "8f4fb1fb-0eb9-4d59-82a1-814627078c1f",
+      "method_name": "create_note",
+      "language": "en",
+      "phrase": "new note",
+      "is_active": true,
+      "is_custom": false,
+      "priority": 10
+    },
+    {
+      "id": "b4334198-71ff-47d0-aa70-9eeadfa6a1c6",
+      "method_name": "create_note",
+      "language": "en",
+      "phrase": "note",
+      "is_active": true,
+      "is_custom": false,
+      "priority": 8
+    },
+    {
+      "id": "c278350c-e395-4115-874a-7fda453a5e12",
+      "method_name": "create_note",
+      "language": "de",
+      "phrase": "notiz erstellen",
+      "is_active": true,
+      "is_custom": false,
+      "priority": 10
+    },
+    {
+      "id": "d0a56176-ebca-42ef-8127-688ef678ba63",
+      "method_name": "create_note",
+      "language": "de",
+      "phrase": "notiz hinzufügen",
+      "is_active": true,
+      "is_custom": false,
+      "priority": 10
+    },
+    {
+      "id": "a01dea86-5e11-4b8d-9bf3-4463daa4dd41",
+      "method_name": "create_note",
+      "language": "de",
+      "phrase": "neue notiz",
+      "is_active": true,
+      "is_custom": false,
+      "priority": 10
+    }
+  ]
+}

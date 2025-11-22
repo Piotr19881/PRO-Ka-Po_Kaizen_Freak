@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pomoc - Moduł Zadań</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #34495e;
+            margin-top: 30px;
+            border-left: 4px solid #3498db;
+            padding-left: 15px;
+        }
+        h3 {
+            color: #7f8c8d;
+            margin-top: 20px;
+        }
+        .feature-box {
+            background: #ecf0f1;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        .info {
+            background: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        ul {
+            margin: 10px 0;
+            padding-left: 30px;
+        }
+        li {
+            margin: 5px 0;
+        }
+        .code {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .shortcut {
+            background: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        .column-desc {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            border-left: 4px solid #6c757d;
+        }
+    </style>
+    <link rel="stylesheet" href="assets/lang-switcher.css">
+    <script defer src="assets/lang-switcher.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Moduł Zadań</h1>
+
+        <p>Moduł Zadań to centralny element aplikacji PRO-Ka-Po, umożliwiający tworzenie, organizowanie i zarządzanie zadaniami. Oferuje elastyczną konfigurację kolumn, zaawansowane filtrowanie oraz integrację z innymi modułami aplikacji.</p>
+
+        <h2>Podstawowe Funkcje</h2>
+
+        <div class="feature-box">
+            <h3>Dynamiczna Konfiguracja Kolumn</h3>
+            <ul>
+                <li><strong>Dowolne kolumny:</strong> Tekstowe, liczbowe, walutowe, daty, listy wyboru</li>
+                <li><strong>Konfiguracja użytkownika:</strong> Dodawanie, usuwanie i zmiana kolejności kolumn</li>
+                <li><strong>Automatyczne rozpoznawanie:</strong> Typów danych i odpowiednich kontrolek</li>
+                <li><strong>Zachowywanie ustawień:</strong> Konfiguracja zapisywana dla każdego użytkownika</li>
+            </ul>
+        </div>
+
+        <div class="feature-box">
+            <h3>Zarządzanie Zadaniami</h3>
+            <ul>
+                <li><strong>Tworzenie zadań:</strong> Szybkie dodawanie przez pasek zadań lub dialog</li>
+                <li><strong>Edycja w miejscu:</strong> Podwójne kliknięcie na komórce do edycji</li>
+                <li><strong>Status zadania:</strong> Aktywne, ukończone, zarchiwizowane</li>
+                <li><strong>Subtaski:</strong> Hierarchiczna struktura zadań</li>
+                <li><strong>Tagi:</strong> Kategoryzacja i filtrowanie zadań</li>
+            </ul>
+        </div>
+
+        <div class="feature-box">
+            <h3>Zaawansowane Filtrowanie</h3>
+            <ul>
+                <li><strong>Status:</strong> Wszystkie, aktywne, ukończone, zarchiwizowane</li>
+                <li><strong>Tagi:</strong> Filtrowanie po jednym lub wielu tagach</li>
+                <li><strong>Wyszukiwanie:</strong> Pełnotekstowe w tytułach i treści</li>
+                <li><strong>Dynamiczne:</strong> Filtry aktualizowane na żywo</li>
+            </ul>
+        </div>
+
+        <h2>Konfiguracja Kolumn</h2>
+
+        <div class="feature-box">
+            <h3>Typy Kolumn</h3>
+            <ul>
+                <li><strong>Tekst:</strong> Pola tekstowe z walidacją</li>
+                <li><strong>Liczba:</strong> Liczby całkowite i dziesiętne</li>
+                <li><strong>Waluta:</strong> Wartości pieniężne z formatowaniem</li>
+                <li><strong>Data:</strong> Wybór daty z kalendarzem</li>
+                <li><strong>Czas trwania:</strong> Godziny i minuty</li>
+                <li><strong>Lista:</strong> Predefiniowane wartości do wyboru</li>
+                <li><strong>Checkbox:</strong> Pola typu prawda/fałsz</li>
+            </ul>
+        </div>
+
+        <div class="feature-box">
+            <h3>Konfiguracja Kolumn Systemowych</h3>
+            <ul>
+                <li><strong>ID:</strong> Unikalny identyfikator zadania</li>
+                <li><strong>Data dodania:</strong> Automatycznie ustawiana data utworzenia</li>
+                <li><strong>Zadanie:</strong> Główny tytuł zadania</li>
+                <li><strong>Status:</strong> Stan wykonania zadania</li>
+                <li><strong>Tag:</strong> Etykiety kategoryzacyjne</li>
+                <li><strong>KanBan:</strong> Przycisk przeniesienia na tablicę KanBan</li>
+                <li><strong>Notatka:</strong> Łącze do powiązanej notatki</li>
+                <li><strong>Archiwum:</strong> Status archiwizacji</li>
+            </ul>
+        </div>
+
+        <h2>Obsługa Motywów</h2>
+
+        <div class="feature-box">
+            <h3>Dostosowanie Wyglądu</h3>
+            <ul>
+                <li><strong>Automatyczne motywy:</strong> Dostosowanie do wybranego motywu aplikacji</li>
+                <li><strong>Kolory wierszy:</strong> Wizualne wyróżnienie zadań</li>
+                <li><strong>Responsywność:</strong> Dostosowanie do różnych rozmiarów ekranu</li>
+                <li><strong>Wysoka kontrastowość:</strong> Czytelność w różnych warunkach</li>
+            </ul>
+        </div>
+
+        <h2>Wsparcie Językowe</h2>
+
+        <div class="feature-box">
+            <h3>Internacjonalizacja</h3>
+            <ul>
+                <li><strong>Wiele języków:</strong> Pełne wsparcie dla tłumaczeń</li>
+                <li><strong>Automatyczne odświeżanie:</strong> Natychmiastowa zmiana języka</li>
+                <li><strong>Lokalizacja:</strong> Formatowanie dat, liczb i walut</li>
+            </ul>
+        </div>
+
+        <h2>Jak Korzystać</h2>
+
+        <h3>Dodawanie Nowego Zadania</h3>
+        <ol>
+            <li>Kliknij przycisk "Nowe zadanie" lub użyj skrótu <span class="shortcut">Ctrl+N</span></li>
+            <li>Wypełnij tytuł zadania</li>
+            <li>Dodaj opis jeśli potrzeba</li>
+            <li>Ustaw priorytet i termin wykonania</li>
+            <li>Kliknij "Zapisz"</li>
+        </ol>
+
+        <h3>Edycja Zadań</h3>
+        <div class="info">
+            <h3>Edycja Bezpośrednia w Tabeli</h3>
+            <ol>
+                <li><strong>Podwójne kliknięcie:</strong> Na komórce aby otworzyć edycję</li>
+                <li><strong>Checkboxy:</strong> Kliknij aby zmienić status</li>
+                <li><strong>Listy:</strong> Wybierz wartość z rozwijanego menu</li>
+                <li><strong>Automatyczne zapisywanie:</strong> Zmiany są zachowywane natychmiast</li>
+            </ol>
+        </div>
+
+        <h3>Filtrowanie i Wyszukiwanie</h3>
+        <ol>
+            <li><strong>Status:</strong> Wybierz z listy rozwijanej "Wszystkie", "Aktywne", "Ukończone", "Zarchiwizowane"</li>
+            <li><strong>Tagi:</strong> Wybierz tag z listy aby filtrować zadania</li>
+            <li><strong>Wyszukiwanie:</strong> Wpisz tekst w polu "Szukaj" - wyszukuje w tytułach i treści</li>
+            <li><strong>Sortowanie:</strong> Kliknij nagłówek kolumny aby zmienić kolejność</li>
+        </ol>
+
+        <h3>Konfiguracja Kolumn</h3>
+        <ol>
+            <li>Kliknij przycisk "Konfiguruj" w prawym górnym rogu</li>
+            <li>Dodaj nową kolumnę przyciskiem "+"</li>
+            <li>Wybierz typ kolumny i ustaw właściwości</li>
+            <li>Zmień kolejność przeciągając kolumny</li>
+            <li>Usuń kolumnę przyciskiem kosza</li>
+            <li>Zapisz konfigurację</li>
+        </ol>
+
+        <h3>Zarządzanie Tagami</h3>
+        <ol>
+            <li>W kolumnie "Tag" kliknij na polu zadania</li>
+            <li>Wybierz tag z listy lub dodaj nowy</li>
+            <li>Tagi są kolorowane dla lepszej identyfikacji</li>
+            <li>Użyj filtrów aby zobaczyć zadania z wybranym tagiem</li>
+        </ol>
+
+        <h3>Subtaski</h3>
+        <ol>
+            <li>W kolumnie "Subtaski" kliknij przycisk "▼" aby rozwinąć</li>
+            <li>Kliknij przycisk "+" aby dodać nowy subtask</li>
+            <li>Subtaski są wcięte i oznaczone prefiksem</li>
+            <li>Można edytować subtaski tak samo jak główne zadania</li>
+        </ol>
+
+        <h2>Integracja z Innymi Modułami</h2>
+
+        <div class="feature-box">
+            <h3>KanBan</h3>
+            <ul>
+                <li><strong>Przycisk "→":</strong> Dodaje zadanie do tablicy KanBan</li>
+                <li><strong>Automatyczna synchronizacja:</strong> Zmiany statusu odzwierciedlane w obu widokach</li>
+                <li><strong>Subtaski:</strong> Mogą być przenoszone razem z zadaniem głównym</li>
+            </ul>
+        </div>
+
+        <div class="feature-box">
+            <h3>Notatki</h3>
+            <ul>
+                <li><strong>Przycisk "📝":</strong> Tworzy lub otwiera notatkę powiązaną z zadaniem</li>
+                <li><strong>Automatyczne tworzenie:</strong> Notatki z zadań KanBan</li>
+                <li><strong>Transkrypcje:</strong> Import z modułu CallCryptor</li>
+            </ul>
+        </div>
+
+        <div class="feature-box">
+            <h3>Alarmy</h3>
+            <ul>
+                <li><strong>Kolumna "Alarm":</strong> Podwójne kliknięcie otwiera dialog ustawiania alarmu</li>
+                <li><strong>Automatyczne alarmy:</strong> Dla zadań z terminami wykonania</li>
+                <li><strong>Powiadomienia:</strong> Systemowe powiadomienia o zbliżających się terminach</li>
+            </ul>
+        </div>
+
+        <h2>Optymalizacja Wydajności</h2>
+
+        <div class="feature-box">
+            <h3>Cache i Batch Updates</h3>
+            <ul>
+                <li><strong>Cache subtasków:</strong> Jedno zapytanie zamiast wielu (-60% zapytań DB)</li>
+                <li><strong>Batch updates:</strong> Grupowanie zmian w jednej transakcji (-70% zapytań DB)</li>
+                <li><strong>Debounce:</strong> Opóźnione odświeżanie dla płynniejszej pracy</li>
+                <li><strong>Lazy loading:</strong> Ładowanie danych na żądanie</li>
+            </ul>
+        </div>
+
+        <h2>Konfiguracja Blokady Tabeli</h2>
+
+        <div class="feature-box">
+            <h3>Tryby Edycji</h3>
+            <ul>
+                <li><strong>Odblokowana:</strong> Pełna edycja, przeciąganie kolumn, zmiana szerokości</li>
+                <li><strong>Zablokowana:</strong> Tylko odczyt, stałe szerokości kolumn</li>
+                <li><strong>Auto-stretch:</strong> Automatyczne dopasowanie kolumny "Zadanie"</li>
+                <li><strong>Zachowywanie ustawień:</strong> Preferencje użytkownika są pamiętane</li>
+            </ul>
+        </div>
+
+        <h2>Wskazówki i Najlepsze Praktyki</h2>
+
+        <div class="info">
+            <h3>Organizacja Pracy</h3>
+            <ul>
+                <li>Używaj tagów konsekwentnie dla kategoryzacji zadań</li>
+                <li>Konfiguruj kolumny zgodnie z potrzebami workflow</li>
+                <li>Używaj subtasków dla złożonych zadań wieloetapowych</li>
+                <li>Regularnie archiwizuj ukończone zadania</li>
+                <li>Wykorzystuj integrację z KanBan dla wizualizacji postępów</li>
+            </ul>
+        </div>
+
+        <div class="warning">
+            <h3>Unikaj Przeciążenia</h3>
+            <ul>
+                <li>Nie twórz zbyt wielu kolumn - skup się na najważniejszych</li>
+                <li>Używaj filtrów zamiast przewijania długich list</li>
+                <li>Regularnie czyść zarchiwizowane zadania</li>
+                <li>Optymalizuj liczbę subtasków na zadanie</li>
+            </ul>
+        </div>
+
+        <div class="feature-box">
+            <h3>Synchronizacja i Backup</h3>
+            <ul>
+                <li>Automatyczna synchronizacja między urządzeniami</li>
+                <li>Lokalne kopie zapasowe ustawień</li>
+                <li>Eksport zadań do formatów zewnętrznych</li>
+                <li>Przywracanie usuniętych zadań</li>
+            </ul>
+        </div>
+
+        <h2>Rozwiązywanie Problemów</h2>
+
+        <h3>Zadania Nie Są Zapisywane</h3>
+        <ul>
+            <li>Sprawdź połączenie z bazą danych</li>
+            <li>Upewnij się, że masz uprawnienia do zapisu</li>
+            <li>Sprawdź ilość wolnego miejsca na dysku</li>
+            <li>Spróbuj zamknąć i ponownie otworzyć aplikację</li>
+        </ul>
+
+        <h3>Edycja w Tabeli Nie Działa</h3>
+        <ul>
+            <li>Sprawdź czy tabela jest odblokowana (przycisk "🔓")</li>
+            <li>Upewnij się, że klikasz w prawidłową komórkę</li>
+            <li>Sprawdź ustawienia kolumny (czy jest edytowalna)</li>
+            <li>Spróbuj odświeżyć widok</li>
+        </ul>
+
+        <h3>Filtry Nie Działają</h3>
+        <ul>
+            <li>Sprawdź czy zadania mają przypisane odpowiednie tagi</li>
+            <li>Użyj "Wszystkie" aby zobaczyć wszystkie zadania</li>
+            <li>Odśwież widok przyciskiem odświeżania</li>
+            <li>Sprawdź pisownię w polu wyszukiwania</li>
+        </ul>
+
+        <h3>Problemy z Wydajnością</h3>
+        <ul>
+            <li>Zwiększ limit wyświetlanych zadań w ustawieniach</li>
+            <li>Użyj bardziej specyficznych filtrów</li>
+            <li>Zarchiwizuj stare zadania</li>
+            <li>Sprawdź wykorzystanie pamięci aplikacji</li>
+        </ul>
+
+        <h3>Błędy Synchronizacji</h3>
+        <ul>
+            <li>Sprawdź połączenie internetowe</li>
+            <li>Upewnij się, że jesteś zalogowany</li>
+            <li>Sprawdź status synchronizacji w ustawieniach</li>
+            <li>Zrestartuj aplikację jeśli problem się powtarza</li>
+        </ul>
+
+        <h2>Informacje Techniczne</h2>
+
+        <div class="feature-box">
+            <h3>Architektura</h3>
+            <ul>
+                <li><strong>Baza danych:</strong> SQLite z indeksowaniem pełnotekstowym</li>
+                <li><strong>Batch updates:</strong> Optymalizacja zapisów (-70% zapytań DB)</li>
+                <li><strong>Cache subtasków:</strong> Jedno zapytanie dla wszystkich subtasków</li>
+                <li><strong>Dynamiczne kolumny:</strong> Konfiguracja przechowywana w JSON</li>
+                <li><strong>Walidacja danych:</strong> Automatyczna walidacja typów i zakresów</li>
+            </ul>
+        </div>
+
+        <div class="info">
+            <h3>Kompatybilność</h3>
+            <p>Moduł zadań jest kompatybilny z wszystkimi wersjami aplikacji PRO-Ka-Po. Konfiguracja kolumn jest przechowywana lokalnie i synchronizowana między urządzeniami.</p>
+        </div>
+
+        <h2>Plany Rozwoju</h2>
+
+        <div class="feature-box">
+            <h3>Przyszłe Funkcje</h3>
+            <ul>
+                <li>Zaawansowane reguły automatycznego przypisywania tagów</li>
+                <li>Statystyki produktywności i analizy workflow</li>
+                <li>Współpraca zespołowa w czasie rzeczywistym</li>
+                <li>Integracja z kalendarzami zewnętrznymi</li>
+                <li>Automatyzacja zadań (triggery, warunki)</li>
+                <li>Eksport do formatów biurowych (Excel, CSV)</li>
+                <li>Szablony zadań dla często powtarzanych czynności</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

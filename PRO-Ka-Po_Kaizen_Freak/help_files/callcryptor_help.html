@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pomoc - Moduł CallCryptor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #34495e;
+            margin-top: 30px;
+            border-left: 4px solid #3498db;
+            padding-left: 15px;
+        }
+        h3 {
+            color: #7f8c8d;
+            margin-top: 20px;
+        }
+        .feature-box {
+            background: #ecf0f1;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        .info {
+            background: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        ul {
+            margin: 10px 0;
+            padding-left: 30px;
+        }
+        li {
+            margin: 5px 0;
+        }
+        .code {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .shortcut {
+            background: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        .table-desc {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+    <link rel="stylesheet" href="assets/lang-switcher.css">
+    <script defer src="assets/lang-switcher.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Moduł CallCryptor</h1>
+
+        <p>Moduł CallCryptor to zaawansowane narzędzie do zarządzania nagraniami rozmów telefonicznych. Umożliwia organizację, transkrypcję, analizę AI oraz integrację z innymi modułami aplikacji.</p>
+
+        <h2>Podstawowe Funkcje</h2>
+
+        <div class="feature-box">
+            <h3>Zarządzanie Źródłami Nagrań</h3>
+            <ul>
+                <li><strong>Folder lokalny:</strong> Skanowanie folderów w poszukiwaniu plików audio</li>
+                <li><strong>Konto e-mail:</strong> Automatyczne pobieranie załączników z wiadomości e-mail</li>
+                <li><strong>Systemowy folder "Nagrania":</strong> Automatycznie tworzony folder dla nowych nagrań</li>
+                <li><strong>Wiele źródeł:</strong> Możliwość dodania wielu niezależnych źródeł</li>
+            </ul>
+        </div>
+
+        <div class="feature-box">
+            <h3>Lista Nagrań</h3>
+            <ul>
+                <li><strong>Tabela z nagraniami:</strong> Przegląd wszystkich nagrań w formie tabelarycznej</li>
+                <li><strong>Kolumny informacyjne:</strong> Kontakt, czas trwania, data, tagi</li>
+                <li><strong>Ulubione:</strong> Oznaczanie nagrań gwiazdką</li>
+                <li><strong>Statusy:</strong> Wizualne oznaczenia ukończonych akcji (transkrypcja, podsumowanie AI)</li>
+            </ul>
+        </div>
+
+        <div class="feature-box">
+            <h3>Akcje dla Nagrań</h3>
+            <ul>
+                <li><strong>Odtwarzanie:</strong> Bezpośrednie odtwarzanie plików audio</li>
+                <li><strong>Transkrypcja:</strong> Konwersja mowy na tekst z wykorzystaniem AI</li>
+                <li><strong>Podsumowanie AI:</strong> Inteligentna analiza i podsumowanie rozmowy</li>
+                <li><strong>Tworzenie notatek:</strong> Automatyczne generowanie notatek z rozmów</li>
+                <li><strong>Tworzenie zadań:</strong> Ekstrakcja zadań z podsumowań AI</li>
+                <li><strong>Archiwizacja:</strong> Przenoszenie nagrań do archiwum</li>
+                <li><strong>Usuwanie:</strong> Usuwanie niepotrzebnych nagrań</li>
+            </ul>
+        </div>
+
+        <h2>Synchronizacja i Współpraca</h2>
+
+        <div class="info">
+            <h3>Synchronizacja z Serwerem</h3>
+            <p>Nagrania mogą być synchronizowane między urządzeniami. Wszystkie metadane, transkrypcje i podsumowania AI są automatycznie synchronizowane.</p>
+        </div>
+
+        <div class="feature-box">
+            <h3>WebSocket - Aktualizacje w Czasie Rzeczywistym</h3>
+            <ul>
+                <li>Automatyczna synchronizacja zmian między urządzeniami</li>
+                <li>Możliwość pracy zespołowej na nagraniach</li>
+                <li>Real-time aktualizacje statusów przetwarzania</li>
+            </ul>
+        </div>
+
+        <h2>System Tagów</h2>
+
+        <div class="feature-box">
+            <h3>Zarządzanie Tagami</h3>
+            <ul>
+                <li><strong>Kolory tagów:</strong> Wizualne rozróżnienie kategorii</li>
+                <li><strong>Filtrowanie:</strong> Szybkie znajdowanie nagrań po tagach</li>
+                <li><strong>Tagi predefiniowane:</strong> Ważne, Praca, Osobiste, Do przejrzenia</li>
+                <li><strong>Zarządzanie tagami:</strong> Dodawanie, edycja i usuwanie własnych tagów</li>
+            </ul>
+        </div>
+
+        <h2>Filtry i Wyszukiwanie</h2>
+
+        <div class="feature-box">
+            <h3>Opcje Filtrowania</h3>
+            <ul>
+                <li><strong>Wyszukiwarka tekstowa:</strong> Szukanie po nazwie kontaktu lub pliku</li>
+                <li><strong>Filtr tagów:</strong> Wyświetlanie tylko nagrań z wybranym tagiem</li>
+                <li><strong>Filtr daty:</strong> Dzisiaj, wczoraj, ostatnie 7/30 dni, bieżący/poprzedni miesiąc</li>
+                <li><strong>Ulubione:</strong> Szybki dostęp do oznaczonych nagrań</li>
+            </ul>
+        </div>
+
+        <h2>Tryb Kolejki</h2>
+
+        <div class="feature-box">
+            <h3>Przetwarzanie Wsadowe</h3>
+            <ul>
+                <li><strong>Wybór wielu nagrań:</strong> Zaznaczanie checkboxów dla transkrypcji i podsumowań</li>
+                <li><strong>Przetwarzanie wsadowe:</strong> Jednoczesne przetwarzanie wielu plików</li>
+                <li><strong>Postęp przetwarzania:</strong> Wizualny wskaźnik postępu</li>
+                <li><strong>Anulowanie:</strong> Możliwość przerwania przetwarzania</li>
+            </ul>
+        </div>
+
+        <h2>Integracja z AI</h2>
+
+        <div class="feature-box">
+            <h3>Obsługiwane Dostawcy AI</h3>
+            <ul>
+                <li><strong>Google Gemini:</strong> Zaawansowana transkrypcja i analiza</li>
+                <li><strong>OpenAI Whisper:</strong> Specjalistyczna transkrypcja audio</li>
+                <li><strong>Inni dostawcy:</strong> Claude, Grok, DeepSeek (w zależności od konfiguracji)</li>
+            </ul>
+        </div>
+
+        <div class="info">
+            <h3>Konfiguracja AI</h3>
+            <p>Aby korzystać z funkcji AI, należy skonfigurować klucze API w ustawieniach aplikacji. Moduł automatycznie wykrywa dostępne providery i wybiera optymalny dla danego zadania.</p>
+        </div>
+
+        <h2>Obsługa Motywów</h2>
+
+        <div class="feature-box">
+            <h3>Dostosowanie Wyglądu</h3>
+            <ul>
+                <li>Automatyczne dostosowanie do wybranego motywu aplikacji</li>
+                <li>Kolory tagów zgodne z motywem</li>
+                <li>Dynamiczna zmiana kolorów przycisków i statusów</li>
+            </ul>
+        </div>
+
+        <h2>Wsparcie Językowe</h2>
+
+        <div class="feature-box">
+            <h3>Internacjonalizacja</h3>
+            <ul>
+                <li>Pełne wsparcie dla wielu języków</li>
+                <li>Automatyczne tłumaczenie wszystkich etykiet i komunikatów</li>
+                <li>Lokalizowane formaty daty i czasu</li>
+            </ul>
+        </div>
+
+        <h2>Jak Korzystać</h2>
+
+        <h3>Dodawanie Źródła Nagrań</h3>
+        <ol>
+            <li>Kliknij przycisk "➕" w toolbarze</li>
+            <li>Wybierz typ źródła: Folder lub E-mail</li>
+            <li>Wypełnij wymagane pola:
+                <ul>
+                    <li><strong>Folder:</strong> Ścieżka do folderu z nagraniami</li>
+                    <li><strong>E-mail:</strong> Konfiguracja konta e-mail i kryteria wyszukiwania</li>
+                </ul>
+            </li>
+            <li>Kliknij "Dodaj źródło"</li>
+        </ol>
+
+        <h3>Skanowanie Nagrań</h3>
+        <ol>
+            <li>Wybierz źródło z listy rozwijanej</li>
+            <li>Kliknij przycisk "🔄" (odśwież/skanuj)</li>
+            <li>Poczekaj na zakończenie skanowania</li>
+            <li>Sprawdź wyniki w oknie dialogowym</li>
+        </ol>
+
+        <h3>Oznaczanie Ulubionych</h3>
+        <ul>
+            <li>Kliknij gwiazdkę ⭐ w pierwszej kolumnie tabeli</li>
+            <li>Gwiazda zmieni kolor na złoty dla ulubionych</li>
+            <li>Użyj filtra "⭐ Ulubione" aby zobaczyć tylko ulubione nagrania</li>
+        </ul>
+
+        <h3>Przypisywanie Tagów</h3>
+        <ol>
+            <li>W kolumnie "Tag" kliknij listę rozwijaną</li>
+            <li>Wybierz odpowiedni tag z listy</li>
+            <li>Tło comboboxa zmieni kolor zgodnie z tagiem</li>
+            <li>Użyj filtra tagów aby filtrować listę</li>
+        </ol>
+
+        <h3>Transkrypcja Nagrania</h3>
+        <ol>
+            <li>Kliknij przycisk "📝" w kolumnie "Transkrypcja"</li>
+            <li>Wybierz dostawcę AI (jeśli skonfigurowanych jest kilka)</li>
+            <li>Poczekaj na przetworzenie</li>
+            <li>Przejrzyj i edytuj transkrypcję w oknie dialogowym</li>
+            <li>Transkrypcja zostanie zapisana w bazie danych</li>
+        </ol>
+
+        <h3>Podsumowanie AI</h3>
+        <ol>
+            <li>Kliknij przycisk "🪄" w kolumnie "AI Summary"</li>
+            <li>Moduł automatycznie przeanalizuje nagranie</li>
+            <li>Przejrzyj podsumowanie w zakładkach:
+                <ul>
+                    <li><strong>Podsumowanie:</strong> Krótki opis rozmowy</li>
+                    <li><strong>Szczegóły:</strong> Szczegółowa analiza</li>
+                    <li><strong>Zadania:</strong> Wyciągnięte zadania do wykonania</li>
+                </ul>
+            </li>
+        </ol>
+
+        <h3>Tworzenie Notatki</h3>
+        <ol>
+            <li>Kliknij przycisk "📒" w kolumnie "Notatka"</li>
+            <li>Automatycznie utworzona zostanie notatka zawierająca:
+                <ul>
+                    <li>Metadane rozmowy (data, kontakt, czas trwania)</li>
+                    <li>Transkrypcję (jeśli dostępna)</li>
+                </ul>
+            </li>
+            <li>Notatka otworzy się w module Notatek</li>
+        </ol>
+
+        <h3>Tworzenie Zadań</h3>
+        <ol>
+            <li>Upewnij się, że nagranie ma podsumowanie AI z zadaniami</li>
+            <li>Kliknij przycisk "✅" w kolumnie "Zadanie"</li>
+            <li>Dialog AI Summary otworzy się na zakładce "Zadania"</li>
+            <li>Przejrzyj i potwierdź zadania do utworzenia</li>
+        </ol>
+
+        <h3>Używanie Trybu Kolejki</h3>
+        <ol>
+            <li>Kliknij przycisk "👥" aby aktywować tryb kolejki</li>
+            <li>Zaznacz checkboxy przy nagraniach do przetworzenia</li>
+            <li>Wybierz akcje: transkrypcja i/lub podsumowanie AI</li>
+            <li>Kliknij "Wykonaj kolejkę"</li>
+            <li>Monitoruj postęp w oknie dialogowym</li>
+        </ol>
+
+        <h2>Opis Kolumn Tabeli</h2>
+
+        <div class="table-desc">
+            <h3>Kolumny Tabeli Nagrań</h3>
+            <ul>
+                <li><strong>⭐ Ulubione:</strong> Oznaczanie nagrań gwiazdką</li>
+                <li><strong>Kontakt:</strong> Nazwa kontaktu lub nazwa pliku</li>
+                <li><strong>Czas trwania:</strong> Długość nagrania w formacie MM:SS</li>
+                <li><strong>Data:</strong> Data i czas nagrania</li>
+                <li><strong>Tag:</strong> Lista rozwijana z dostępnymi tagami</li>
+                <li><strong>▶️ Odtwórz:</strong> Otwórz nagranie w domyślnym odtwarzaczu</li>
+                <li><strong>📝 Transkrypcja:</strong> Rozpocznij transkrypcję AI</li>
+                <li><strong>🪄 AI Summary:</strong> Wygeneruj podsumowanie AI</li>
+                <li><strong>📒 Notatka:</strong> Utwórz notatkę z rozmowy</li>
+                <li><strong>✅ Zadanie:</strong> Utwórz zadania z podsumowania AI</li>
+                <li><strong>📦 Archiwizuj:</strong> Przenieś do archiwum</li>
+                <li><strong>🗑️ Usuń:</strong> Usuń nagranie</li>
+            </ul>
+        </div>
+
+        <h2>Wskazówki i Najlepsze Praktyki</h2>
+
+        <div class="info">
+            <h3>Organizacja Nagrań</h3>
+            <ul>
+                <li>Używaj opisowych nazw plików dla lepszej identyfikacji</li>
+                <li>Regularnie oznaczaj ważne nagrania jako ulubione</li>
+                <li>Przypisuj tagi do kategorii rozmów</li>
+                <li>Archiwizuj stare nagrania aby utrzymać porządek</li>
+            </ul>
+        </div>
+
+        <div class="warning">
+            <h3>Uwagi Dotyczące Wydajności</h3>
+            <ul>
+                <li>Transkrypcja i analiza AI mogą zająć kilka minut dla długich nagrań</li>
+                <li>Używaj trybu kolejki dla przetwarzania wielu plików</li>
+                <li>Sprawdź połączenie internetowe dla funkcji AI</li>
+            </ul>
+        </div>
+
+        <div class="feature-box">
+            <h3>Optymalizacja Przepływu Pracy</h3>
+            <ul>
+                <li>Skanuj nowe źródła regularnie przyciskiem odświeżania</li>
+                <li>Używaj filtrów do szybkiego znajdowania nagrań</li>
+                <li>Przetwarzaj nagrania wsadowo w trybie kolejki</li>
+                <li>Integruj z notatkami i zadaniami dla pełnego workflow</li>
+            </ul>
+        </div>
+
+        <h2>Rozwiązywanie Problemów</h2>
+
+        <h3>Brak Nagrań w Liście</h3>
+        <ul>
+            <li>Sprawdź czy źródło jest prawidłowo skonfigurowane</li>
+            <li>Użyj przycisku odświeżania aby przeskanować źródło</li>
+            <li>Sprawdź czy pliki mają obsługiwane rozszerzenia (.wav, .mp3, .m4a, .ogg)</li>
+            <li>Zweryfikuj ścieżki folderów</li>
+        </ul>
+
+        <h3>Błędy Transkrypcji AI</h3>
+        <ul>
+            <li>Sprawdź konfigurację kluczy API w ustawieniach</li>
+            <li>Upewnij się, że masz aktywne połączenie internetowe</li>
+            <li>Spróbuj innego dostawcy AI jeśli dostępny</li>
+            <li>Sprawdź jakość nagrania audio</li>
+        </ul>
+
+        <h3>Problemy z Synchronizacją</h3>
+        <ul>
+            <li>Sprawdź połączenie z serwerem</li>
+            <li>Upewnij się, że jesteś zalogowany</li>
+            <li>Sprawdź status synchronizacji w ustawieniach</li>
+        </ul>
+
+        <h3>Problemy z Odtwarzaniem</h3>
+        <ul>
+            <li>Sprawdź czy plik audio istnieje i jest dostępny</li>
+            <li>Upewnij się, że masz zainstalowany odtwarzacz audio</li>
+            <li>Spróbuj otworzyć plik ręcznie w eksploratorze</li>
+        </ul>
+
+        <h2>Plany Rozwoju</h2>
+
+        <div class="feature-box">
+            <h3>Przyszłe Funkcje</h3>
+            <ul>
+                <li>Zaawansowane filtry i wyszukiwanie</li>
+                <li>Automatyczne kategoryzowanie nagrań</li>
+                <li>Integracja z kalendarzem</li>
+                <li>Eksport transkrypcji do różnych formatów</li>
+                <li>Statystyki rozmów i analiza trendów</li>
+                <li>Współpraca zespołowa w czasie rzeczywistym</li>
+            </ul>
+        </div>
+
+        <div class="info">
+            <h3>Informacje Techniczne</h3>
+            <p>Moduł wykorzystuje PyQt6 do interfejsu użytkownika, SQLite do przechowywania metadanych oraz integrację z różnymi dostawcami AI. Synchronizacja oparta jest na WebSocket i REST API.</p>
+        </div>
+    </div>
+</body>
+</html>

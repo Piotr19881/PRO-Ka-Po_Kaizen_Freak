@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pomoc - Moduł KanBan</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #34495e;
+            margin-top: 30px;
+            border-left: 4px solid #3498db;
+            padding-left: 15px;
+        }
+        h3 {
+            color: #7f8c8d;
+            margin-top: 20px;
+        }
+        .feature-box {
+            background: #ecf0f1;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        .info {
+            background: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        ul {
+            margin: 10px 0;
+            padding-left: 30px;
+        }
+        li {
+            margin: 5px 0;
+        }
+        .code {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .shortcut {
+            background: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        .column-desc {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            border-left: 4px solid #6c757d;
+        }
+    </style>
+    <link rel="stylesheet" href="assets/lang-switcher.css">
+    <script defer src="assets/lang-switcher.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Moduł KanBan</h1>
+
+        <p>Moduł KanBan to wizualne narzędzie do zarządzania zadaniami w oparciu o metodologię KanBan. Umożliwia śledzenie postępów zadań poprzez przenoszenie kart między kolumnami reprezentującymi różne etapy pracy.</p>
+
+        <h2>Podstawowe Funkcje</h2>
+
+        <div class="feature-box">
+            <h3>Kolumny KanBan</h3>
+            <ul>
+                <li><strong>Do wykonania:</strong> Zadania oczekujące na rozpoczęcie</li>
+                <li><strong>W trakcie:</strong> Zadania aktualnie realizowane</li>
+                <li><strong>Ukończone:</strong> Zadania zakończone</li>
+                <li><strong>Odłożone:</strong> Zadania wstrzymane (opcjonalne)</li>
+                <li><strong>Do sprawdzenia:</strong> Zadania wymagające recenzji (opcjonalne)</li>
+            </ul>
+        </div>
+
+        <div class="feature-box">
+            <h3>Karty Zadań</h3>
+            <ul>
+                <li><strong>Tytuł zadania:</strong> Główna nazwa zadania</li>
+                <li><strong>Data dodania:</strong> Informacja o czasie utworzenia</li>
+                <li><strong>Status zadania:</strong> Checkbox do oznaczania ukończenia</li>
+                <li><strong>Przyciski akcji:</strong> Szybkie operacje na zadaniu</li>
+                <li><strong>Subtaski:</strong> Rozwijana lista zadań podrzędnych</li>
+            </ul>
+        </div>
+
+        <div class="feature-box">
+            <h3>Zarządzanie Zadaniami</h3>
+            <ul>
+                <li><strong>Przenoszenie kart:</strong> Przeciągnij i upuść między kolumnami</li>
+                <li><strong>Edycja tytułu:</strong> Podwójne kliknięcie na karcie</li>
+                <li><strong>Menu kontekstowe:</strong> Prawe kliknięcie na karcie</li>
+                <li><strong>Usuwanie z KanBan:</strong> Przycisk "←" w kolumnie "Do wykonania"</li>
+                <li><strong>Tworzenie notatek:</strong> Przycisk "📝" dla zadań w trakcie</li>
+            </ul>
+        </div>
+
+        <h2>Ustawienia KanBan</h2>
+
+        <div class="feature-box">
+            <h3>Ukrywanie Zakończonych Zadań</h3>
+            <ul>
+                <li><strong>Nigdy:</strong> Wszystkie zakończone zadania są widoczne</li>
+                <li><strong>Po 1 dniu:</strong> Ukryj zadania zakończone ponad 1 dzień temu</li>
+                <li><strong>Po 5 dniach:</strong> Ukryj zadania zakończone ponad 5 dni temu</li>
+                <li><strong>Po 14 dniach:</strong> Ukryj zadania zakończone ponad 14 dni temu</li>
+                <li><strong>Po archiwizacji:</strong> Ukryj tylko zadania zarchiwizowane</li>
+            </ul>
+        </div>
+
+        <div class="feature-box">
+            <h3>Limit Zadań w Trakcie</h3>
+            <ul>
+                <li><strong>Maksymalna liczba:</strong> 1-20 zadań jednocześnie w kolumnie "W trakcie"</li>
+                <li><strong>Automatyczne ukrywanie:</strong> Nadmiarowe zadania są automatycznie ukrywane</li>
+                <li><strong>Optymalizacja workflow:</strong> Zapobiega przeciążeniu pracą</li>
+            </ul>
+        </div>
+
+        <div class="feature-box">
+            <h3>Widoczność Kolumn</h3>
+            <ul>
+                <li><strong>Do wykonania:</strong> Zawsze widoczna (wymagana)</li>
+                <li><strong>W trakcie:</strong> Zawsze widoczna (wymagana)</li>
+                <li><strong>Ukończone:</strong> Zawsze widoczna (wymagana)</li>
+                <li><strong>Odłożone:</strong> Opcjonalna - włącz/wyłącz w ustawieniach</li>
+                <li><strong>Do sprawdzenia:</strong> Opcjonalna - włącz/wyłącz w ustawieniach</li>
+            </ul>
+        </div>
+
+        <h2>Obsługa Motywów</h2>
+
+        <div class="feature-box">
+            <h3>Dostosowanie Wyglądu</h3>
+            <ul>
+                <li><strong>Kolory kolumn:</strong> Każda kolumna ma charakterystyczny kolor</li>
+                <li><strong>Dynamiczne motywy:</strong> Automatyczna zmiana kolorów przy przełączaniu motywu</li>
+                <li><strong>Wyróżnienie kart:</strong> Wizualne wskazówki dla różnych typów zadań</li>
+                <li><strong>Responsywność:</strong> Dostosowanie do różnych rozmiarów ekranu</li>
+            </ul>
+        </div>
+
+        <h2>Wsparcie Językowe</h2>
+
+        <div class="feature-box">
+            <h3>Internacjonalizacja</h3>
+            <ul>
+                <li><strong>Wiele języków:</strong> Pełne wsparcie dla tłumaczeń</li>
+                <li><strong>Automatyczne odświeżanie:</strong> Natychmiastowa zmiana języka</li>
+                <li><strong>Lokalizowane formaty:</strong> Daty i czasy w lokalnym formacie</li>
+            </ul>
+        </div>
+
+        <h2>Jak Korzystać</h2>
+
+        <h3>Dodawanie Zadań do KanBan</h3>
+        <ol>
+            <li>Utwórz zadanie w głównym module zadań</li>
+            <li>Zadanie automatycznie pojawi się w kolumnie "Do wykonania"</li>
+            <li>Można również przeciągnąć istniejące zadania z listy zadań</li>
+        </ol>
+
+        <h3>Przenoszenie Zadań</h3>
+        <div class="info">
+            <h3>Metoda Przeciągnij i Upuść</h3>
+            <ol>
+                <li>Umieść kursor na karcie zadania</li>
+                <li>Przytrzymaj lewy przycisk myszy</li>
+                <li>Przeciągnij kartę do wybranej kolumny</li>
+                <li>Zwolnij przycisk myszy aby upuścić kartę</li>
+                <li>Zadanie zostanie automatycznie przeniesione</li>
+            </ol>
+        </div>
+
+        <h3>Metoda Przycisków</h3>
+        <ul>
+            <li><strong>Z "Do wykonania" do "W trakcie":</strong> Kliknij przycisk "→"</li>
+            <li><strong>Oznacz jako ukończone:</strong> Zaznacz checkbox w kolumnie "W trakcie"</li>
+            <li><strong>Usuń z KanBan:</strong> Kliknij przycisk "←" w kolumnie "Do wykonania"</li>
+        </ul>
+
+        <h3>Edycja Zadań</h3>
+        <ol>
+            <li><strong>Zmiana tytułu:</strong> Podwójne kliknięcie na karcie zadania</li>
+            <li><strong>Menu kontekstowe:</strong> Prawe kliknięcie na karcie</li>
+            <li><strong>Subtaski:</strong> Kliknij przycisk "⬇" aby rozwinąć/zwinąć subtaski</li>
+            <li><strong>Dodawanie subtasków:</strong> Menu przycisku "⬇" → "Dodaj subtask"</li>
+        </ol>
+
+        <h3>Tworzenie Notatek</h3>
+        <ol>
+            <li>W kolumnie "W trakcie" znajdź przycisk "📝"</li>
+            <li>Kliknij przycisk aby otworzyć notatkę zadania</li>
+            <li>Jeśli notatka nie istnieje, zostanie automatycznie utworzona</li>
+            <li>Notatka otworzy się w module Notatki</li>
+        </ol>
+
+        <h3>Konfiguracja Ustawień</h3>
+        <ol>
+            <li>Kliknij przycisk "Log" aby zobaczyć historię zmian</li>
+            <li>Dostosuj limit zadań w trakcie suwakiem</li>
+            <li>Wybierz opcję ukrywania zakończonych zadań</li>
+            <li>Włącz/wyłącz opcjonalne kolumny checkboxami</li>
+        </ol>
+
+        <h2>Opis Kolumn</h2>
+
+        <div class="column-desc">
+            <h3>Do wykonania (TODO)</h3>
+            <ul>
+                <li><strong>Cel:</strong> Zadania oczekujące na rozpoczęcie</li>
+                <li><strong>Akcje:</strong> Przenieś do "W trakcie" (→) lub usuń z KanBan (←)</li>
+                <li><strong>Informacje:</strong> Data dodania zadania</li>
+                <li><strong>Stan:</strong> Zadania w kolejce do realizacji</li>
+            </ul>
+        </div>
+
+        <div class="column-desc">
+            <h3>W trakcie (IN PROGRESS)</h3>
+            <ul>
+                <li><strong>Cel:</strong> Zadania aktualnie realizowane</li>
+                <li><strong>Akcje:</strong> Oznacz jako ukończone (checkbox), dodaj subtaski, utwórz notatki</li>
+                <li><strong>Informacje:</strong> Lista subtasków (rozwijana), przycisk notatki</li>
+                <li><strong>Stan:</strong> Aktywne zadania wymagające uwagi</li>
+            </ul>
+        </div>
+
+        <div class="column-desc">
+            <h3>Ukończone (DONE)</h3>
+            <ul>
+                <li><strong>Cel:</strong> Zadania zakończone</li>
+                <li><strong>Akcje:</strong> Automatyczne przeniesienie po oznaczeniu jako ukończone</li>
+                <li><strong>Informacje:</strong> Data zakończenia, przekreślony tytuł</li>
+                <li><strong>Stan:</strong> Zadania gotowe, mogą być ukrywane po czasie</li>
+            </ul>
+        </div>
+
+        <div class="column-desc">
+            <h3>Odłożone (ON HOLD)</h3>
+            <ul>
+                <li><strong>Cel:</strong> Zadania wstrzymane tymczasowo</li>
+                <li><strong>Akcje:</strong> Przenieś z innych kolumn gdy potrzebne</li>
+                <li><strong>Informacje:</strong> Zadania oczekujące na warunki zewnętrzne</li>
+                <li><strong>Stan:</strong> Nieaktywne, ale zachowane w systemie</li>
+            </ul>
+        </div>
+
+        <div class="column-desc">
+            <h3>Do sprawdzenia (REVIEW)</h3>
+            <ul>
+                <li><strong>Cel:</strong> Zadania wymagające recenzji lub akceptacji</li>
+                <li><strong>Akcje:</strong> Przenieś po sprawdzeniu do "Ukończone" lub z powrotem do "W trakcie"</li>
+                <li><strong>Informacje:</strong> Zadania w fazie kontroli jakości</li>
+                <li><strong>Stan:</strong> Oczekujące na zatwierdzenie</li>
+            </ul>
+        </div>
+
+        <h2>Log Zdarzeń</h2>
+
+        <div class="feature-box">
+            <h3>Historia Zmian</h3>
+            <ul>
+                <li><strong>Przycisk "Log":</strong> Otwiera okno z historią wszystkich zmian</li>
+                <li><strong>Śledzenie ruchów:</strong> Rejestrowanie przeniesień między kolumnami</li>
+                <li><strong>Znaczniki czasu:</strong> Dokładne daty i godziny zmian</li>
+                <li><strong>Filtrowanie:</strong> Możliwość filtrowania po zadaniach lub okresie czasu</li>
+            </ul>
+        </div>
+
+        <h2>Wskazówki i Najlepsze Praktyki</h2>
+
+        <div class="info">
+            <h3>Zarządzanie Przepływem Pracy</h3>
+            <ul>
+                <li>Ustaw limit zadań w trakcie aby uniknąć przeciążenia</li>
+                <li>Regularnie przeglądaj zadania w kolumnie "Do sprawdzenia"</li>
+                <li>Używaj subtasków dla złożonych zadań wieloetapowych</li>
+                <li>Archiwizuj stare zakończone zadania aby utrzymać porządek</li>
+            </ul>
+        </div>
+
+        <div class="warning">
+            <h3>Unikaj Przeciążenia</h3>
+            <ul>
+                <li>Nie przekraczaj limitu zadań w trakcie</li>
+                <li>Regularnie przenoś zadania do przodu w procesie</li>
+                <li>Używaj kolumny "Odłożone" dla zadań wymagających decyzji</li>
+                <li>Monitoruj czas przebywania zadań w poszczególnych kolumnach</li>
+            </ul>
+        </div>
+
+        <div class="feature-box">
+            <h3>Integracja z Innymi Modułami</h3>
+            <ul>
+                <li><strong>Notatki:</strong> Automatyczne tworzenie notatek dla zadań</li>
+                <li><strong>Subtaski:</strong> Hierarchiczna struktura zadań</li>
+                <li><strong>Synchronizacja:</strong> Zmiany w KanBan odzwierciedlane w głównej liście zadań</li>
+                <li><strong>Asystent głosowy:</strong> Sterowanie kolumnami przez komendy głosowe</li>
+            </ul>
+        </div>
+
+        <h2>Rozwiązywanie Problemów</h2>
+
+        <h3>Zadania Nie Pojawiają Się w KanBan</h3>
+        <ul>
+            <li>Sprawdź czy zadanie zostało dodane do KanBan</li>
+            <li>Odśwież widok przyciskiem odświeżania</li>
+            <li>Sprawdź ustawienia widoczności kolumn</li>
+            <li>Upewnij się, że zadanie nie jest zarchiwizowane</li>
+        </ul>
+
+        <h3>Nie Można Przeciągnąć Kart</h3>
+        <ul>
+            <li>Sprawdź czy kursor jest prawidłowo umieszczony na karcie</li>
+            <li>Upewnij się, że trzymasz lewy przycisk myszy podczas przeciągania</li>
+            <li>Spróbuj metody przycisków zamiast przeciągania</li>
+            <li>Sprawdź czy nie ma problemów z uprawnieniami do bazy danych</li>
+        </ul>
+
+        <h3>Subtaski Nie Wyświetlają Się</h3>
+        <ul>
+            <li>Kliknij przycisk "⬇" aby rozwinąć listę subtasków</li>
+            <li>Sprawdź czy subtaski zostały prawidłowo dodane do zadania</li>
+            <li>Odśwież widok KanBan</li>
+        </ul>
+
+        <h3>Problem z Limitem Zadań</h3>
+        <ul>
+            <li>Zwiększ limit w ustawieniach jeśli potrzebujesz więcej zadań w trakcie</li>
+            <li>Przenieś niektóre zadania do kolumny "Odłożone" tymczasowo</li>
+            <li>Zakończ niektóre zadania aby zwolnić miejsce</li>
+        </ul>
+
+        <h3>Błędy Synchronizacji</h3>
+        <ul>
+            <li>Sprawdź połączenie z bazą danych</li>
+            <li>Odśwież widok KanBan</li>
+            <li>Sprawdź logi aplikacji pod kątem błędów</li>
+            <li>Zrestartuj aplikację jeśli problem się powtarza</li>
+        </ul>
+
+        <h2>Asystent Głosowy</h2>
+
+        <div class="feature-box">
+            <h3>Komendy Głosowe</h3>
+            <ul>
+                <li><strong>"Pokaż kolumnę [nazwa]":</strong> Włącza widoczność wybranej kolumny</li>
+                <li><strong>"Ukryj kolumnę [nazwa]":</strong> Wyłącza widoczność wybranej kolumny</li>
+                <li><strong>"Pokaż wszystkie kolumny":</strong> Włącza wszystkie opcjonalne kolumny</li>
+                <li><strong>Dostępne kolumny:</strong> todo, done, review, on_hold</li>
+            </ul>
+        </div>
+
+        <h2>Plany Rozwoju</h2>
+
+        <div class="feature-box">
+            <h3>Przyszłe Funkcje</h3>
+            <ul>
+                <li>Zaawansowane filtry i wyszukiwanie zadań</li>
+                <li>Statystyki przepływu pracy (cycle time, throughput)</li>
+                <li>Więcej kolumn niestandardowych</li>
+                <li>Automatyzacja reguł przejścia między kolumnami</li>
+                <li>Współpraca zespołowa w czasie rzeczywistym</li>
+                <li>Eksport diagramów przepływu pracy</li>
+            </ul>
+        </div>
+
+        <div class="info">
+            <h3>Informacje Techniczne</h3>
+            <p>Moduł KanBan wykorzystuje PyQt6 do interfejsu użytkownika, SQLite do przechowywania danych oraz mechanizm drag & drop dla intuicyjnej obsługi. Integruje się z systemem motywów i tłumaczeń aplikacji.</p>
+        </div>
+    </div>
+</body>
+</html>

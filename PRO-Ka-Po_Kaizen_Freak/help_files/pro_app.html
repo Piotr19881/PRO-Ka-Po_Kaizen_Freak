@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pro-App - Pomoc</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2196F3;
+            border-bottom: 3px solid #2196F3;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #1976D2;
+            margin-top: 30px;
+            border-left: 4px solid #2196F3;
+            padding-left: 10px;
+        }
+        h3 {
+            color: #0D47A1;
+            margin-top: 20px;
+        }
+        .icon {
+            font-size: 1.3em;
+            margin-right: 5px;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            color: #c7254e;
+        }
+        pre {
+            background-color: #282c34;
+            color: #abb2bf;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            border-left: 4px solid #61dafb;
+        }
+        pre code {
+            background: none;
+            color: #abb2bf;
+            padding: 0;
+        }
+        .tip {
+            background-color: #e3f2fd;
+            border-left: 4px solid #2196F3;
+            padding: 12px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        .warning {
+            background-color: #fff3e0;
+            border-left: 4px solid #ff9800;
+            padding: 12px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #e8f5e9;
+            border-left: 4px solid #4caf50;
+            padding: 12px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        ul, ol {
+            padding-left: 25px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        .button-desc {
+            background-color: #fafafa;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            border: 1px solid #e0e0e0;
+        }
+        .button-desc strong {
+            color: #1976D2;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #2196F3;
+            color: white;
+        }
+        .prompt-box {
+            background-color: #fff9c4;
+            border: 2px solid #fbc02d;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 6px;
+        }
+        .prompt-box h4 {
+            margin-top: 0;
+            color: #f57f17;
+        }
+    </style>
+    <link rel="stylesheet" href="assets/lang-switcher.css">
+    <script defer src="assets/lang-switcher.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1><span class="icon">🚀</span>Pro-App - Moduł Tworzenia Aplikacji Python</h1>
+        
+        <p><strong>Pro-App</strong> to zaawansowany moduł pozwalający na testowanie, uruchamianie i zapisywanie kodu Python jako modułów aplikacji. Umożliwia również wykrywanie i instalację brakujących bibliotek.</p>
+
+        <h2><span class="icon">📋</span>Funkcjonalność Modułu</h2>
+        
+        <h3>Przyciski akcji:</h3>
+        
+        <div class="button-desc">
+            <strong>🔍 Testuj składnię</strong> - Sprawdza poprawność składni kodu Python, wykrywa importowane biblioteki i sprawdza ich dostępność.
+        </div>
+        
+        <div class="button-desc">
+            <strong>▶️ Włącz</strong> - Uruchamia kod w konsoli. Wymaga najpierw pomyślnego testu składni.
+        </div>
+        
+        <div class="button-desc">
+            <strong>🧪 Testuj jako moduł</strong> - Uruchamia kod w widoku testowym aplikacji. Wszystkie widgety PyQt6 zostaną wyświetlone w kontenerze testowym.
+        </div>
+        
+        <div class="button-desc">
+            <strong>💾 Zapisz jako moduł</strong> - Zapisuje kod jako plik .pro (moduł Pro-App), który można później dodać jako własny przycisk w Ustawieniach → Środowisko.
+        </div>
+        
+        <div class="button-desc">
+            <strong>📦 Zapisz jako BAT</strong> - Tworzy plik .bat do uruchomienia kodu z linii poleceń Windows.
+        </div>
+        
+        <div class="button-desc">
+            <strong>💾 Zapisz jako Python</strong> - Zapisuje kod jako standardowy plik .py.
+        </div>
+        
+        <div class="button-desc">
+            <strong>🗑️ Wyczyść</strong> - Czyści edytor, logi i tabelę bibliotek.
+        </div>
+
+        <h2><span class="icon">✍️</span>Jak Tworzyć Moduły</h2>
+        
+        <h3>Zasady tworzenia modułów PyQt6:</h3>
+        
+        <ol>
+            <li><strong>Importuj PyQt6</strong> - Zawsze importuj niezbędne komponenty z PyQt6</li>
+            <li><strong>Utwórz klasę dziedziczącą po QWidget</strong> - Twój moduł powinien być klasą widgetu</li>
+            <li><strong>Zaimplementuj interfejs</strong> - Użyj layoutów (QVBoxLayout, QHBoxLayout) do organizacji elementów</li>
+            <li><strong>Dodaj logikę</strong> - Połącz sygnały ze slotami dla interaktywności</li>
+            <li><strong>Utwórz instancję</strong> - Na końcu utwórz instancję klasy jako <code>widget</code></li>
+        </ol>
+
+        <div class="warning">
+            <strong>⚠️ Ważne!</strong> Zmienna zawierająca główny widget <strong>MUSI</strong> nazywać się <code>widget</code>. Pro-App szuka tej zmiennej w namespace po wykonaniu kodu.
+        </div>
+
+        <h3>Przykładowy kod modułu:</h3>
+
+        <pre><code>from PyQt6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, 
+    QPushButton, QLabel, QLineEdit
+)
+from PyQt6.QtCore import Qt
+
+class CalculatorWidget(QWidget):
+    """Prosty kalkulator"""
+    
+    def __init__(self):
+        super().__init__()
+        self.init_ui()
+    
+    def init_ui(self):
+        """Inicjalizacja interfejsu"""
+        layout = QVBoxLayout()
+        
+        # Nagłówek
+        header = QLabel("🔢 Kalkulator")
+        header.setStyleSheet("font-size: 18px; font-weight: bold;")
+        header.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(header)
+        
+        # Pole wyniku
+        self.result_display = QLineEdit()
+        self.result_display.setReadOnly(True)
+        self.result_display.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self.result_display.setStyleSheet(
+            "font-size: 24px; padding: 10px; background: #f0f0f0;"
+        )
+        self.result_display.setText("0")
+        layout.addWidget(self.result_display)
+        
+        # Pola wprowadzania
+        input_layout = QHBoxLayout()
+        self.num1_input = QLineEdit()
+        self.num1_input.setPlaceholderText("Liczba 1")
+        self.num2_input = QLineEdit()
+        self.num2_input.setPlaceholderText("Liczba 2")
+        input_layout.addWidget(self.num1_input)
+        input_layout.addWidget(self.num2_input)
+        layout.addLayout(input_layout)
+        
+        # Przyciski operacji
+        buttons_layout = QHBoxLayout()
+        
+        btn_add = QPushButton("➕")
+        btn_add.clicked.connect(lambda: self.calculate('+'))
+        buttons_layout.addWidget(btn_add)
+        
+        btn_sub = QPushButton("➖")
+        btn_sub.clicked.connect(lambda: self.calculate('-'))
+        buttons_layout.addWidget(btn_sub)
+        
+        btn_mul = QPushButton("✖️")
+        btn_mul.clicked.connect(lambda: self.calculate('*'))
+        buttons_layout.addWidget(btn_mul)
+        
+        btn_div = QPushButton("➗")
+        btn_div.clicked.connect(lambda: self.calculate('/'))
+        buttons_layout.addWidget(btn_div)
+        
+        layout.addLayout(buttons_layout)
+        
+        # Przycisk czyszczenia
+        btn_clear = QPushButton("🗑️ Wyczyść")
+        btn_clear.clicked.connect(self.clear)
+        layout.addWidget(btn_clear)
+        
+        self.setLayout(layout)
+        self.setMinimumSize(400, 300)
+        self.setWindowTitle("Kalkulator")
+    
+    def calculate(self, operation):
+        """Wykonuje operację matematyczną"""
+        try:
+            num1 = float(self.num1_input.text())
+            num2 = float(self.num2_input.text())
+            
+            if operation == '+':
+                result = num1 + num2
+            elif operation == '-':
+                result = num1 - num2
+            elif operation == '*':
+                result = num1 * num2
+            elif operation == '/':
+                if num2 == 0:
+                    self.result_display.setText("Błąd: Dzielenie przez 0")
+                    return
+                result = num1 / num2
+            
+            self.result_display.setText(str(result))
+        except ValueError:
+            self.result_display.setText("Błąd: Nieprawidłowe dane")
+    
+    def clear(self):
+        """Czyści pola"""
+        self.num1_input.clear()
+        self.num2_input.clear()
+        self.result_display.setText("0")
+
+# Utwórz instancję widgetu (WYMAGANE!)
+widget = CalculatorWidget()</code></pre>
+
+        <h2><span class="icon">🤖</span>Prompt dla LLM do Generowania Modułów</h2>
+        
+        <div class="prompt-box">
+            <h4>📝 Prompt podstawowy:</h4>
+            <p>Skopiuj i wklej ten prompt do ChatGPT, Claude lub innego LLM:</p>
+        </div>
+
+        <pre><code>Napisz moduł PyQt6 dla aplikacji Pro-App z następującymi wymaganiami:
+
+1. **Funkcjonalność**: [OPISZ CO MA ROBIĆ MODUŁ, np. "prosty notatnik z zapisem do pliku"]
+
+2. **Wymagania techniczne**:
+   - Kod w Python 3.10+
+   - Użyj PyQt6 (NIE PyQt5)
+   - Klasa główna dziedzicząca po QWidget
+   - Użyj layoutów do organizacji UI (QVBoxLayout, QHBoxLayout, QGridLayout)
+   - Dodaj style inline dla lepszego wyglądu
+   - Na końcu utwórz instancję: widget = NazwaKlasy()
+
+3. **Struktura kodu**:
+   - Importy na początku
+   - Jedna klasa główna z metodą init_ui()
+   - Metody obsługi zdarzeń
+   - Instancja widgetu na końcu jako 'widget'
+
+4. **Dodatkowe wymagania**:
+   - Dodaj ikony emoji (🔍, 📝, ✅, etc.) dla lepszej wizualizacji
+   - Minimalna szerokość: 500px
+   - Czytelny układ z odpowiednimi odstępami
+   - Obsługa błędów (try/except)
+
+5. **Przykład struktury**:
+```python
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLabel
+from PyQt6.QtCore import Qt
+
+class MojModul(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.init_ui()
+    
+    def init_ui(self):
+        layout = QVBoxLayout()
+        # ... twój kod UI ...
+        self.setLayout(layout)
+        self.setMinimumSize(500, 400)
+
+# WYMAGANE - utwórz instancję
+widget = MojModul()
+```
+
+Wygeneruj kompletny, działający kod modułu.</code></pre>
+
+        <h2><span class="icon">💡</span>Przykładowe Prompty dla Konkretnych Modułów</h2>
+
+        <h3>1. Generator haseł:</h3>
+        <pre><code>Napisz moduł PyQt6 generatora haseł który:
+- Ma suwaki do wyboru długości hasła (8-32 znaki)
+- Checkboxy dla: wielkie litery, małe litery, cyfry, znaki specjalne
+- Przycisk "Generuj" tworzący hasło
+- Pole tekstowe z wygenerowanym hasłem
+- Przycisk "Kopiuj do schowka"
+- Wskaźnik siły hasła (słabe/średnie/silne)
+
+Użyj kolorowych stylów i ikon emoji. Na końcu: widget = PasswordGenerator()</code></pre>
+
+        <h3>2. Lista TODO:</h3>
+        <pre><code>Napisz moduł PyQt6 listy zadań (TODO) który:
+- Ma pole tekstowe do dodawania nowych zadań
+- QListWidget do wyświetlania zadań
+- Checkboxy przy każdym zadaniu do oznaczania jako wykonane
+- Przycisk usuwania zaznaczonych zadań
+- Licznik zadań (wykonane/wszystkie)
+- Zapis do pliku JSON przy zamknięciu
+- Odczyt z pliku przy starcie
+
+Dodaj ikony i kolory. Na końcu: widget = TodoList()</code></pre>
+
+        <h3>3. Konwerter jednostek:</h3>
+        <pre><code>Napisz moduł PyQt6 konwertera jednostek który:
+- Ma ComboBox do wyboru typu konwersji (temperatura, długość, waga, objętość)
+- Dwa pola tekstowe: wartość wejściowa i wynikowa
+- Dwa ComboBox do wyboru jednostek (np. Celsius → Fahrenheit)
+- Przycisk "Konwertuj"
+- Automatyczna konwersja po wpisaniu wartości
+- Obsługa błędów (nieprawidłowe dane)
+
+Użyj ikon i stylów. Na końcu: widget = UnitConverter()</code></pre>
+
+        <h2><span class="icon">⚡</span>Najczęstsze Błędy i Rozwiązania</h2>
+
+        <table>
+            <tr>
+                <th>Problem</th>
+                <th>Przyczyna</th>
+                <th>Rozwiązanie</th>
+            </tr>
+            <tr>
+                <td>Brak widgetu w testbox</td>
+                <td>Brak zmiennej <code>widget</code></td>
+                <td>Dodaj na końcu: <code>widget = TwojaKlasa()</code></td>
+            </tr>
+            <tr>
+                <td>ModuleNotFoundError</td>
+                <td>Brakująca biblioteka</td>
+                <td>Użyj przycisku "⬇️ Zainstaluj" w tabeli bibliotek</td>
+            </tr>
+            <tr>
+                <td>Błąd składni</td>
+                <td>Niepoprawny kod Python</td>
+                <td>Sprawdź logi, popraw wskazane linie</td>
+            </tr>
+            <tr>
+                <td>Pusty widok testowy</td>
+                <td>Widget nie dziedziczy po QWidget</td>
+                <td>Użyj: <code>class MyClass(QWidget):</code></td>
+            </tr>
+            <tr>
+                <td>Layout nie działa</td>
+                <td>Nie ustawiono layoutu</td>
+                <td>Dodaj: <code>self.setLayout(layout)</code></td>
+            </tr>
+        </table>
+
+        <div class="tip">
+            <strong>💡 Wskazówka:</strong> Zawsze testuj składnię (🔍) przed uruchomieniem kodu. To pozwoli wykryć błędy i zainstalować brakujące biblioteki.
+        </div>
+
+        <h2><span class="icon">📚</span>Wymagane Importy PyQt6</h2>
+
+        <p>Najczęściej używane komponenty:</p>
+
+        <pre><code>from PyQt6.QtWidgets import (
+    QWidget,           # Bazowy widget
+    QVBoxLayout,       # Układ pionowy
+    QHBoxLayout,       # Układ poziomy
+    QGridLayout,       # Układ siatkowy
+    QPushButton,       # Przycisk
+    QLabel,            # Etykieta tekstowa
+    QLineEdit,         # Pole tekstowe jednolinijkowe
+    QTextEdit,         # Pole tekstowe wielolinijkowe
+    QCheckBox,         # Checkbox
+    QRadioButton,      # Radio button
+    QComboBox,         # Lista rozwijana
+    QListWidget,       # Lista
+    QTableWidget,      # Tabela
+    QSpinBox,          # Pole liczbowe
+    QSlider,           # Suwak
+    QProgressBar,      # Pasek postępu
+    QMessageBox,       # Okno dialogowe
+    QFileDialog,       # Dialog wyboru pliku
+)
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer
+from PyQt6.QtGui import QFont, QColor, QIcon</code></pre>
+
+        <h2><span class="icon">🎨</span>Stylizacja Modułów</h2>
+
+        <div class="success">
+            <strong>✅ Dobre praktyki:</strong>
+            <ul>
+                <li>Używaj ikon emoji dla lepszej wizualizacji (🔍, 📝, ✅, ❌, etc.)</li>
+                <li>Dodawaj style inline: <code>widget.setStyleSheet("background: #fff; padding: 10px;")</code></li>
+                <li>Ustawiaj minimalny rozmiar: <code>self.setMinimumSize(500, 400)</code></li>
+                <li>Używaj layoutów zamiast absolutnych pozycji</li>
+                <li>Dodawaj odstępy: <code>layout.addSpacing(10)</code></li>
+                <li>Wyrównuj elementy: <code>Qt.AlignmentFlag.AlignCenter</code></li>
+            </ul>
+        </div>
+
+        <h2><span class="icon">🔄</span>Przepływ Pracy z Pro-App</h2>
+
+        <ol>
+            <li>Napisz kod modułu w edytorze lub wklej z LLM</li>
+            <li>Kliknij <strong>🔍 Testuj składnię</strong> - sprawdź błędy i biblioteki</li>
+            <li>Jeśli są brakujące biblioteki, kliknij <strong>⬇️ Zainstaluj</strong> przy każdej</li>
+            <li>Kliknij <strong>🧪 Testuj jako moduł</strong> - zobacz jak wygląda w aplikacji</li>
+            <li>Jeśli wszystko OK, kliknij <strong>💾 Zapisz jako moduł</strong></li>
+            <li>Plik .pro zapisz w wybranej lokalizacji</li>
+            <li>Przejdź do <strong>Ustawienia → Środowisko</strong></li>
+            <li>Kliknij <strong>➕ Dodaj własny przycisk</strong></li>
+            <li>Wybierz typ <strong>Moduł Python</strong>, wskaż plik .pro</li>
+            <li>Twój moduł pojawi się jako przycisk w nawigacji! 🎉</li>
+        </ol>
+
+        <div class="tip">
+            <strong>💡 Pro tip:</strong> Możesz również zapisać kod jako .bat lub .py do uruchamiania poza aplikacją.
+        </div>
+
+        <h2><span class="icon">📖</span>Dodatkowe Zasoby</h2>
+
+        <ul>
+            <li><strong>PyQt6 Documentation:</strong> <a href="https://www.riverbankcomputing.com/static/Docs/PyQt6/">https://www.riverbankcomputing.com/static/Docs/PyQt6/</a></li>
+            <li><strong>Qt for Python:</strong> <a href="https://doc.qt.io/qtforpython/">https://doc.qt.io/qtforpython/</a></li>
+            <li><strong>PyQt6 Tutorial:</strong> <a href="https://www.pythonguis.com/pyqt6-tutorial/">https://www.pythonguis.com/pyqt6-tutorial/</a></li>
+        </ul>
+
+        <hr style="margin: 30px 0;">
+        
+        <p style="text-align: center; color: #777;">
+            <em>Pro-App - Część systemu PRO-Ka-Po Kaizen Freak</em><br>
+            <small>Wersja 1.0 | Twórz, testuj i uruchamiaj moduły Python z łatwością! 🚀</small>
+        </p>
+    </div>
+</body>
+</html>

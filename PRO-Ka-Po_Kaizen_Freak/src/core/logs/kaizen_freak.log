@@ -1,0 +1,74 @@
+2025-11-01 21:05:20 | INFO     | __main__:setup_logging - Starting PRO-Ka-Po Kaizen Freak v0.1.0
+2025-11-01 21:05:20 | ERROR    | __main__:main - Fatal error: type object 'ApplicationAttribute' has no attribute 'AA_EnableHighDpiScaling'
+Traceback (most recent call last):
+
+  File "C:\Users\probu\Desktop\Aplikacje komercyjne\PRO-Ka-Po_Kaizen_Freak\PRO-Ka-Po_Kaizen_Freak\main.py", line 91, in <module>
+    sys.exit(main())
+    │   │    └ <function main at 0x0000012E21193B00>
+    │   └ <built-in function exit>
+    └ <module 'sys' (built-in)>
+
+> File "C:\Users\probu\Desktop\Aplikacje komercyjne\PRO-Ka-Po_Kaizen_Freak\PRO-Ka-Po_Kaizen_Freak\main.py", line 60, in main
+    app.setAttribute(Qt.ApplicationAttribute.AA_EnableHighDpiScaling, True)
+    │   │            │  └ <enum 'ApplicationAttribute'>
+    │   │            └ <class 'PyQt6.QtCore.Qt'>
+    │   └ <built-in method setAttribute>
+    └ <PyQt6.QtWidgets.QApplication object at 0x0000012E211A7F70>
+
+AttributeError: type object 'ApplicationAttribute' has no attribute 'AA_EnableHighDpiScaling'
+2025-11-01 21:05:43 | INFO     | __main__:setup_logging - Starting PRO-Ka-Po Kaizen Freak v0.1.0
+2025-11-01 21:05:43 | WARNING  | src.utils.i18n_manager:_load_language - Translation file not found: C:\Users\probu\Desktop\Aplikacje komercyjne\PRO-Ka-Po_Kaizen_Freak\PRO-Ka-Po_Kaizen_Freak\src\core\resources\i18n\pl.json
+2025-11-01 21:05:43 | INFO     | src.utils.i18n_manager:_create_default_translation - Created default translation file: C:\Users\probu\Desktop\Aplikacje komercyjne\PRO-Ka-Po_Kaizen_Freak\PRO-Ka-Po_Kaizen_Freak\src\core\resources\i18n\pl.json
+2025-11-01 21:05:43 | WARNING  | src.utils.i18n_manager:_load_language - Translation file not found: C:\Users\probu\Desktop\Aplikacje komercyjne\PRO-Ka-Po_Kaizen_Freak\PRO-Ka-Po_Kaizen_Freak\src\core\resources\i18n\en.json
+2025-11-01 21:05:43 | INFO     | src.utils.i18n_manager:_create_default_translation - Created default translation file: C:\Users\probu\Desktop\Aplikacje komercyjne\PRO-Ka-Po_Kaizen_Freak\PRO-Ka-Po_Kaizen_Freak\src\core\resources\i18n\en.json
+2025-11-01 21:05:43 | WARNING  | src.utils.i18n_manager:_load_language - Translation file not found: C:\Users\probu\Desktop\Aplikacje komercyjne\PRO-Ka-Po_Kaizen_Freak\PRO-Ka-Po_Kaizen_Freak\src\core\resources\i18n\de.json
+2025-11-01 21:05:43 | INFO     | src.utils.i18n_manager:_create_default_translation - Created default translation file: C:\Users\probu\Desktop\Aplikacje komercyjne\PRO-Ka-Po_Kaizen_Freak\PRO-Ka-Po_Kaizen_Freak\src\core\resources\i18n\de.json
+2025-11-01 21:05:43 | WARNING  | src.utils.theme_manager:load_theme_file - Theme file not found: C:\Users\probu\Desktop\Aplikacje komercyjne\PRO-Ka-Po_Kaizen_Freak\PRO-Ka-Po_Kaizen_Freak\src\core\resources\themes\light.qss
+2025-11-01 21:05:43 | INFO     | src.utils.theme_manager:apply_theme - Applied theme: light
+2025-11-01 21:05:43 | INFO     | src.utils.i18n_manager:set_language - Language set to: pl
+2025-11-01 21:05:43 | INFO     | __main__:main - Application initialized successfully
+2025-11-01 21:05:43 | INFO     | __main__:main - Theme: light, Language: pl
+2025-11-01 21:05:43 | INFO     | src.utils.i18n_manager:_load_language - Loaded translations for: pl
+2025-11-01 21:05:43 | INFO     | src.utils.i18n_manager:_load_language - Loaded translations for: en
+2025-11-01 21:05:43 | INFO     | src.utils.i18n_manager:_load_language - Loaded translations for: de
+2025-11-01 21:05:44 | INFO     | src.ui.main_window:_setup_ui - Main window UI setup completed
+2025-11-01 21:06:37 | INFO     | src.ui.main_window:_on_view_changed - View changed to: kanban
+2025-11-01 21:06:37 | INFO     | src.ui.main_window:_on_button_clicked - View changed to: kanban
+2025-11-01 21:06:38 | INFO     | src.ui.main_window:_on_view_changed - View changed to: tables
+2025-11-01 21:06:38 | INFO     | src.ui.main_window:_on_button_clicked - View changed to: tables
+2025-11-01 21:06:39 | INFO     | src.ui.main_window:_on_view_changed - View changed to: notes
+2025-11-01 21:06:39 | INFO     | src.ui.main_window:_on_button_clicked - View changed to: notes
+2025-11-01 21:06:39 | INFO     | src.ui.main_window:_on_view_changed - View changed to: habit_tracker
+2025-11-01 21:06:39 | INFO     | src.ui.main_window:_on_button_clicked - View changed to: habit_tracker
+2025-11-01 21:06:40 | INFO     | src.ui.main_window:_on_view_changed - View changed to: pomodoro
+2025-11-01 21:06:40 | INFO     | src.ui.main_window:_on_button_clicked - View changed to: pomodoro
+2025-11-01 21:06:40 | INFO     | src.ui.main_window:_on_view_changed - View changed to: alarms
+2025-11-01 21:06:40 | INFO     | src.ui.main_window:_on_button_clicked - View changed to: alarms
+2025-11-01 21:06:41 | INFO     | src.ui.main_window:_on_view_changed - View changed to: settings
+2025-11-01 21:06:41 | INFO     | src.ui.main_window:_on_button_clicked - View changed to: settings
+2025-11-01 21:06:43 | INFO     | src.ui.main_window:_on_view_changed - View changed to: alarms
+2025-11-01 21:06:43 | INFO     | src.ui.main_window:_on_button_clicked - View changed to: alarms
+2025-11-01 21:06:59 | INFO     | src.ui.main_window:_on_view_changed - View changed to: tables
+2025-11-01 21:06:59 | INFO     | src.ui.main_window:_on_button_clicked - View changed to: tables
+2025-11-01 21:06:59 | INFO     | src.ui.main_window:_on_view_changed - View changed to: notes
+2025-11-01 21:06:59 | INFO     | src.ui.main_window:_on_button_clicked - View changed to: notes
+2025-11-01 21:07:00 | INFO     | src.ui.main_window:_on_view_changed - View changed to: habit_tracker
+2025-11-01 21:07:00 | INFO     | src.ui.main_window:_on_button_clicked - View changed to: habit_tracker
+2025-11-01 21:07:00 | INFO     | src.ui.main_window:_on_view_changed - View changed to: pomodoro
+2025-11-01 21:07:00 | INFO     | src.ui.main_window:_on_button_clicked - View changed to: pomodoro
+2025-11-01 21:07:01 | INFO     | src.ui.main_window:_on_view_changed - View changed to: alarms
+2025-11-01 21:07:01 | INFO     | src.ui.main_window:_on_button_clicked - View changed to: alarms
+2025-11-01 21:07:45 | INFO     | src.ui.main_window:_on_view_changed - View changed to: settings
+2025-11-01 21:07:45 | INFO     | src.ui.main_window:_on_button_clicked - View changed to: settings
+2025-11-01 21:10:26 | INFO     | src.ui.main_window:_on_view_changed - View changed to: kanban
+2025-11-01 21:10:26 | INFO     | src.ui.main_window:_on_button_clicked - View changed to: kanban
+2025-11-01 21:10:26 | INFO     | src.ui.main_window:_on_view_changed - View changed to: tables
+2025-11-01 21:10:26 | INFO     | src.ui.main_window:_on_button_clicked - View changed to: tables
+2025-11-01 21:10:27 | INFO     | src.ui.main_window:_on_view_changed - View changed to: notes
+2025-11-01 21:10:27 | INFO     | src.ui.main_window:_on_button_clicked - View changed to: notes
+2025-11-01 21:10:27 | INFO     | src.ui.main_window:_on_view_changed - View changed to: pomodoro
+2025-11-01 21:10:27 | INFO     | src.ui.main_window:_on_button_clicked - View changed to: pomodoro
+2025-11-01 21:10:28 | INFO     | src.ui.main_window:_on_view_changed - View changed to: alarms
+2025-11-01 21:10:28 | INFO     | src.ui.main_window:_on_button_clicked - View changed to: alarms
+2025-11-01 21:10:28 | INFO     | src.ui.main_window:_on_view_changed - View changed to: alarms
+2025-11-01 21:10:28 | INFO     | src.ui.main_window:_on_button_clicked - View changed to: alarms

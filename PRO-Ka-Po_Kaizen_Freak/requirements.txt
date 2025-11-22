@@ -1,0 +1,41 @@
+# ===== GUI FRAMEWORK =====
+PyQt6>=6.6.0
+PyQt6-WebEngine>=6.6.0
+
+# ===== WEB & NETWORK =====
+requests>=2.31.0
+beautifulsoup4>=4.12.2
+websockets>=11.0
+
+# ===== SECURITY & SYSTEM =====
+keyring>=24.0.0
+cryptography>=41.0.4
+
+# ===== DATA PROCESSING =====
+openpyxl>=3.1.2
+Pillow>=10.0.0
+
+# ===== VISUALIZATION & STATISTICS =====
+matplotlib==3.10.7
+scipy==1.16.1
+
+# ===== INPUT MANAGEMENT (Shortcuts Module) =====
+keyboard>=0.13.5
+pynput>=1.7.6
+pywin32>=306
+
+# ===== UTILITIES =====
+loguru>=0.7.2
+python-docx>=0.8.11
+pdfplumber>=0.9.0
+reportlab>=4.0.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+
+# ===== CLIPBOARD (QuickBoard) =====
+pyperclip>=1.8.2
+
+# ===== AUDIO RECORDING =====
+sounddevice>=0.4.6
+soundfile>=0.12.1
+numpy>=1.24.0

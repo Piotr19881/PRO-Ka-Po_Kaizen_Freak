@@ -1,0 +1,28 @@
+{
+    "remember_me": true,
+    "auto_start": true,
+    "language": "pl",
+    "run_in_background": true,
+    "enable_notifications": true,
+    "enable_sound": true,
+    "sound_notification": "",
+    "sound_alarm": "",
+    "shortcut_quick_add": "Ctrl+N",
+    "shortcut_show_main": "Ctrl+Shift+K",
+    "color_scheme_1": "matrix",
+    "color_scheme_2": "dark",
+    "environment": {
+        "navbar_position": "top",
+        "taskbar_position": "bottom",
+        "taskbar_visible": true,
+        "shortcut_toggle_nav": "Ctrl+Shift+N",
+        "rows_count": 2,
+        "buttons_per_row": 7,
+        "buttons_config": []
+    },
+    "current_layout": 2,
+    "custom_sounds": {
+        "Alarm Na Statku ": "C:/Users/probu/Desktop/Aplikacje komercyjne/Pro_Ka_Po_KAIZEN_Freak_Official _DevPublish/PRO-Ka-Po_Kaizen_Freak/resources/sounds/Alarm Na Statku .m4r",
+        "Dzwiek Syreny ": "C:/Users/probu/Desktop/Aplikacje komercyjne/Pro_Ka_Po_KAIZEN_Freak_Official _DevPublish/PRO-Ka-Po_Kaizen_Freak/resources/sounds/Dzwiek Syreny .m4r"
+    }
+}
