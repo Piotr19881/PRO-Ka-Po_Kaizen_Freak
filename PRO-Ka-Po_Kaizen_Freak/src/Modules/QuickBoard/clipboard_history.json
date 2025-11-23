@@ -1,6 +1,62 @@
 {
- "saved": "2025-11-22 22:54:58",
+ "saved": "2025-11-22 23:13:24",
  "items": [
+  {
+   "type": "Tekst",
+   "timestamp": "2025-11-22 23:13:23",
+   "pinned": false,
+   "preview": "gh models run openai/gpt-4.1",
+   "content": "gh models run openai/gpt-4.1"
+  },
+  {
+   "type": "Tekst",
+   "timestamp": "2025-11-22 23:12:39",
+   "pinned": false,
+   "preview": "gh extension install github/gh-models",
+   "content": "gh extension install github/gh-models"
+  },
+  {
+   "type": "Tekst",
+   "timestamp": "2025-11-22 23:08:15",
+   "pinned": false,
+   "preview": "0382-7DB2",
+   "content": "0382-7DB2"
+  },
+  {
+   "type": "Tekst",
+   "timestamp": "2025-11-22 23:02:30",
+   "pinned": false,
+   "preview": "E5A7-CAB0",
+   "content": "E5A7-CAB0"
+  },
+  {
+   "type": "Tekst",
+   "timestamp": "2025-11-22 22:59:25",
+   "pinned": false,
+   "preview": " C60B-94A4",
+   "content": " C60B-94A4"
+  },
+  {
+   "type": "Tekst",
+   "timestamp": "2025-11-22 22:58:58",
+   "pinned": false,
+   "preview": "╰─────────────────────────────────────────────────...",
+   "content": "╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯"
+  },
+  {
+   "type": "Tekst",
+   "timestamp": "2025-11-22 22:56:44",
+   "pinned": false,
+   "preview": " gh extension list",
+   "content": " gh extension list"
+  },
+  {
+   "type": "Tekst",
+   "timestamp": "2025-11-22 22:55:58",
+   "pinned": false,
+   "preview": "gh models list",
+   "content": "gh models list"
+  },
   {
    "type": "Tekst",
    "timestamp": "2025-11-22 22:54:57",
@@ -296,62 +352,6 @@
   {
    "type": "Tekst",
    "timestamp": "2025-11-18 12:09:41",
-   "pinned": false,
-   "preview": "Deklaracja zgodności UE",
-   "content": "Deklaracja zgodności UE"
-  },
-  {
-   "type": "Tekst",
-   "timestamp": "2025-11-18 12:09:40",
-   "pinned": false,
-   "preview": "Deklaracja zgodności UE\u0000",
-   "content": "Deklaracja zgodności UE\u0000"
-  },
-  {
-   "type": "Tekst",
-   "timestamp": "2025-11-18 12:08:30",
-   "pinned": false,
-   "preview": "Deklaracja zgodności UE",
-   "content": "Deklaracja zgodności UE"
-  },
-  {
-   "type": "Tekst",
-   "timestamp": "2025-11-18 12:08:29",
-   "pinned": false,
-   "preview": "Deklaracja zgodności UE\u0000",
-   "content": "Deklaracja zgodności UE\u0000"
-  },
-  {
-   "type": "Tekst",
-   "timestamp": "2025-11-18 12:08:22",
-   "pinned": false,
-   "preview": "Deklaracja zgodności UE",
-   "content": "Deklaracja zgodności UE"
-  },
-  {
-   "type": "Tekst",
-   "timestamp": "2025-11-18 12:08:22",
-   "pinned": false,
-   "preview": "Deklaracja zgodności UE\u0000",
-   "content": "Deklaracja zgodności UE\u0000"
-  },
-  {
-   "type": "Tekst",
-   "timestamp": "2025-11-18 12:08:21",
-   "pinned": false,
-   "preview": "Deklaracja zgodności UE",
-   "content": "Deklaracja zgodności UE"
-  },
-  {
-   "type": "Tekst",
-   "timestamp": "2025-11-18 12:08:21",
-   "pinned": false,
-   "preview": "Deklaracja zgodności UE\u0000",
-   "content": "Deklaracja zgodności UE\u0000"
-  },
-  {
-   "type": "Tekst",
-   "timestamp": "2025-11-18 12:08:17",
    "pinned": false,
    "preview": "Deklaracja zgodności UE",
    "content": "Deklaracja zgodności UE"
